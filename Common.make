@@ -14,8 +14,8 @@
 #    - are named 'target_name'
 #    - are listed in .PHONY (no "##" comment — hidden from make help)
 #
-# Choosing a workspace: run and run-detached need REPO=/path/to/repo. The other targets take REPO too,
-# and fall back to the only workspace when exactly one exists.
+# Choosing a workspace: run and run-detached mount REPO=/path/to/repo, or the current directory when REPO
+# is not given. The other targets take REPO too, and fall back to the only workspace when exactly one exists.
 #
 # Must stay compatible with GNU Make 3.81 (the macOS default): no .ONESHELL, no $(file ...).
 # -----------------------------------------------------------------------------------------------------------
@@ -74,6 +74,16 @@ endif
 # -----------------------------------------------------------------------------------------------------------
 
 REPO ?=
+
+# run and run-detached mount the shell's current directory when REPO is not given. PWD, not CURDIR, so
+# make -C <this dir> run still mounts the directory it was called from. Other targets keep an empty REPO,
+# which means "the only workspace" (or every workspace, for down).
+ifeq ($(strip $(REPO)),)
+ifneq ($(filter run run-detached,$(MAKECMDGOALS)),)
+REPO := $(or $(PWD),$(CURDIR))
+endif
+endif
+
 REPO_EXPANDED := $(patsubst ~%,$(HOME)%,$(strip $(REPO)))
 REPO_PATH := $(if $(REPO_EXPANDED),$(shell cd "$(REPO_EXPANDED)" 2>/dev/null && pwd -P))
 
@@ -152,7 +162,8 @@ check_env_perms:
 		*) $(LOGGER) log_warning ".env is readable by other users (mode $$perms). Fix with: chmod 600 .env" ;; \
 	esac
 
-# run and run-detached mount REPO, so it must be given; bbd checks it is a single, mountable repository
+# REPO defaults to the current directory, so this catches an explicit REPO= only; bbd checks it is a single,
+# mountable repository
 require_repo:
 	@if [ -z "$(REPO_EXPANDED)" ]; then \
 		$(LOGGER) log_error "Pass the repo to mount, e.g. make run REPO=~/src/my-repo"; \

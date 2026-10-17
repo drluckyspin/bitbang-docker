@@ -115,7 +115,7 @@ toolchain_checks() {
   log_info "Toolchain"
   for tool in "bitbang version" "claude --version" "codex --version" "herdr --version" "bun --version" \
     "gh --version" "git --version" "node --version" "npm --version" "python3 --version" "uv --version" \
-    "tmux -V" "rg --version" "jq --version"; do
+    "tmux -V" "rg --version" "jq --version" "make --version"; do
     check "$tool" "$tool"
   done
 

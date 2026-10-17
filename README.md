@@ -17,6 +17,9 @@ make build                       # build the image (bakes in a Zscaler root CA i
 make run REPO=~/src/my-repo      # start, show the QR code, follow logs; Ctrl+C stops it
 ```
 
+Without `REPO`, `make run` and `make run-detached` mount the directory you run them from, so
+`make -C ~/src/bitbang-docker run` inside a repo mounts that repo.
+
 The first run also builds `bbd`, the command-line tool behind the `make` targets, in Docker, so you need nothing else.
 It creates `.env` from `.env.example`, readable by you only. Everything in it is optional, so the defaults work as they
 are.
@@ -298,7 +301,7 @@ the cause.
 make lint      # dprint formatting check, shellcheck, docker-compose.yml validation
 make format    # apply dprint, shfmt and mbake formatting
 make unit      # type-check and unit-test bbd and bbd-ingress, in Docker
-make test      # 59-check smoke test of both modes in a throwaway container (needs make build)
+make test      # 60-check smoke test of both modes in a throwaway container (needs make build)
 make e2e       # Playwright phone test through a real BitBang URL, in a throwaway workspace
 make cli       # bbd for macOS and Linux, arm64 and x64, into dist/
 ```
