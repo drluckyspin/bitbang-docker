@@ -7,5 +7,9 @@ config/ice-servers.json
 # Exported corporate root CAs (machine-specific)
 **/certs/*.crt
 
+# Bun dependencies and the bbd binaries (make cli)
+node_modules/
+dist/
+
 # macOS
 .DS_Store
