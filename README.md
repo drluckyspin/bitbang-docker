@@ -1,12 +1,12 @@
 # BitBang Docker
 
-Open a shell on one of your local git repos from any browser, including your phone, through
-[BitBang](https://github.com/richlegrand/bitbang). The repo is mounted into a locked-down container that has Claude
-Code, Codex, `gh`, Node, Python and `uv` installed, so you can run an agent against the repo from anywhere while it
+Work on one of your local git repos from your phone: chat with Claude Code or Codex, open a terminal, and browse the
+files, all through [BitBang](https://github.com/richlegrand/bitbang). The repo is mounted into a locked-down container
+that has Claude Code, Codex, `gh`, Node, Python and `uv` installed, so an agent can work on it from anywhere while it
 stays fenced off from the rest of your machine.
 
-`make run` prints a QR code. Scan it, and you are in a tmux session in the repo. There are no ports to open, no accounts
-to create, and no SSH keys to manage.
+`make run` shows a QR code. Scan it with your phone's camera, and you are in [Herdr](https://herdr.dev)'s web UI for the
+repo, already paired. There are no ports to open, no accounts to create, and no SSH keys to manage.
 
 ## Quick start
 
@@ -14,31 +14,115 @@ You need Docker Desktop (macOS) or Docker Engine with Compose v2 (Linux), plus `
 
 ```bash
 make build                       # build the image (bakes in a Zscaler root CA if this Mac has one)
-make run REPO=~/src/my-repo      # start, print the QR code, follow logs; Ctrl+C stops it
+make run REPO=~/src/my-repo      # start, show the QR code, follow logs; Ctrl+C stops it
 ```
 
-The first `make` that needs it creates `.env` from `.env.example`, readable by you only. Everything in it is optional,
-so the defaults work as they are.
+The first run also builds `bbd`, the command-line tool behind the `make` targets, in Docker, so you need nothing else.
+It creates `.env` from `.env.example`, readable by you only. Everything in it is optional, so the defaults work as they
+are.
+
+**Upgrading from an earlier version?** `.env.example` has new keys (`BBD_UI` and the `BBD_NTFY_*` alert settings). The
+first run offers to write `.env.new`, your `.env` with the new keys added, for you to move into place. The merge prints
+the values already in `.env`, API keys included, so run it where nobody can see your screen, or copy the new keys across
+by hand.
 
 To leave the workspace running after you close the terminal, start it with `make run-detached REPO=~/src/my-repo`
 instead. Then use these targets:
 
-| Command                    | What it does                                                     |
-| -------------------------- | ---------------------------------------------------------------- |
-| `make url`                 | Print the QR code and URL again (`QR=false` prints only the URL) |
-| `make attach`              | Join the same tmux session from this terminal                    |
-| `make ping`                | List workspaces, their repos, and whether BitBang is registered  |
-| `make logs`                | Follow the container log                                         |
-| `make down`                | Stop a workspace (all of them when `REPO` is not given)          |
-| `make clean` / `make help` | Remove the image and exported CAs / list every target            |
+| Command                    | What it does                                                           |
+| -------------------------- | ---------------------------------------------------------------------- |
+| `make url`                 | Show a fresh QR code (`QR=false` prints only the link)                 |
+| `make attach`              | Open the workspace's Herdr UI in this terminal                         |
+| `make ping`                | List workspaces, their repos, and whether BitBang is registered        |
+| `make logs`                | Follow the container log, with the URL taken out                       |
+| `make down`                | Stop a workspace (all of them when `REPO` is not given)                |
+| `make clean` / `make help` | Remove the images, `bbd` binaries and exported CAs / list every target |
 
 Each repo gets its own workspace, named `bbd-<directory name>`, so several can run at once. When exactly one workspace
 exists, these targets find it without `REPO`. With more than one, pass `REPO=` to say which.
 
-Every browser, plus `make attach`, joins the same tmux session, so you can start an agent on your laptop and check on it
-from your phone.
+## Two modes
+
+`BBD_UI` in `.env` chooses what the QR code opens. It takes effect when the workspace next starts.
+
+| Mode            | What the phone gets                                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `web` (default) | [herdr-web-ui](https://github.com/devswha/herdr-web-ui): a chat view of each agent, terminal tabs and the repo's files |
+| `shell`         | BitBang's own terminal on one shared tmux session, with a tappable key bar; the URL alone gets you a shell             |
+
+In the web mode, the container runs a Herdr server, herdr-web-ui, and `bbd-ingress`, a small adapter that lets the app
+run inside BitBang's page. Each agent runs in its own Herdr tab, so the laptop (`make attach`) and every paired phone
+see the same agents.
+
+## The bbd command
+
+`make install-cli` installs `bbd` in `~/.local/bin` (set `BIN_DIR=` to change it), so you can run it from any repo:
+
+| Command                    | What it does                                                                     |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `bbd start [path]`         | Start the workspace for a repo (default: the current directory) and show its QR  |
+| `bbd start --agent claude` | Also start Claude Code (or `codex`) in a new tab, and open its chat on the phone |
+| `bbd qr [path]`            | Show a fresh QR code, with a new pairing code                                    |
+| `bbd ls`                   | List workspaces, their health, and the agents running in each                    |
+| `bbd sessions [path]`      | List the Claude Code and Codex sessions on this computer that ran in the repo    |
+| `bbd pull [path]`          | Copy the container's sessions back to this computer                              |
+| `bbd attach [path]`        | Open the Herdr UI in this terminal (`--shell` for the tmux session)              |
+| `bbd logs [path]`          | Show the container log, with the URL taken out                                   |
+| `bbd stop [path]`          | Stop a workspace (`--all` stops every one)                                       |
+| `bbd doctor`               | Check Docker, the image, `.env` and the agent CLIs on this computer              |
+| `bbd install-skill`        | Install the `/create-remote-session` skill for Claude Code, Codex and Cursor     |
+
+`bbd help` lists every option. `--json` gives machine-readable output for scripts and agents.
+
+## Taking an agent session to your phone
+
+Started something on the laptop and want to carry on away from it? Hand the session over:
+
+```bash
+bbd sessions                      # find it: claude:<id> or codex:<id>
+bbd start --resume claude:<id>    # continue it in the container, and open its chat on the phone
+```
+
+`bbd` copies the transcript into the container's home volume and resumes it in a new tab. The repo is mounted at the
+same path as on your laptop, so the agent finds its session, and its files, where it left them.
+
+- **One writer at a time.** Quit the session on the laptop first. If its transcript changed in the last minute, `bbd`
+  asks before going on, because two copies writing to one session interleave.
+- **Or fork it.** `--fork` continues a copy, so the laptop's session can carry on too.
+- **Brief it.** `--brief notes.md` copies a handoff note to `.bbd/handoff.md` in the repo, which git ignores, and asks
+  the agent to read it.
+- **Bring it back.** Quit the agent in the container, then run `bbd pull`. It copies the container's sessions for the
+  repo back, keeps a `.bak` of any laptop copy it replaces, and prints the command that resumes the session here.
+
+`bbd` warns when the laptop's Claude Code or Codex is a different version from the one pinned in the image, because a
+newer transcript may not load in an older release. The container keeps its own logins: a session carries the
+conversation, never credentials.
+
+### From inside an agent
+
+`bbd install-skill` adds a `/create-remote-session` skill (`$create-remote-session` in Codex). Run it in a Claude Code,
+Codex or Cursor session, and the agent writes a handoff brief, finds its own session ID and runs `bbd start --fork`. The
+QR code opens in a window on your screen, so the link never passes through the agent.
 
 ## Using it from a phone
+
+**Pairing.** Scan the QR code with the camera. BitBang connects, and the pairing code in the link pairs the phone in the
+same step. The code works once, and expires after ten minutes if nobody uses it. A paired phone stays paired when the
+page reloads. To add another device, run `make url` (or `bbd qr`) for a new code. Herdr's settings, under Phone &
+devices, list the paired devices and revoke them.
+
+**Keys.** The terminal view has a row of keys above the phone keyboard: Esc, Tab, ^C, Ctrl, Alt, Shift, Enter and the
+arrows. Herdr's settings let you change the row.
+
+**Alerts.** Set `BBD_NTFY_TOPIC` and install the [ntfy](https://ntfy.sh) app to get a notification when an agent needs
+you or finishes, even with BitBang closed. Alerts name the agent and the repo, never what was said, and tapping one does
+not open the session. Anyone who knows the topic can read its alerts, so make it long and random, for example
+`openssl rand -hex 16`.
+
+**Signing in.** Long URLs and codes are hard to copy on a phone. To sign in to Claude Code or Codex, run `make attach`
+on your laptop and finish the login there. The login is saved for the phone too.
+
+### The shell mode
 
 A phone keyboard has no Esc, Ctrl or arrow keys, and BitBang's browser terminal adds none. Swiping does not scroll
 either, because the terminal (xterm.js) ignores touch gestures while tmux has mouse mode on. The bottom row of the tmux
@@ -53,31 +137,33 @@ status bar fills the gap with keys you tap:
 | `PgUp` `PgDn` | Page through the scrollback; paging back to the bottom returns to the live view |
 
 The row sits just above the keyboard and fits a 48-column phone screen. The laptop sees it too. To hide it, set
-`BBD_KEY_BAR=false` in `.env`; `make run` or `make run-detached` then restarts the workspace without it.
-
-Long URLs and codes are hard to copy on a phone. To sign in to Claude Code or Codex, run `make attach` on your laptop
-and finish the login there. It is the same tmux session, and the login is saved for the phone too.
+`BBD_KEY_BAR=false` in `.env`; the workspace starts without it next time.
 
 ## Configuration
 
-All settings live in `.env`. It is gitignored and should stay mode `600`; `make check` warns when it is not.
+All settings live in `.env`. It is gitignored and should stay mode `600`; `make check` and `bbd doctor` warn when it is
+not.
 
-| Variable                | Default | Purpose                                                                     |
-| ----------------------- | ------- | --------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`     | `""`    | API key for Claude Code. Leave empty to sign in with a subscription instead |
-| `OPENAI_API_KEY`        | `""`    | API key for Codex. Leave empty to sign in with a subscription instead       |
-| `GH_TOKEN`              | `""`    | Fine-grained GitHub token for `git push` and `gh` (see below)               |
-| `BITBANG_PIN`           | `""`    | PIN that BitBang asks for before opening a shell                            |
-| `BITBANG_MAX_SESSIONS`  | `3`     | Maximum concurrent shells across all browsers                               |
-| `BBD_WATCHDOG_INTERVAL` | `300`   | Seconds between listener health probes; `0` turns the watchdog off          |
-| `BBD_KEY_BAR`           | `true`  | `true` shows the [phone key bar](#using-it-from-a-phone); `false` hides it  |
-| `BBD_MEMORY`            | `4g`    | Container memory limit                                                      |
-| `BBD_CPUS`              | `2`     | Container CPU limit                                                         |
-| `BBD_RUNTIME`           | `runc`  | Container runtime; `runsc` runs it under gVisor on Linux hosts that have it |
+| Variable                | Default           | Purpose                                                                     |
+| ----------------------- | ----------------- | --------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`     | `""`              | API key for Claude Code. Leave empty to sign in with a subscription instead |
+| `OPENAI_API_KEY`        | `""`              | API key for Codex. Leave empty to sign in with a subscription instead       |
+| `GH_TOKEN`              | `""`              | Fine-grained GitHub token for `git push` and `gh` (see below)               |
+| `BBD_UI`                | `web`             | [What the QR code opens](#two-modes): `web` or `shell`                      |
+| `BITBANG_PIN`           | `""`              | PIN that BitBang asks for before connecting                                 |
+| `BITBANG_MAX_SESSIONS`  | `3`               | Maximum concurrent shells across all browsers, in the shell mode            |
+| `BBD_WATCHDOG_INTERVAL` | `300`             | Seconds between listener health probes; `0` turns the watchdog off          |
+| `BBD_KEY_BAR`           | `true`            | `true` shows the [tmux key bar](#the-shell-mode); `false` hides it          |
+| `BBD_NTFY_TOPIC`        | `""`              | ntfy topic for [agent alerts](#using-it-from-a-phone); empty turns them off |
+| `BBD_NTFY_SERVER`       | `https://ntfy.sh` | The ntfy server                                                             |
+| `BBD_NTFY_TOKEN`        | `""`              | Access token, for an ntfy server that requires one                          |
+| `BBD_MEMORY`            | `4g`              | Container memory limit                                                      |
+| `BBD_CPUS`              | `2`               | Container CPU limit                                                         |
+| `BBD_RUNTIME`           | `runc`            | Container runtime; `runsc` runs it under gVisor on Linux hosts that have it |
 
 The container receives keys and tokens **only from `.env`**. Keys exported in your shell, such as an `ANTHROPIC_API_KEY`
-set in `~/.zprofile`, never reach it. Anyone with the URL gets a shell in the container, so whatever the container holds
-is theirs to read; keep that set small on purpose. `make test` checks this.
+set in `~/.zprofile`, never reach it. Whoever gets into the workspace can read whatever the container holds, so keep
+that set small on purpose. `make test` checks that nothing else gets in.
 
 Commits use the `user.name` and `user.email` from the mounted repo's git config, or from your global git config.
 
@@ -99,12 +185,12 @@ host.
 You can authenticate either way, and mix them per tool.
 
 - **API key:** set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`.
-- **Subscription:** leave the key empty and sign in once from a workspace shell with `claude auth login` or
-  `codex login --device-auth`. Both print a URL to open in any browser, so they work from a phone. Logins are saved in
-  the `bitbang-docker-home` volume and survive restarts.
+- **Subscription:** leave the key empty and sign in once from a workspace terminal with `claude auth login` or
+  `codex login --device-auth`. Both print a URL to open in any browser. Logins are saved in the `bitbang-docker-home`
+  volume and survive restarts.
 
-That home volume is shared by every workspace, so you sign in once for all repos. It also keeps shell history and global
-git config. `make clean-home` deletes it after asking.
+That home volume is shared by every workspace, so you sign in once for all repos. It also keeps shell history, global
+git config and handed-over sessions. `make clean-home` deletes it after asking.
 
 The image is read-only. To add tools, install them into your home directory, for example `uv tool install ruff`, or
 `npm config set prefix ~/.npm-global` followed by `npm install -g <package>`.
@@ -113,42 +199,59 @@ The image is read-only. To add tools, install them into your home directory, for
 
 The container is built to limit what a shell, or an agent running in it, can reach on your machine.
 
-| Control            | Setting                                                                  |
-| ------------------ | ------------------------------------------------------------------------ |
-| Mounted files      | Only `REPO` (read-write) and the home volume; `make` refuses `/` and `~` |
-| User               | Non-root `agent`, matching your uid on Linux                             |
-| Linux capabilities | All dropped, with `no-new-privileges`                                    |
-| Root filesystem    | Read-only; `/tmp` is a `nosuid`, `nodev` tmpfs                           |
-| Docker socket      | Not mounted                                                              |
-| Published ports    | None; BitBang connects outbound only                                     |
-| Resource limits    | 512 processes, plus the memory and CPU limits from `.env`                |
-| Secrets            | Only those in `.env`; host shell variables are not passed through        |
+| Control               | Setting                                                                                                  |
+| --------------------- | -------------------------------------------------------------------------------------------------------- |
+| Mounted files         | Only the repo (read-write, at its own path) and the home volume; `bbd` refuses `/`, `~` and system paths |
+| User                  | Non-root `agent`, matching your uid on Linux                                                             |
+| Linux capabilities    | All dropped, with `no-new-privileges`                                                                    |
+| Root filesystem       | Read-only; `/tmp` is a `nosuid`, `nodev` tmpfs                                                           |
+| Docker socket         | Not mounted                                                                                              |
+| Published ports       | None; BitBang connects outbound only, and everything inside listens on loopback                          |
+| Resource limits       | 1024 processes, plus the memory and CPU limits from `.env`                                               |
+| Secrets               | Only those in `.env`; host shell variables are not passed through                                        |
+| Web UI access         | A paired device, or a random access token that never leaves the container                                |
+| Updates and telemetry | Off in Herdr and herdr-web-ui; every component is pinned, and `make test` checks the pins                |
 
 Know these limits before you rely on it:
 
-- **The URL is the key.** The QR code and the URL each grant a shell to anyone who has them, until the workspace stops.
-  Treat them like a password. Set `BITBANG_PIN` for a second factor, and use `QR=false` when someone can see your
-  screen. The URL also appears in `docker logs`.
+- **The link is the key.** In the shell mode, the URL grants a shell to anyone who has it. In the web mode, the URL
+  alone reaches only the pairing screen, but the link in the QR code also carries a pairing code that lets one device
+  in. `bbd` shows the link only in an interactive terminal or in a window on your screen, never when its output goes to
+  a pipe or an agent, and `make logs` takes the URL out. Treat the QR code like a password: set `BITBANG_PIN` for a
+  second factor, and use `QR=false` when someone can see your screen.
+- **A paired device stays paired.** Pairings are kept per repo in the home volume, so they survive restarts. Revoke a
+  lost phone in Herdr's settings.
 - **Each workspace gets a new URL.** It stays the same while the container runs, including watchdog restarts. A fresh
   container (`make down` then `make run`, or a changed `.env`) gets a fresh URL, and the old one stops working.
 - **Network access is open.** The container can reach the internet and anything your host can reach, including your LAN
   and services listening on the host. Only the tools you have given it credentials for can act as you.
 - **The repo is fully writable.** An agent can rewrite any file in it, including `.git` and git hooks that run the next
   time you use git on the host. Review changes before running git on the host.
-- **Git worktrees and submodules are not supported.** Their `.git` points outside the mount, so `make` refuses to mount
-  a worktree; mount the main checkout instead.
+- **Handed-over sessions travel with the agent.** A transcript holds everything said in the session, including anything
+  you pasted into it. `bbd start --resume` copies it into the home volume, where anyone who gets into a workspace can
+  read it.
+- **A pulled session brings the container's work home.** `bbd pull` copies what the container's agent wrote into your
+  laptop's sessions, and the agent you resume it with there has none of the container's limits. Read what the agent did
+  before you carry on, as you would its changes to the repo. `bbd pull` writes only session files for the repo, and only
+  inside `~/.claude` and `~/.codex`.
+- **Git worktrees and submodules are not supported.** Their `.git` points outside the mount, so `bbd` refuses to mount a
+  worktree; mount the main checkout instead.
 - **Signaling skips TLS verification.** BitBang does not verify the TLS certificate of its signaling server. Its
   [security model](https://github.com/richlegrand/bitbang-cli/blob/main/SECURITY.md) is that sessions are end-to-end
   encrypted and the signaling server cannot read or join them, so TLS on that leg is not what protects you. Anyone on
   the path can still block connections.
-- **BitBang is a young project.** Read its [README](https://github.com/richlegrand/bitbang-cli) before you depend on it.
+- **These are young projects.** BitBang, Herdr and herdr-web-ui all move fast. Read
+  [BitBang's README](https://github.com/richlegrand/bitbang-cli) before you depend on it.
 
 ## Connection reliability
 
 **Watchdog.** If the host sleeps, BitBang's connection to the signaling server can die without either side noticing, and
-browsers then report "Device not found". Every `BBD_WATCHDOG_INTERVAL` seconds the container connects to its own URL.
-After two failures in a row, it restarts the listener with the same identity, so the URL keeps working. `make ping`
-shows the result of the most recent check.
+browsers then report "Device not found". Every `BBD_WATCHDOG_INTERVAL` seconds the container connects to its own URL,
+and in the web mode also checks that the app answers through the adapter. After two failures in a row, it restarts the
+listener with the same identity, so the URL keeps working. `make ping` shows the result of the most recent check.
+
+**Sleep.** While a workspace runs, `bbd` keeps the Mac awake (with `caffeinate`, until the container stops). Closing the
+lid on battery still puts it to sleep, which drops the phone's connection; `bbd` warns when the Mac is on battery.
 
 **Relays.** When a direct peer-to-peer path is impossible, BitBang falls back to the `bitba.ng` TURN relay, which is
 time-limited. In testing on a Mac behind Zscaler, a phone on cellular was relayed. For long sessions, use your own TURN
@@ -158,38 +261,61 @@ the listener at startup instead of quietly falling back.
 
 ## Corporate networks and Zscaler
 
-Zscaler inspects TLS to some hosts, including `api.anthropic.com` and `bitba.ng`. On macOS, `make build` exports the
-`Zscaler Root CA` from the System keychain into `certs/`, and the image trusts it. Any other `*.crt` you put in `certs/`
-before building is trusted too.
+Zscaler inspects TLS to some hosts, including `api.anthropic.com` and `bitba.ng`. On macOS, `make build` and `make cli`
+export the `Zscaler Root CA` from the System keychain into `certs/`, and the builds trust it. Any other `*.crt` you put
+in `certs/` before building is trusted too.
 
 If BitBang still cannot connect through the proxy, temporarily turn off Zscaler Internet Security to confirm that it is
 the cause.
 
+## Checking it on a real phone
+
+`make e2e` drives a phone browser through a real BitBang URL, but not a real phone. After a change, check these by hand:
+
+1. `make run REPO=~/src/my-repo`, then scan the QR code with the camera: the terminal opens, already paired.
+2. Type a command, and the output appears. Try Esc, Tab and Ctrl-C from the key row.
+3. Lock the phone for a minute and unlock it: the page reconnects.
+4. Reload the page: it stays paired. Scan a code that is more than ten minutes old: only the pairing screen appears.
+5. `bbd start ~/src/my-repo --agent claude`: the chat view opens on the phone, and a message reaches the agent.
+6. With `BBD_NTFY_TOPIC` set, an agent that finishes sends an alert.
+7. With `BBD_UI=shell`: BitBang's terminal opens on the tmux session, with the key bar.
+
 ## Troubleshooting
 
-| Symptom                                             | Fix                                                                 |
-| --------------------------------------------------- | ------------------------------------------------------------------- |
-| Browser says "Device not found"                     | `make ping`; restart a stopped workspace, or wait for the watchdog  |
-| `make url` times out                                | Run `make logs`; a bad `config/ice-servers.json` stops the listener |
-| `curl: (60)` or certificate errors in the container | Rerun `make build` so it re-exports your proxy's root CA            |
-| Permission denied writing to the repo on Linux      | Rebuild with `make build` as the user that owns the repo            |
-| `claude` uses an empty API key                      | Use `make attach` or the browser shell, not a bare `docker exec`    |
+| Symptom                                             | Fix                                                                                     |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Browser says "Device not found"                     | `make ping`; restart a stopped workspace, or wait for the watchdog                      |
+| The phone shows the pairing screen                  | The code was used or expired; `make url` makes a new one                                |
+| `make url` times out                                | Run `make logs`; a bad `config/ice-servers.json` stops the listener                     |
+| `curl: (60)` or certificate errors in the container | Rerun `make build` so it re-exports your proxy's root CA                                |
+| Permission denied writing to the repo on Linux      | Rebuild with `make build` as the user that owns the repo                                |
+| `claude` uses an empty API key                      | Use `make attach` or the phone's terminal, not a bare `docker exec`                     |
+| macOS kills `bbd` as soon as it starts              | `codesign --force --sign - ~/.local/bin/bbd` (`make install-cli` does this when needed) |
 
 ## Development
 
 ```bash
 make lint      # dprint formatting check, shellcheck, docker-compose.yml validation
 make format    # apply dprint, shfmt and mbake formatting
-make test      # 37-check smoke test in a throwaway container (needs make build)
+make unit      # type-check and unit-test bbd and bbd-ingress, in Docker
+make test      # 59-check smoke test of both modes in a throwaway container (needs make build)
+make e2e       # Playwright phone test through a real BitBang URL, in a throwaway workspace
+make cli       # bbd for macOS and Linux, arm64 and x64, into dist/
 ```
 
-`make test` uses `.env.example` and its own home volume, so it never reads your `.env` or touches your logins.
+`make test` and `make e2e` use `.env.example` and their own home volumes, so they never read your `.env` or touch your
+logins, and they never print a URL or pairing code.
 
-| Path                     | Purpose                                                                          |
-| ------------------------ | -------------------------------------------------------------------------------- |
-| `Dockerfile`             | Image with pinned BitBang (checksum-verified), Claude Code, Codex and tools      |
-| `docker-compose.yml`     | Hardening, mounts and limits for one workspace                                   |
-| `docker/entrypoint.bash` | Git setup, then the BitBang listener under the watchdog                          |
-| `docker/session.bash`    | Opens the shared tmux session with a clean environment                           |
-| `Common.make`            | All make targets; `Makefile` only includes it                                    |
-| `scripts/`               | URL and QR output, CA export, smoke and key bar tests, and the `log.bash` logger |
+| Path                 | Purpose                                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `Dockerfile`         | Image with pinned, checksum-verified BitBang and Herdr, herdr-web-ui, Claude Code, Codex and tools              |
+| `docker-compose.yml` | Hardening, mounts and limits for one workspace                                                                  |
+| `docker/`            | Entrypoint (git setup, services, the listener under the watchdog), and the session, attach and pairing commands |
+| `ingress/`           | `bbd-ingress`, the adapter between BitBang's proxy and herdr-web-ui, and the ntfy alerts                        |
+| `cli/`               | `bbd`, compiled in Docker by `cli/Dockerfile`                                                                   |
+| `skills/`            | The `/create-remote-session` skill that `bbd install-skill` installs                                            |
+| `e2e/`               | The Playwright phone test                                                                                       |
+| `Common.make`        | All make targets; `Makefile` only includes it                                                                   |
+| `scripts/`           | CA export, the smoke, e2e and key bar tests, and the `log.bash` logger                                          |
+
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists the software this builds on, and its licenses.
