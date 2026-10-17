@@ -174,6 +174,17 @@ export function compose(root: string, project: string): string[] {
   return ["docker", "compose", "--project-directory", root, "-f", join(root, "docker-compose.yml"), "-p", project];
 }
 
+/**
+ * Creates the external home volume, without which compose up fails. Compose resolves its name from the shell
+ * and .env, so the name is taken from compose rather than worked out here.
+ */
+export async function ensureHomeVolume(root: string, project: string, env: RunOptions["env"]): Promise<void> {
+  const config = JSON.parse(await output([...compose(root, project), "config", "--format", "json"], { env }));
+  const name: unknown = config?.volumes?.home?.name;
+  if (typeof name !== "string" || name === "") throw new UserError("docker-compose.yml names no home volume");
+  await docker(["volume", "create", name]);
+}
+
 /** Runs a command in the workspace as the agent user. */
 export async function exec(workspace: Workspace, command: string[], options?: RunOptions): Promise<string> {
   return docker(["exec", ...(options?.stdin ? ["-i"] : []), workspace.id, ...command], options);

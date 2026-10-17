@@ -193,7 +193,8 @@ You can authenticate either way, and mix them per tool.
   volume and survive restarts.
 
 That home volume is shared by every workspace, so you sign in once for all repos. It also keeps shell history, global
-git config and handed-over sessions. `make clean-home` deletes it after asking.
+git config and handed-over sessions. `bbd` creates it outside compose, so `docker compose down -v` leaves it alone;
+`make clean-home` deletes it after asking.
 
 The image is read-only. To add tools, install them into your home directory, for example `uv tool install ruff`, or
 `npm config set prefix ~/.npm-global` followed by `npm install -g <package>`.

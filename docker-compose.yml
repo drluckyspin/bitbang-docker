@@ -59,5 +59,8 @@ services:
       GIT_COMMITTER_EMAIL: ${GIT_COMMITTER_EMAIL:-}
 
 volumes:
+  # Shared by every workspace. External, so compose neither ties it to whichever project created it (and warns
+  # all the others) nor deletes it on down -v. bbd creates it before starting; make clean-home deletes it.
   home:
     name: ${BBD_HOME_VOLUME:-bitbang-docker-home}
+    external: true

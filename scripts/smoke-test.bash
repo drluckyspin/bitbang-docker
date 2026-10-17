@@ -24,7 +24,7 @@ IMAGE=bitbang-docker:latest
 PASSED=0
 FAILED=0
 
-# Never the real home volume: `down -v` below removes whatever this names.
+# Never the real home volume: cleanup deletes whatever this names.
 export BBD_HOME_VOLUME=bbd-smoke-test-home
 export BBD_ENV_FILE=.env.example
 export BBD_WATCHDOG_INTERVAL=10
@@ -66,7 +66,8 @@ check() {
 
 cleanup() {
   log_info_dim "Removing the smoke-test container, volume and repo"
-  compose down -v --remove-orphans >/dev/null 2>&1 || true
+  compose down --remove-orphans >/dev/null 2>&1 || true
+  docker volume rm "$BBD_HOME_VOLUME" >/dev/null 2>&1 || true
   rm -rf "${BBD_REPO:-}"
 }
 
@@ -77,6 +78,7 @@ cleanup() {
 start_workspace() {
   local mode="$1" waited=0
   log_info_dim "Starting ${PROJECT} in the ${mode} mode"
+  docker volume create "$BBD_HOME_VOLUME" >/dev/null
   BBD_UI="$mode" compose --progress quiet up -d --force-recreate
   until [ "$(in_container 'cat /tmp/bitbang/health 2>/dev/null' 2>/dev/null)" = ok ]; do
     if [ "$waited" -ge 120 ]; then

@@ -27,6 +27,7 @@ import { hostVersion, PIN_LABELS, skewWarning } from "../versions.ts";
 import {
   checkDocker,
   compose,
+  ensureHomeVolume,
   imageLabels,
   IMAGE,
   listWorkspaces,
@@ -92,16 +93,15 @@ async function bringUp(root: string, repo: string, project: string): Promise<Wor
   ui.info(`Starting ${project} for ${repo}`);
   const name = await gitConfig(repo, "user.name");
   const email = await gitConfig(repo, "user.email");
-  const code = await inherit([...compose(root, project), "up", "-d"], {
-    stdoutToStderr: true,
-    env: {
-      BBD_REPO: repo,
-      GIT_AUTHOR_NAME: name,
-      GIT_AUTHOR_EMAIL: email,
-      GIT_COMMITTER_NAME: name,
-      GIT_COMMITTER_EMAIL: email,
-    },
-  });
+  const env = {
+    BBD_REPO: repo,
+    GIT_AUTHOR_NAME: name,
+    GIT_AUTHOR_EMAIL: email,
+    GIT_COMMITTER_NAME: name,
+    GIT_COMMITTER_EMAIL: email,
+  };
+  await ensureHomeVolume(root, project, env);
+  const code = await inherit([...compose(root, project), "up", "-d"], { stdoutToStderr: true, env });
   if (code !== 0) throw new UserError(`docker compose could not start ${project}`);
   const started = (await listWorkspaces()).find((workspace) => workspace.project === project);
   if (!started) throw new UserError(`${project} did not start`);
