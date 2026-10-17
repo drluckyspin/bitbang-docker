@@ -34,6 +34,7 @@ instead. Then use these targets:
 | Command                    | What it does                                                           |
 | -------------------------- | ---------------------------------------------------------------------- |
 | `make url`                 | Show a fresh QR code (`QR=false` prints only the link)                 |
+| `make login`               | Sign Claude Code (or `AGENT=codex`) in, once for every workspace       |
 | `make attach`              | Open the workspace's Herdr UI in this terminal                         |
 | `make ping`                | List workspaces, their repos, and whether BitBang is registered        |
 | `make logs`                | Follow the container log, with the URL taken out                       |
@@ -54,8 +55,9 @@ exists, these targets find it without `REPO`. With more than one, pass `REPO=` t
 
 In the web mode, the container runs a Herdr server, herdr-web-ui, and `bbd-ingress`, a small adapter that lets the app
 run inside BitBang's page. Each agent runs in its own Herdr tab, so the laptop (`make attach`) and every paired phone
-see the same agents. `BBD_DEFAULT_AGENT=auto` starts an authenticated Claude Code agent, or Codex when Claude is not
-ready. With neither signed in, the initial terminal explains how to sign in; restart the workspace afterward.
+see the same agents. The default agent gets its own tab, and the QR code opens its chat. `BBD_DEFAULT_AGENT=auto` picks
+Claude Code when it is signed in, else Codex. With neither signed in, `bbd start` offers to sign you in, and the repo's
+terminal on the phone says how; the agent starts as soon as one is, without a restart.
 
 ## The bbd command
 
@@ -66,6 +68,7 @@ ready. With neither signed in, the initial terminal explains how to sign in; res
 | `bbd start [path]`         | Start the workspace for a repo (default: the current directory) and show its QR  |
 | `bbd start --agent claude` | Also start Claude Code (or `codex`) in a new tab, and open its chat on the phone |
 | `bbd qr [path]`            | Show a fresh QR code, with a new pairing code                                    |
+| `bbd login [claude/codex]` | Sign an agent in, in the container; every workspace's default agent then starts  |
 | `bbd ls`                   | List workspaces, their health, and the agents running in each                    |
 | `bbd sessions [path]`      | List the Claude Code and Codex sessions on this computer that ran in the repo    |
 | `bbd pull [path]`          | Copy the container's sessions back to this computer                              |
@@ -122,8 +125,10 @@ you or finishes, even with BitBang closed. Alerts name the agent and the repo, n
 not open the session. Anyone who knows the topic can read its alerts, so make it long and random, for example
 `openssl rand -hex 16`.
 
-**Signing in.** Long URLs and codes are hard to copy on a phone. To sign in to Claude Code or Codex, run `make attach`
-on your laptop and finish the login there. The login is saved for the phone too.
+**Signing in.** Long URLs and codes are hard to copy on a phone, so sign in from the laptop: `make login` (or
+`bbd login`), and paste the code the sign-in page shows. The login is saved for the phone and every workspace, and the
+default agent starts in its own tab a few seconds later, ready to chat. An agent tab opened before then is restarted
+once its agent is signed in.
 
 ### The shell mode
 
@@ -188,10 +193,16 @@ host.
 
 You can authenticate either way, and mix them per tool.
 
-- **API key:** set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`.
-- **Subscription:** leave the key empty and sign in once from a workspace terminal with `claude auth login` or
-  `codex login --device-auth`. Both print a URL to open in any browser. Logins are saved in the `bitbang-docker-home`
-  volume and survive restarts.
+- **API key:** set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. Codex is signed in with its key when the workspace
+  starts. A `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`, added to `.env`, works too.
+- **Subscription:** leave the key empty and run `make login` (`AGENT=codex` for Codex), or `bbd login [claude|codex]`.
+  It runs `claude auth login` or `codex login --device-auth` in the container, on your terminal: open the link, sign in,
+  and paste the code back (Claude Code) or enter the shown code on the page (Codex). The same commands also work from a
+  workspace terminal. Logins are saved in the `bitbang-docker-home` volume and survive restarts.
+
+Each agent asks a few questions the first time it runs, and on a phone they get in the way of the chat. The container
+answers them for you when a workspace starts: Claude Code's theme and onboarding, whether to use the API key from
+`.env`, both agents' trust in the mounted repo, and Codex's review of the hook that tells Herdr its session ID.
 
 That home volume is shared by every workspace, so you sign in once for all repos. It also keeps shell history, global
 git config and handed-over sessions. `bbd` creates it outside compose, so `docker compose down -v` leaves it alone;
@@ -232,6 +243,11 @@ Know these limits before you rely on it:
   and services listening on the host. Only the tools you have given it credentials for can act as you.
 - **The repo is fully writable.** An agent can rewrite any file in it, including `.git` and git hooks that run the next
   time you use git on the host. Review changes before running git on the host.
+- **Codex runs without its own sandbox.** Codex's sandbox needs user namespaces, which the container does not allow, so
+  it would fail every command. The image sets `sandbox_mode = "danger-full-access"` with
+  `approval_policy = "on-request"` in `/etc/codex/config.toml`, so the container's limits are the ones that apply, and
+  Codex still asks before a command it judges risky. Your own settings in the container's `~/.codex/config.toml` take
+  precedence. Claude Code asks for permissions as it does anywhere.
 - **Handed-over sessions travel with the agent.** A transcript holds everything said in the session, including anything
   you pasted into it. `bbd start --resume` copies it into the home volume, where anyone who gets into a workspace can
   read it.
@@ -303,23 +319,25 @@ the cause.
 make lint      # dprint formatting check, shellcheck, docker-compose.yml validation
 make format    # apply dprint, shfmt and mbake formatting
 make unit      # type-check and unit-test bbd and bbd-ingress, in Docker
-make test      # 60-check smoke test of both modes in a throwaway container (needs make build)
-make e2e       # Playwright phone test through a real BitBang URL, in a throwaway workspace
+make test      # 64-check smoke test of both modes in a throwaway container (needs make build)
+make e2e       # Playwright phone test through a real BitBang URL, ending in a chat with Claude Code
 make cli       # bbd for macOS and Linux, arm64 and x64, into dist/
 ```
 
 `make test` and `make e2e` use `.env.example` and their own home volumes, so they never read your `.env` or touch your
-logins, and they never print a URL or pairing code.
+logins, and they never print a URL or pairing code. `make e2e` adds a made-up Anthropic key, for a stand-in API that it
+runs inside the container: the default agent starts on its own, and the phone's chat gets its reply from the real Claude
+Code.
 
 | Path                 | Purpose                                                                                                         |
 | -------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `Dockerfile`         | Image with pinned, checksum-verified BitBang and Herdr, herdr-web-ui, Claude Code, Codex and tools              |
 | `docker-compose.yml` | Hardening, mounts and limits for one workspace                                                                  |
-| `docker/`            | Entrypoint (git setup, services, the listener under the watchdog), and the session, attach and pairing commands |
+| `docker/`            | Entrypoint (git, services, the watched listener), the session, attach, pairing and agent commands, Codex config |
 | `ingress/`           | `bbd-ingress`, the adapter between BitBang's proxy and herdr-web-ui, and the ntfy alerts                        |
 | `cli/`               | `bbd`, compiled in Docker by `cli/Dockerfile`                                                                   |
 | `skills/`            | The `/create-remote-session` skill that `bbd install-skill` installs                                            |
-| `e2e/`               | The Playwright phone test                                                                                       |
+| `e2e/`               | The Playwright phone test, and the stand-in Anthropic API its chat talks to                                     |
 | `Common.make`        | All make targets; `Makefile` only includes it                                                                   |
 | `scripts/`           | CA export, the smoke, e2e and key bar tests, and the `log.bash` logger                                          |
 
