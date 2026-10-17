@@ -124,6 +124,15 @@ main() {
      tmux show-environment -g HOME | grep -qx HOME=/home/agent'
   in_container 'tmux kill-server' >/dev/null 2>&1 || true
 
+  local keybar_result
+  if keybar_result="$(compose exec -T workspace python3 - <"$ROOT_DIR/scripts/keybar-test.py" 2>&1)"; then
+    log_indent log_success "Phone key bar sends Esc, Ctrl-C, Tab, Shift-Tab and arrows, and pages the scrollback"
+    PASSED=$((PASSED + 1))
+  else
+    log_indent log_error "Phone key bar: ${keybar_result}"
+    FAILED=$((FAILED + 1))
+  fi
+
   log_info "Network"
   check "TLS to api.anthropic.com verifies" 'curl -sS -o /dev/null --max-time 15 https://api.anthropic.com/'
   check "End-to-end BitBang connection" \

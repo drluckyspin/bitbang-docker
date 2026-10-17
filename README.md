@@ -38,6 +38,26 @@ exists, these targets find it without `REPO`. With more than one, pass `REPO=` t
 Every browser, plus `make attach`, joins the same tmux session, so you can start an agent on your laptop and check on it
 from your phone.
 
+## Using it from a phone
+
+A phone keyboard has no Esc, Ctrl or arrow keys, and BitBang's browser terminal adds none. Swiping does not scroll
+either, because the terminal (xterm.js) ignores touch gestures while tmux has mouse mode on. The bottom row of the tmux
+status bar fills the gap with keys you tap:
+
+| Key           | Sends                                                                           |
+| ------------- | ------------------------------------------------------------------------------- |
+| `Esc`         | Escape, for example to interrupt Claude Code                                    |
+| `^C`          | Ctrl-C                                                                          |
+| `Tab` `⇧Tab`  | Tab and Shift-Tab (Shift-Tab cycles Claude Code's modes)                        |
+| `↑` `↓`       | Arrow keys, for menus and command history                                       |
+| `PgUp` `PgDn` | Page through the scrollback; paging back to the bottom returns to the live view |
+
+The row sits just above the keyboard and fits a 48-column phone screen. The laptop sees it too. To hide it, add
+`set -g status 1` to `~/.tmux.conf` in a workspace shell and run `tmux source ~/.tmux.conf`.
+
+Long URLs and codes are hard to copy on a phone. To sign in to Claude Code or Codex, run `make attach` on your laptop
+and finish the login there. It is the same tmux session, and the login is saved for the phone too.
+
 ## Configuration
 
 All settings live in `.env`. It is gitignored and should stay mode `600`; `make check` warns when it is not.
@@ -159,16 +179,16 @@ the cause.
 ```bash
 make lint      # dprint formatting check, shellcheck, docker-compose.yml validation
 make format    # apply dprint, shfmt and mbake formatting
-make test      # 35-check smoke test in a throwaway container (needs make build)
+make test      # 36-check smoke test in a throwaway container (needs make build)
 ```
 
 `make test` uses `.env.example` and its own home volume, so it never reads your `.env` or touches your logins.
 
-| Path                     | Purpose                                                                     |
-| ------------------------ | --------------------------------------------------------------------------- |
-| `Dockerfile`             | Image with pinned BitBang (checksum-verified), Claude Code, Codex and tools |
-| `docker-compose.yml`     | Hardening, mounts and limits for one workspace                              |
-| `docker/entrypoint.bash` | Git setup, then the BitBang listener under the watchdog                     |
-| `docker/session.bash`    | Opens the shared tmux session with a clean environment                      |
-| `Common.make`            | All make targets; `Makefile` only includes it                               |
-| `scripts/`               | URL and QR output, CA export, smoke test, and the shared `log.bash`         |
+| Path                     | Purpose                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| `Dockerfile`             | Image with pinned BitBang (checksum-verified), Claude Code, Codex and tools      |
+| `docker-compose.yml`     | Hardening, mounts and limits for one workspace                                   |
+| `docker/entrypoint.bash` | Git setup, then the BitBang listener under the watchdog                          |
+| `docker/session.bash`    | Opens the shared tmux session with a clean environment                           |
+| `Common.make`            | All make targets; `Makefile` only includes it                                    |
+| `scripts/`               | URL and QR output, CA export, smoke and key bar tests, and the `log.bash` logger |
