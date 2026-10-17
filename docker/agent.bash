@@ -235,14 +235,39 @@ restart_in_pane() {
   start_in_pane "$name" "$kind" "$pane"
 }
 
-# Starts an agent in a new tab at the repo; prints its pane.
-start_in_new_tab() {
+# Prints the pane of a one-pane tab at the repo, labelled after the agent, whose shell is idle at its prompt:
+# a tab opened for the agent by hand, which Herdr restores as a bare shell when the agent left no session.
+idle_tab_pane() {
+  local kind="$1" pane
+  while read -r pane; do
+    if herdr pane process-info --pane "$pane" |
+      jq -e '.result.process_info | .foreground_process_group_id == .shell_pid' >/dev/null 2>&1; then
+      printf '%s\n' "$pane"
+      return 0
+    fi
+  done < <(jq -rn --arg repo "$REPO" --arg kind "$kind" \
+    --argjson tabs "$(herdr tab list | jq '.result.tabs // []')" \
+    --argjson panes "$(herdr pane list | jq '.result.panes // []')" \
+    --argjson agents "$(herdr agent list | jq '[.result.agents[]?.pane_id]')" '
+    ($tabs | map(select(((.label // "") | ascii_downcase) == $kind and .pane_count == 1) | .tab_id)) as $named
+    | $panes[] | select((.tab_id | IN($named[])) and .cwd == $repo and (.pane_id | IN($agents[]) | not))
+    | .pane_id')
+  return 1
+}
+
+# Starts an agent at the repo, in an idle tab already named after it or else a new one; prints its pane.
+start_in_tab() {
   local kind="$1" name="$1" n=2 taken workspace tab pane
   taken="$(herdr agent list | jq -r '.result.agents[]?.name // empty')"
   while grep -qxF "$name" <<<"$taken"; do
     name="${kind}-${n}"
     n=$((n + 1))
   done
+  if pane="$(idle_tab_pane "$kind")"; then
+    start_in_pane "$name" "$kind" "$pane" || return 1
+    printf '%s\n' "$pane"
+    return 0
+  fi
   workspace="$(herdr pane list | jq -r --arg repo "$REPO" '[.result.panes[]?
     | select(.cwd == $repo or ((.cwd // "") | startswith($repo + "/")))] | first.workspace_id // empty')"
   if [ -z "$workspace" ]; then
@@ -260,7 +285,7 @@ start_in_new_tab() {
 # Function: watch
 # Description: Until an agent is up: take one that already runs (Herdr restores them with their sessions),
 #              restarting it first if it was opened before its sign-in; else start the first signed-in
-#              candidate in a new tab; else wait for a sign-in. Never starts a second default agent.
+#              candidate in its own tab; else wait for a sign-in. Never starts a second default agent.
 # -----------------------------------------------------------------------------------------------------------
 watch() {
   local warned="" name kind pane agent found_name found_kind found_pane
@@ -292,7 +317,7 @@ watch() {
     for agent in $(candidates); do
       signed_in "$agent" || continue
       write_state starting "$agent"
-      if pane="$(start_in_new_tab "$agent")"; then
+      if pane="$(start_in_tab "$agent")"; then
         write_state running "$agent" "$pane"
         log_success "Started ${agent} in its own Herdr tab"
       else
