@@ -1,0 +1,44 @@
+{
+  "lineWidth": 120,
+  "indentWidth": 2,
+  "newLineKind": "lf",
+  "useTabs": false,
+  "incremental": false,
+  "excludes": [
+    "**/.git/**",
+    "**/.env",
+    "**/certs/**",
+    "**/*.png"
+  ],
+  "json": {},
+  "markdown": {
+    "lineWidth": 120,
+    "newLineKind": "lf",
+    "textWrap": "always",
+    "associations": ["**/*.{md,markdown,mkd,mdown,mdc}"]
+  },
+  "dockerfile": {},
+  "yaml": {},
+  "exec": {
+    "cwd": "${configDir}",
+    "commands": [
+      {
+        "command": "shfmt -filename {{file_path}} -i {{indent_width}} -ci",
+        "exts": ["sh", "bash"]
+      },
+      {
+        "command": "scripts/dprint-mbake.bash",
+        "exts": ["make"],
+        "fileNames": ["Makefile"],
+        "cacheKeyFiles": ["scripts/dprint-mbake.bash"]
+      }
+    ]
+  },
+  "plugins": [
+    "https://plugins.dprint.dev/json-0.21.3.wasm",
+    "https://plugins.dprint.dev/markdown-0.22.1.wasm",
+    "https://plugins.dprint.dev/dockerfile-0.3.3.wasm",
+    "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm",
+    "https://plugins.dprint.dev/exec-0.7.3.json@a7898d5f1897e77bff474cec3d948c3ec3a7f455e32de2cc60c8adb9a5dd24aa"
+  ]
+}

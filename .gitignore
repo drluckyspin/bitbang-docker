@@ -1,0 +1,11 @@
+# Secrets and machine-specific config
+.env
+.env.bak
+.env.new
+config/ice-servers.json
+
+# Exported corporate root CAs (machine-specific)
+**/certs/*.crt
+
+# macOS
+.DS_Store

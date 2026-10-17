@@ -1,0 +1,56 @@
+# One hardened workspace container per repo. `make` sets the project name (bbd-<repo>), BBD_REPO,
+# USER_UID/GID and the git identity; everything else is interpolated from .env.
+services:
+  workspace:
+    image: bitbang-docker:latest
+    pull_policy: never
+    init: true
+    user: agent
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,mode=1777
+    pids_limit: 512
+    mem_limit: ${BBD_MEMORY:-4g}
+    cpus: ${BBD_CPUS:-2}
+    runtime: ${BBD_RUNTIME:-runc}
+    # A restart starts a fresh tmpfs, which mints a new URL nobody has seen. Stay down instead.
+    restart: "no"
+    labels:
+      bitbang-docker.repo: ${BBD_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
+    healthcheck:
+      test: ["CMD-SHELL", "[ \"$$(cat /tmp/bitbang/health 2>/dev/null)\" = ok ]"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 1
+    volumes:
+      - type: bind
+        source: ${BBD_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
+        target: /workspace
+      - type: volume
+        source: home
+        target: /home/agent
+      - type: bind
+        source: ./config
+        target: /etc/bitbang-docker
+        read_only: true
+    # Secrets (API keys, GH_TOKEN, BITBANG_PIN) come only from this file. ${VAR} interpolation would
+    # let the host shell's exported keys win over .env and leak into a remotely reachable container.
+    env_file:
+      - path: ${BBD_ENV_FILE:-.env}
+        required: false
+    # Non-secret settings, which make and the smoke test may override from the shell.
+    environment:
+      BITBANG_MAX_SESSIONS: ${BITBANG_MAX_SESSIONS:-3}
+      BBD_WATCHDOG_INTERVAL: ${BBD_WATCHDOG_INTERVAL:-300}
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-}
+      GIT_COMMITTER_NAME: ${GIT_COMMITTER_NAME:-}
+      GIT_COMMITTER_EMAIL: ${GIT_COMMITTER_EMAIL:-}
+
+volumes:
+  home:
+    name: ${BBD_HOME_VOLUME:-bitbang-docker-home}
