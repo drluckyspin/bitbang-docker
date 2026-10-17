@@ -5,12 +5,12 @@
 #
 # Description: Waits for a workspace container's BitBang listener to register, then prints a QR code
 #              (rendered inside the container, so the host needs no qrencode) followed by the URL.
-#              Logs go to stderr; the QR code and URL go to stdout, so QR=0 leaves only the URL.
+#              Logs go to stderr; the QR code and URL go to stdout, so QR=false leaves only the URL.
 #
 # Usage: ./scripts/bitbang-url.bash <compose_project>
 #
 # Environment:
-#   QR       1 (default) prints the QR code; 0 prints only the URL
+#   QR       true (default) prints the QR code; false prints only the URL (no, off and 0 work too, in any case)
 #   TIMEOUT  Seconds to wait for the listener to register (default 90)
 # -----------------------------------------------------------------------------------------------------------
 
@@ -21,8 +21,13 @@ set -euo pipefail
 source "$(dirname "$0")/log.bash"
 
 PROJECT="${1:?usage: bitbang-url.bash <compose_project>}"
-QR="${QR:-1}"
 TIMEOUT="${TIMEOUT:-90}"
+
+# tr rather than ${QR,,}: macOS ships bash 3.2.
+case "$(printf '%s' "${QR:-true}" | tr '[:upper:]' '[:lower:]')" in
+  false | no | off | 0) SHOW_QR=false ;;
+  *) SHOW_QR=true ;;
+esac
 
 container_id() {
   docker ps -aq \
@@ -61,14 +66,14 @@ main() {
     fi
   done
 
-  if [ "$QR" != "0" ]; then
+  if [ "$SHOW_QR" = true ]; then
     echo ""
     docker exec "$cid" qrencode -t ANSIUTF8 -m 2 "$url"
     echo ""
   fi
   echo "$url"
 
-  if [ "$QR" != "0" ]; then
+  if [ "$SHOW_QR" = true ]; then
     echo "" >&2
     if docker exec "$cid" sh -c '[ -n "$BITBANG_PIN" ]'; then
       log_warning "This listener asks for the PIN from .env before opening a shell"

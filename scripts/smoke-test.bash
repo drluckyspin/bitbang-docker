@@ -77,7 +77,7 @@ main() {
   compose --progress quiet up -d
 
   local url
-  if ! url="$(QR=0 TIMEOUT=60 "$ROOT_DIR/scripts/bitbang-url.bash" "$PROJECT")"; then
+  if ! url="$(QR=false TIMEOUT=60 "$ROOT_DIR/scripts/bitbang-url.bash" "$PROJECT")"; then
     log_error "The listener never registered"
     exit 1
   fi

@@ -5,7 +5,7 @@
 #
 # Description: Colored, formatted console logging for bitbang-docker scripts, the Makefile, and the
 #              container entrypoint. All output goes to stderr so scripts can keep stdout for data
-#              (for example, `make url QR=0` prints only the URL).
+#              (for example, `make url QR=false` prints only the URL).
 #
 # Functions:
 #   get_terminal_width : Get current terminal width (max 120 chars, 80 when there is no TTY)

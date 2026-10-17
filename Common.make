@@ -31,7 +31,7 @@ SCRIPTS_DIR := $(COMMON_MAKEFILE_DIR)scripts
 
 IMAGE := bitbang-docker:latest
 HOME_VOLUME := $(or $(BBD_HOME_VOLUME),bitbang-docker-home)
-QR ?= 1
+QR ?= true
 
 DOCKER_COMPOSE := docker compose
 COMPOSE := $(DOCKER_COMPOSE) --project-directory "$(COMMON_MAKEFILE_DIR)" -f "$(COMMON_MAKEFILE_DIR)docker-compose.yml"
@@ -221,7 +221,7 @@ build: check_docker export_ca
 # Run targets
 # -----------------------------------------------------------------------------------------------------------
 
-.PHONY: run-detached ## Start a workspace for REPO and print its QR code and URL (QR=0 prints the URL only)
+.PHONY: run-detached ## Start a workspace for REPO and print its QR code and URL (QR=false prints the URL only)
 run-detached: check check_repo check_image
 	@$(LOGGER) log_separator
 	@$(LOGGER) log_info "Starting $(PROJECT) for $(REPO_PATH)"
@@ -242,7 +242,7 @@ run: run-detached
 	trap 'exit 130' INT TERM; \
 	docker logs -f --tail 0 "$(CONTAINER_ID)"
 
-.PHONY: url ## Print the QR code and URL of a workspace (QR=0 prints the URL only)
+.PHONY: url ## Print the QR code and URL of a workspace (QR=false prints the URL only)
 url: require_project
 	@QR=$(QR) $(SCRIPTS_DIR)/bitbang-url.bash $(PROJECT)
 

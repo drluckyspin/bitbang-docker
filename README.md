@@ -23,14 +23,14 @@ so the defaults work as they are.
 To leave the workspace running after you close the terminal, start it with `make run-detached REPO=~/src/my-repo`
 instead. Then use these targets:
 
-| Command                    | What it does                                                    |
-| -------------------------- | --------------------------------------------------------------- |
-| `make url`                 | Print the QR code and URL again (`QR=0` prints only the URL)    |
-| `make attach`              | Join the same tmux session from this terminal                   |
-| `make ping`                | List workspaces, their repos, and whether BitBang is registered |
-| `make logs`                | Follow the container log                                        |
-| `make down`                | Stop a workspace (all of them when `REPO` is not given)         |
-| `make clean` / `make help` | Remove the image and exported CAs / list every target           |
+| Command                    | What it does                                                     |
+| -------------------------- | ---------------------------------------------------------------- |
+| `make url`                 | Print the QR code and URL again (`QR=false` prints only the URL) |
+| `make attach`              | Join the same tmux session from this terminal                    |
+| `make ping`                | List workspaces, their repos, and whether BitBang is registered  |
+| `make logs`                | Follow the container log                                         |
+| `make down`                | Stop a workspace (all of them when `REPO` is not given)          |
+| `make clean` / `make help` | Remove the image and exported CAs / list every target            |
 
 Each repo gets its own workspace, named `bbd-<directory name>`, so several can run at once. When exactly one workspace
 exists, these targets find it without `REPO`. With more than one, pass `REPO=` to say which.
@@ -127,8 +127,8 @@ The container is built to limit what a shell, or an agent running in it, can rea
 Know these limits before you rely on it:
 
 - **The URL is the key.** The QR code and the URL each grant a shell to anyone who has them, until the workspace stops.
-  Treat them like a password. Set `BITBANG_PIN` for a second factor, and use `QR=0` when someone can see your screen.
-  The URL also appears in `docker logs`.
+  Treat them like a password. Set `BITBANG_PIN` for a second factor, and use `QR=false` when someone can see your
+  screen. The URL also appears in `docker logs`.
 - **Each workspace gets a new URL.** It stays the same while the container runs, including watchdog restarts. A fresh
   container (`make down` then `make run`, or a changed `.env`) gets a fresh URL, and the old one stops working.
 - **Network access is open.** The container can reach the internet and anything your host can reach, including your LAN
