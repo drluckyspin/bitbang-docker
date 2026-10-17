@@ -17,6 +17,9 @@ make build                       # build the image (bakes in a Zscaler root CA i
 make run REPO=~/src/my-repo      # start, print the QR code, follow logs; Ctrl+C stops it
 ```
 
+Without `REPO`, `make run` and `make run-detached` mount the directory you run them from, so
+`make -C ~/src/bitbang-docker run` inside a repo mounts that repo.
+
 The first `make` that needs it creates `.env` from `.env.example`, readable by you only. Everything in it is optional,
 so the defaults work as they are.
 
