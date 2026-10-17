@@ -102,7 +102,7 @@ main() {
   local tool
   for tool in "bitbang version" "claude --version" "codex --version" "gh --version" "git --version" \
     "node --version" "npm --version" "python3 --version" "uv --version" "tmux -V" "rg --version" \
-    "jq --version" "qrencode -V"; do
+    "jq --version" "make --version" "qrencode -V"; do
     check "$tool" "$tool"
   done
 

@@ -183,7 +183,7 @@ the cause.
 ```bash
 make lint      # dprint formatting check, shellcheck, docker-compose.yml validation
 make format    # apply dprint, shfmt and mbake formatting
-make test      # 37-check smoke test in a throwaway container (needs make build)
+make test      # 38-check smoke test in a throwaway container (needs make build)
 ```
 
 `make test` uses `.env.example` and its own home volume, so it never reads your `.env` or touches your logins.

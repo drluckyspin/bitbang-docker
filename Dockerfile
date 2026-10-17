@@ -33,7 +33,7 @@ RUN set -eux; \
   >/etc/apt/sources.list.d/github-cli.list; \
   apt-get update; \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-  gh git jq less procps python3 qrencode ripgrep tmux unzip vim-tiny; \
+  gh git jq less make procps python3 qrencode ripgrep tmux unzip vim-tiny; \
   rm -rf /var/lib/apt/lists/*
 
 COPY --from=uv /uv /uvx /usr/local/bin/
