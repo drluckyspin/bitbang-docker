@@ -52,8 +52,8 @@ status bar fills the gap with keys you tap:
 | `↑` `↓`       | Arrow keys, for menus and command history                                       |
 | `PgUp` `PgDn` | Page through the scrollback; paging back to the bottom returns to the live view |
 
-The row sits just above the keyboard and fits a 48-column phone screen. The laptop sees it too. To hide it, add
-`set -g status 1` to `~/.tmux.conf` in a workspace shell and run `tmux source ~/.tmux.conf`.
+The row sits just above the keyboard and fits a 48-column phone screen. The laptop sees it too. To hide it, set
+`BBD_KEY_BAR=0` in `.env`; `make run` or `make run-detached` then restarts the workspace without it.
 
 Long URLs and codes are hard to copy on a phone. To sign in to Claude Code or Codex, run `make attach` on your laptop
 and finish the login there. It is the same tmux session, and the login is saved for the phone too.
@@ -70,6 +70,7 @@ All settings live in `.env`. It is gitignored and should stay mode `600`; `make 
 | `BITBANG_PIN`           | `""`    | PIN that BitBang asks for before opening a shell                            |
 | `BITBANG_MAX_SESSIONS`  | `3`     | Maximum concurrent shells across all browsers                               |
 | `BBD_WATCHDOG_INTERVAL` | `300`   | Seconds between listener health probes; `0` turns the watchdog off          |
+| `BBD_KEY_BAR`           | `1`     | `1` shows the [phone key bar](#using-it-from-a-phone); `0` hides it         |
 | `BBD_MEMORY`            | `4g`    | Container memory limit                                                      |
 | `BBD_CPUS`              | `2`     | Container CPU limit                                                         |
 | `BBD_RUNTIME`           | `runc`  | Container runtime; `runsc` runs it under gVisor on Linux hosts that have it |
@@ -179,7 +180,7 @@ the cause.
 ```bash
 make lint      # dprint formatting check, shellcheck, docker-compose.yml validation
 make format    # apply dprint, shfmt and mbake formatting
-make test      # 36-check smoke test in a throwaway container (needs make build)
+make test      # 37-check smoke test in a throwaway container (needs make build)
 ```
 
 `make test` uses `.env.example` and its own home volume, so it never reads your `.env` or touches your logins.

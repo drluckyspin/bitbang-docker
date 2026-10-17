@@ -124,6 +124,10 @@ main() {
      tmux show-environment -g HOME | grep -qx HOME=/home/agent'
   in_container 'tmux kill-server' >/dev/null 2>&1 || true
 
+  check "BBD_KEY_BAR=0 hides the phone key bar" \
+    'BBD_KEY_BAR=0 tmux -L keybar-off new-session -d && [ "$(tmux -L keybar-off show -gv status)" = on ]
+     result=$?; tmux -L keybar-off kill-server; exit $result'
+
   local keybar_result
   if keybar_result="$(compose exec -T workspace python3 - <"$ROOT_DIR/scripts/keybar-test.py" 2>&1)"; then
     log_indent log_success "Phone key bar sends Esc, Ctrl-C, Tab, Shift-Tab and arrows, and pages the scrollback"
