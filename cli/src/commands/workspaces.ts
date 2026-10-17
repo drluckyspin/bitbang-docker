@@ -1,6 +1,6 @@
 /** bbd qr, ls, attach, logs and stop: working with workspaces that already exist. */
 import { resolveRoot } from "../config.ts";
-import { agents, mainPane } from "../handoff.ts";
+import { agents, defaultAgent, linkTarget, mainPane } from "../handoff.ts";
 import { redact, type View } from "../link.ts";
 import { type LinkOptions, showLink } from "../present.ts";
 import { inherit } from "../proc.ts";
@@ -12,8 +12,11 @@ export async function qr(options: LinkOptions & { path?: string; open?: View; pa
   const workspace = await findWorkspace(options.path);
   requireRunning(workspace);
   const url = await waitForListener(workspace);
-  const pane = options.pane ?? (workspace.ui === "web" ? (await mainPane(workspace))?.pane_id : undefined);
-  const view = options.open ?? "terminal";
+  let pane = options.pane;
+  let view: View = options.open ?? "terminal";
+  if (workspace.ui === "web" && pane === undefined) {
+    ({ pane, view } = linkTarget(await defaultAgent(workspace), (await mainPane(workspace))?.pane_id, options.open));
+  }
   const shown = await showLink(workspace, url, { pane, view }, options);
   return { project: workspace.project, repo: workspace.repo, ui: workspace.ui, ...(pane ? { pane, view } : {}), ...shown };
 }

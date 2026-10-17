@@ -106,7 +106,7 @@ endif
 # starts with '##'.
 # -----------------------------------------------------------------------------------------------------------
 
-.PHONY: help build cli install-cli check run run-detached url attach ping logs down clean clean-home
+.PHONY: help build cli install-cli check run run-detached url login attach ping logs down clean clean-home
 .PHONY: test unit e2e lint format format-check
 .PHONY: check_docker check_env check_env_perms check_image require_repo export_ca
 .PHONY: check_dprint check_shfmt check_mbake check_shellcheck check_formatters
@@ -252,6 +252,10 @@ run: run-detached
 .PHONY: url ## Show a fresh QR code and pairing link for a workspace (QR=false prints the link only)
 url: $(BBD)
 	@$(BBD_RUN) qr $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)") $(BBD_QR_FLAG)
+
+.PHONY: login ## Sign Claude Code (or AGENT=codex) in, in the container, once for every workspace
+login: $(BBD)
+	@$(BBD_RUN) login $(filter claude codex,$(AGENT)) $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
 
 .PHONY: attach ## Open the workspace's Herdr terminal UI (or tmux session, in the shell mode) here
 attach: $(BBD)

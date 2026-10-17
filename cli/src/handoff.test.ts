@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { type ContainerFile, groupSessions, pullable } from "./handoff.ts";
+import { type ContainerFile, groupSessions, linkTarget, parseDefaultAgent, pullable } from "./handoff.ts";
 import { claudeProjectDir } from "./sessions.ts";
 
 const REPO = "/Users/me/src/app";
@@ -66,4 +66,24 @@ test("pullable accepts only plain paths in the agent's folders for the repo", ()
   expect(pullable("codex", `${rollout(CODEX_A)}.zst`, REPO)).toBe(true);
   expect(pullable("codex", "auth.json", REPO)).toBe(false);
   expect(pullable("codex", "sessions/../auth.json", REPO)).toBe(false);
+});
+
+test("parseDefaultAgent keeps only the states, agents and pane ids it knows", () => {
+  expect(parseDefaultAgent('{"state":"running","configured":"auto","agent":"claude","pane":"w1:p2"}')).toEqual({
+    state: "running",
+    agent: "claude",
+    pane: "w1:p2",
+  });
+  expect(parseDefaultAgent('{"state":"waiting","configured":"auto","agent":null,"pane":null}')).toEqual({ state: "waiting" });
+  expect(parseDefaultAgent('{"state":"done","agent":"hermes","pane":"w1:p2 --x"}')).toEqual({ state: "off" });
+  expect(parseDefaultAgent("null")).toEqual({ state: "off" });
+  expect(parseDefaultAgent("")).toEqual({ state: "off" });
+});
+
+test("linkTarget opens the running default agent's chat, else the repo's terminal", () => {
+  const running = { state: "running", agent: "claude", pane: "w1:p2" } as const;
+  expect(linkTarget(running, "w1:p1")).toEqual({ pane: "w1:p2", view: "chat" });
+  expect(linkTarget(running, "w1:p1", "terminal")).toEqual({ pane: "w1:p2", view: "terminal" });
+  expect(linkTarget({ state: "waiting" }, "w1:p1")).toEqual({ pane: "w1:p1", view: "terminal" });
+  expect(linkTarget({ state: "starting", agent: "codex" }, undefined)).toEqual({ pane: undefined, view: "terminal" });
 });

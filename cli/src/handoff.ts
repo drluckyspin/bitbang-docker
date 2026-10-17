@@ -6,6 +6,7 @@
 import { CryptoHasher } from "bun";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { View } from "./link.ts";
 import { capture, outputBytes } from "./proc.ts";
 import { type AgentKind, claudeProjectDir, CONTAINER_STORES, isSessionId, type Session, type Stores, within } from "./sessions.ts";
 import { hasControl, UserError } from "./ui.ts";
@@ -35,15 +36,62 @@ export async function copyIn(workspace: Workspace, session: Session, stores: Sto
   }
 }
 
-/** Whether the container's agent CLI can run without stopping at a first-run or login screen. */
+/** Whether the container's agent CLI is signed in. Its first-run questions are answered when the container starts. */
 export async function agentReady(workspace: Workspace, agent: AgentKind): Promise<{ ok: boolean; reason?: string }> {
-  const script = agent === "claude"
-    ? '[ -n "$ANTHROPIC_API_KEY" ] || [ -f ~/.claude/.credentials.json ] || exit 3; jq -e ".hasCompletedOnboarding == true" ~/.claude.json >/dev/null 2>&1 || exit 4'
-    : '[ -n "$OPENAI_API_KEY" ] || [ -f ~/.codex/auth.json ] || exit 3';
-  const result = await capture(["docker", "exec", workspace.id, "bash", "-c", script]);
-  if (result.code === 3) return { ok: false, reason: "it is not logged in yet" };
-  if (result.code === 4) return { ok: false, reason: "its first-run setup has not been finished yet" };
-  return { ok: result.code === 0 };
+  const result = await capture(["docker", "exec", workspace.id, "bitbang-docker-agent", "ready", agent]);
+  if (result.code === 0) return { ok: true };
+  if (result.code === 3) return { ok: false, reason: "it is not signed in yet" };
+  if (result.code === 127) return { ok: false, reason: "the image is older than bbd; rebuild it with make build" };
+  return { ok: false, reason: "bbd could not check its sign-in" };
+}
+
+/** The web mode's default agent, as the container's bitbang-docker-agent watch records it. */
+export interface DefaultAgent {
+  state: "off" | "waiting" | "starting" | "running" | "failed";
+  /** the agent started, being started, or (when BBD_DEFAULT_AGENT names one) awaiting a sign-in */
+  agent?: AgentKind;
+  pane?: string;
+}
+
+const DEFAULT_AGENT_STATES: readonly DefaultAgent["state"][] = ["off", "waiting", "starting", "running", "failed"];
+
+export function parseDefaultAgent(text: string): DefaultAgent {
+  let parsed: { state?: unknown; agent?: unknown; pane?: unknown } | null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { state: "off" };
+  }
+  if (typeof parsed !== "object" || parsed === null) return { state: "off" };
+  const state = DEFAULT_AGENT_STATES.find((one) => one === parsed.state) ?? "off";
+  const agent = parsed.agent === "claude" || parsed.agent === "codex" ? parsed.agent : undefined;
+  const pane = typeof parsed.pane === "string" && /^[\w:-]+$/.test(parsed.pane) ? parsed.pane : undefined;
+  return { state, ...(agent ? { agent } : {}), ...(pane ? { pane } : {}) };
+}
+
+export async function defaultAgent(workspace: Workspace): Promise<DefaultAgent> {
+  const result = await capture(["docker", "exec", workspace.id, "bitbang-docker-agent", "status"]);
+  return result.code === 0 ? parseDefaultAgent(result.stdout) : { state: "off" };
+}
+
+/**
+ * The default agent once it has stopped starting, waiting up to `timeoutMs`. After a sign-in, `signedIn` also
+ * waits out the watcher noticing it (it looks every few seconds).
+ */
+export async function settledDefaultAgent(workspace: Workspace, options: { timeoutMs?: number; signedIn?: boolean } = {}): Promise<DefaultAgent> {
+  const deadline = Date.now() + (options.timeoutMs ?? 90_000);
+  let current = await defaultAgent(workspace);
+  while (Date.now() < deadline && (current.state === "starting" || (options.signedIn === true && current.state === "waiting"))) {
+    await Bun.sleep(1000);
+    current = await defaultAgent(workspace);
+  }
+  return current;
+}
+
+/** Where the phone's link opens: the default agent's chat once it runs, else the repo's own terminal. */
+export function linkTarget(agent: DefaultAgent, mainPane: string | undefined, open?: View): { pane?: string; view: View } {
+  if (agent.state === "running" && agent.pane) return { pane: agent.pane, view: open ?? "chat" };
+  return { pane: mainPane, view: open ?? "terminal" };
 }
 
 export async function panes(workspace: Workspace): Promise<Pane[]> {
@@ -86,23 +134,14 @@ export async function startAgent(
     "--focus",
   ]);
   const pane = tab.root_pane.pane_id;
-  const started = await capture([
-    "docker",
-    "exec",
-    workspace.id,
-    "herdr",
-    "agent",
-    "start",
-    name,
-    "--kind",
-    agent,
-    "--pane",
-    pane,
-    "--timeout",
-    "90000",
-    "--",
-    ...args,
-  ]);
+  const command = ["docker", "exec", workspace.id, "herdr", "agent", "start", name, "--kind", agent, "--pane", pane, "--timeout", "90000", "--", ...args];
+  // a new tab's shell may not have reached its prompt yet
+  const deadline = Date.now() + 15_000;
+  let started = await capture(command);
+  while (`${started.stdout}${started.stderr}`.includes("agent_pane_busy") && Date.now() < deadline) {
+    await Bun.sleep(500);
+    started = await capture(command);
+  }
   let ready = started.code === 0;
   try {
     ready = ready && !JSON.parse(started.stdout).error;

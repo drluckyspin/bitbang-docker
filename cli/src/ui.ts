@@ -44,10 +44,10 @@ export class UserError extends Error {
   }
 }
 
-/** Asks a yes/no question on the terminal; false without one. */
-export async function confirm(question: string): Promise<boolean> {
+/** Asks a yes/no question on the terminal, where an empty answer is `yes`; false without a terminal. */
+export async function confirm(question: string, yes = false): Promise<boolean> {
   if (process.stdin.isTTY !== true || process.stderr.isTTY !== true) return false;
-  process.stderr.write(paint("97", ` ${question} [y/N] `));
-  for await (const line of console) return /^y(es)?$/i.test(line.trim());
+  process.stderr.write(paint("97", ` ${question} ${yes ? "[Y/n]" : "[y/N]"} `));
+  for await (const line of console) return line.trim() === "" ? yes : /^y(es)?$/i.test(line.trim());
   return false;
 }

@@ -6,10 +6,10 @@ import { copyFileSync, mkdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { resolveRoot } from "../config.ts";
 import { checkEnv } from "../env.ts";
-import { agentReady, copyIn, mainPane, prompt, requireWeb, startAgent } from "../handoff.ts";
+import { agentReady, copyIn, linkTarget, mainPane, prompt, requireWeb, settledDefaultAgent, startAgent } from "../handoff.ts";
 import { keepAwake, onBattery } from "../host.ts";
 import type { View } from "../link.ts";
-import { type LinkOptions, showLink } from "../present.ts";
+import { interactive, type LinkOptions, showLink } from "../present.ts";
 import { capture, inherit } from "../proc.ts";
 import {
   AGENT_NAMES,
@@ -36,6 +36,7 @@ import {
   waitForListener,
   type Workspace,
 } from "../workspace.ts";
+import { signIn } from "./login.ts";
 
 export interface StartOptions extends LinkOptions {
   path?: string;
@@ -81,7 +82,16 @@ async function sessionToHand(ref: SessionRef, repo: string, fork: boolean): Prom
   return session;
 }
 
-async function bringUp(root: string, repo: string, project: string): Promise<Workspace> {
+/** Offers, on a terminal, to sign an agent in now; true once it is. The caller says what to do otherwise. */
+async function offerSignIn(workspace: Workspace, agent: AgentKind, options: LinkOptions): Promise<boolean> {
+  if (!interactive(options) || !(await confirm(`Sign in to ${AGENT_NAMES[agent]} now?`, true))) return false;
+  if (await signIn(workspace, agent)) return true;
+  ui.warn(`${AGENT_NAMES[agent]} is not signed in.`);
+  return false;
+}
+
+/** With `handingOff`, the container starts no default agent: bbd starts the one asked for. */
+async function bringUp(root: string, repo: string, project: string, handingOff: boolean): Promise<Workspace> {
   const existing = (await listWorkspaces()).find((workspace) => workspace.project === project);
   if (existing && existing.repo !== repo) {
     throw new UserError(`${project} already serves ${existing.repo}`, `Stop it first: bbd stop ${existing.repo}`);
@@ -99,6 +109,7 @@ async function bringUp(root: string, repo: string, project: string): Promise<Wor
     GIT_AUTHOR_EMAIL: email,
     GIT_COMMITTER_NAME: name,
     GIT_COMMITTER_EMAIL: email,
+    ...(handingOff ? { BBD_DEFAULT_AGENT: "none" } : {}),
   };
   await ensureHomeVolume(root, project, env);
   const code = await inherit([...compose(root, project), "up", "-d"], { stdoutToStderr: true, env });
@@ -143,7 +154,7 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
   if (!isGit) ui.warn(`${repo} is not a git repository; mounting it anyway`);
 
   const project = projectName(repo);
-  const workspace = await bringUp(root, repo, project);
+  const workspace = await bringUp(root, repo, project, agent !== undefined);
   const url = await waitForListener(workspace);
   ui.success(`${project} is running; its BitBang listener is registered`);
 
@@ -159,12 +170,14 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
 
   let pane: string | undefined;
   let agentName: string | undefined;
-  const view: View = options.open ?? (agent ? "chat" : "terminal");
+  let defaultState: string | undefined;
+  let view: View = options.open ?? (agent ? "chat" : "terminal");
   if (agent) {
     requireWeb(workspace, "Starting an agent");
     const ready = await agentReady(workspace, agent);
     if (!ready.ok) {
-      ui.warn(`${AGENT_NAMES[agent]} cannot work in the container yet: ${ready.reason}. Finish that in its terminal view on the phone, or with bbd attach.`);
+      ui.warn(`${AGENT_NAMES[agent]} cannot work in the container yet: ${ready.reason}.`);
+      if (!(await offerSignIn(workspace, agent, options))) ui.dim(`It opens signed out; sign it in with: bbd login ${agent}`);
     }
     if (options.brief) placeBrief(repo, options.brief);
     if (session) {
@@ -184,7 +197,22 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
       ui.warn(`${AGENT_NAMES[agent]} was started in the ${started.name} tab but is not ready for input yet; open its terminal view to see why.`);
     }
   } else if (workspace.ui === "web") {
-    pane = (await mainPane(workspace))?.pane_id;
+    let current = await settledDefaultAgent(workspace);
+    if (current.state === "waiting") {
+      const awaited = current.agent ?? "claude";
+      ui.warn("No agent is signed in in the container yet, so the phone's Chat has none to talk to.");
+      if (await offerSignIn(workspace, awaited, options)) current = await settledDefaultAgent(workspace, { signedIn: true });
+      if (current.state === "waiting") ui.dim("Sign in once with make login (or bbd login); the agent then starts on its own.");
+    }
+    if (current.state === "running" && current.agent) {
+      ui.success(`${AGENT_NAMES[current.agent]} is ready in its own tab; the link opens its chat`);
+    } else if (current.state === "failed") {
+      ui.warn("The default agent did not start; open its tab on the phone to see why.");
+    }
+    const target = linkTarget(current, (await mainPane(workspace))?.pane_id, options.open);
+    pane = target.pane;
+    view = target.view;
+    defaultState = current.state;
   }
 
   const shown = await showLink(workspace, url, { pane, view }, options);
@@ -193,6 +221,7 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
     repo,
     ui: workspace.ui,
     ...(agentName ? { agent: agentName, kind: agent } : {}),
+    ...(defaultState ? { default_agent: defaultState } : {}),
     ...(ref ? { session: `${ref.agent}:${ref.id}`, fork: options.fork } : {}),
     ...(pane ? { pane, view } : {}),
     ...shown,

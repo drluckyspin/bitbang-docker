@@ -222,5 +222,6 @@ export async function waitForListener(workspace: Workspace, timeoutMs = 120_000)
 
 export async function attach(workspace: Workspace, command: string[]): Promise<number> {
   const tty = process.stdin.isTTY === true ? ["-it"] : ["-i"];
-  return inherit(["docker", "exec", ...tty, workspace.id, ...command]);
+  // Docker follows a failed command with an advert for Docker Debug unless its hints are off.
+  return inherit(["docker", "exec", ...tty, workspace.id, ...command], { env: { DOCKER_CLI_HINTS: "false" } });
 }

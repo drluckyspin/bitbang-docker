@@ -3,6 +3,7 @@
 import { parseArgs, type ParseArgsConfig } from "node:util";
 import pkg from "../../package.json" with { type: "json" };
 import { doctor } from "./commands/doctor.ts";
+import { login } from "./commands/login.ts";
 import { saveRoot } from "./config.ts";
 import { pull, sessions } from "./commands/sessions.ts";
 import { installSkill } from "./commands/skill.ts";
@@ -23,6 +24,9 @@ Commands:
       --fork                  Continue a copy of it, so the laptop's can carry on too
       --brief <file>          Give the agent a handoff brief (copied to .bbd/handoff.md in the repo)
       --open chat|terminal    What the phone opens (default: chat with an agent, else the terminal)
+  login [claude|codex] [path]
+                          Sign Claude Code (default) or Codex in, in the container, once for every workspace;
+                          each one's default agent then starts on its own
   qr [path]               Show a fresh QR code for a workspace (--open, --pane <id>)
   ls                      List workspaces, their health and their agents
   sessions [path]         List Claude Code and Codex sessions on this computer that ran in a repo
@@ -126,6 +130,13 @@ async function main(argv: string[]): Promise<number> {
         window: values["no-window"] !== true,
       });
       if (values.json) print(result);
+      return 0;
+    }
+    case "login": {
+      const { values, positionals } = parse(rest, {});
+      if (values.help) break;
+      const agent = positionals.find((value): value is AgentKind => value === "claude" || value === "codex");
+      await login({ path: atMostOnePath(positionals.filter((value) => value !== agent)), agent });
       return 0;
     }
     case "ls": {
