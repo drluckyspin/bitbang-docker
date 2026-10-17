@@ -170,6 +170,19 @@ web_checks() {
      grep -qx "version_check = false" "$HERDR_CONFIG_PATH" && grep -qx "manifest_check = false" "$HERDR_CONFIG_PATH"'
   check "Herdr learns Claude and Codex session IDs" \
     'jq -e .hooks.SessionStart ~/.claude/settings.json | grep -q herdr && grep -q herdr ~/.codex/hooks.json'
+  check "The repo's pane runs bash, which takes the web UI's bracketed paste" \
+    'pane="$(herdr pane list | jq -r --arg repo "$BBD_REPO" '\''first(.result.panes[] | select(.cwd == $repo)) | .pane_id'\'')" &&
+     pid="$(herdr pane process-info --pane "$pane" | jq -r .result.process_info.shell_pid)" &&
+     [ "$(cat "/proc/${pid}/comm")" = bash ]'
+  check "Claude Code's and Codex's first-run questions are answered for the repo" \
+    'jq -e --arg repo "$BBD_REPO" '\''.hasCompletedOnboarding and .projects[$repo].hasTrustDialogAccepted'\'' ~/.claude.json &&
+     grep -qxF "[projects.\"${BBD_REPO}\"]" ~/.codex/config.toml && grep -q "^trusted_hash = \"sha256:" ~/.codex/config.toml'
+  check "Codex runs without its own sandbox, which cannot work in a container" \
+    'cd "$BBD_REPO" && codex debug prompt-input hi 2>/dev/null | grep -qF "\`sandbox_mode\` is \`danger-full-access\`"'
+  check "With no agent signed in, the default agent waits and the repo's terminal says how to sign in" \
+    'bitbang-docker-agent status | jq -e '\''.state == "waiting"'\'' &&
+     pane="$(herdr pane list | jq -r --arg repo "$BBD_REPO" '\''first(.result.panes[] | select(.cwd == $repo)) | .pane_id'\'')" &&
+     herdr pane read "$pane" | grep -qF "make login"'
   check "The ingress lets only a same-origin page frame the app, and keeps its policy in the page" \
     'curl -fsS -D /tmp/smoke-headers -o /tmp/smoke-page.html http://127.0.0.1:7300/ &&
      tr -d "\r" </tmp/smoke-headers | grep -qix "content-security-policy: frame-ancestors '\''self'\''" &&

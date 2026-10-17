@@ -6,17 +6,24 @@
 //
 // BBD_E2E_COMMAND is typed into the terminal and BBD_E2E_EXPECT must then appear in it. The caller checks
 // in the container that the command really ran in the pane.
-import { readFileSync } from "node:fs";
+//
+// With /secrets/chat (the URL deep-linked to an agent's chat, no pairing code: the phone is paired by then),
+// BBD_E2E_CHAT_MESSAGE is sent from the chat's composer and BBD_E2E_CHAT_EXPECT must come back as the
+// agent's turn.
+import { existsSync, readFileSync } from "node:fs";
 import { chromium, devices } from "playwright";
 
 const url = readFileSync("/secrets/url", "utf8").trim();
 const link = readFileSync("/secrets/link", "utf8").trim();
+const chatLink = existsSync("/secrets/chat") ? readFileSync("/secrets/chat", "utf8").trim() : "";
 const command = process.env.BBD_E2E_COMMAND ?? "";
 const expected = process.env.BBD_E2E_EXPECT ?? "";
+const chatMessage = process.env.BBD_E2E_CHAT_MESSAGE ?? "";
+const chatExpected = process.env.BBD_E2E_CHAT_EXPECT ?? "";
 const timeout = Number(process.env.BBD_E2E_TIMEOUT_MS ?? 120_000);
 const shots = process.env.BBD_E2E_SCREENSHOTS ?? "";
 
-const secrets = [link, url, ...[...link.matchAll(/pair=(\d+)/g)].map((match) => match[1])];
+const secrets = [link, chatLink, url, ...[...link.matchAll(/pair=(\d+)/g)].map((match) => match[1])];
 function redact(text) {
   let out = String(text);
   for (const secret of secrets) if (secret) out = out.replaceAll(secret, "<redacted>");
@@ -137,6 +144,23 @@ try {
   await frame.locator(".xterm, [data-testid=token-gate]").first().waitFor({ timeout });
   results.reloadStaysPaired = (await frame.locator("[data-testid=token-gate]").count()) === 0;
   await shot(page, "4-reloaded");
+
+  // The agent's chat: what the phone's Chat button opens.
+  if (chatLink && chatMessage) {
+    await page.goto(chatLink, { waitUntil: "domcontentloaded", timeout });
+    // Until the chat's socket is up, the composer's placeholder says it is reconnecting.
+    const composer = frame.locator("textarea.composer-text:not([placeholder^='Reconnecting'])");
+    await composer.waitFor({ timeout });
+    results.chatReady = (await frame.locator("[data-testid=token-gate]").count()) === 0;
+    await shot(page, "5-chat");
+    await composer.fill(chatMessage);
+    await frame.locator("button.composer-send").click();
+    if (chatExpected) {
+      await frame.locator("article.chat-turn-agent", { hasText: chatExpected }).first().waitFor({ timeout });
+      results.chatReplied = true;
+    }
+    await shot(page, "6-chat-reply");
+  }
   await context.close();
 } catch (error) {
   problems.push(`failed: ${redact(error.message).split("\n")[0]}`);
@@ -150,6 +174,8 @@ try {
 
 const required = ["unpairedSeesGate", "pairedSeesTerminal", "pairCodeLeftAddress", "terminalReady", "reloadStaysPaired"];
 if (expected) required.push("outputSeen");
+if (chatLink && chatMessage) required.push("chatReady");
+if (chatLink && chatMessage && chatExpected) required.push("chatReplied");
 const ok = required.every((key) => results[key] === true) && problems.length === 0;
 console.log(JSON.stringify({
   ok,
