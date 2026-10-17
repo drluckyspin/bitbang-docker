@@ -24,10 +24,9 @@ The first run also builds `bbd`, the command-line tool behind the `make` targets
 It creates `.env` from `.env.example`, readable by you only. Everything in it is optional, so the defaults work as they
 are.
 
-**Upgrading from an earlier version?** `.env.example` has new keys (`BBD_UI` and the `BBD_NTFY_*` alert settings). The
-first run offers to write `.env.new`, your `.env` with the new keys added, for you to move into place. The merge prints
-the values already in `.env`, API keys included, so run it where nobody can see your screen, or copy the new keys across
-by hand.
+**Upgrading from an earlier version?** `.env.example` has new keys (`BBD_UI`, `BBD_DEFAULT_AGENT` and the `BBD_NTFY_*`
+alert settings). The first run offers to write `.env.new`, your `.env` with the new keys added, for you to move into
+place. It preserves existing values without printing them.
 
 To leave the workspace running after you close the terminal, start it with `make run-detached REPO=~/src/my-repo`
 instead. Then use these targets:
@@ -55,7 +54,8 @@ exists, these targets find it without `REPO`. With more than one, pass `REPO=` t
 
 In the web mode, the container runs a Herdr server, herdr-web-ui, and `bbd-ingress`, a small adapter that lets the app
 run inside BitBang's page. Each agent runs in its own Herdr tab, so the laptop (`make attach`) and every paired phone
-see the same agents.
+see the same agents. `BBD_DEFAULT_AGENT=auto` starts an authenticated Claude Code agent, or Codex when Claude is not
+ready. With neither signed in, the initial terminal explains how to sign in; restart the workspace afterward.
 
 ## The bbd command
 
@@ -153,6 +153,7 @@ not.
 | `OPENAI_API_KEY`        | `""`              | API key for Codex. Leave empty to sign in with a subscription instead       |
 | `GH_TOKEN`              | `""`              | Fine-grained GitHub token for `git push` and `gh` (see below)               |
 | `BBD_UI`                | `web`             | [What the QR code opens](#two-modes): `web` or `shell`                      |
+| `BBD_DEFAULT_AGENT`     | `auto`            | Web mode: `auto`, `claude`, `codex`, or `none`                              |
 | `BITBANG_PIN`           | `""`              | PIN that BitBang asks for before connecting                                 |
 | `BITBANG_MAX_SESSIONS`  | `3`               | Maximum concurrent shells across all browsers, in the shell mode            |
 | `BBD_WATCHDOG_INTERVAL` | `300`             | Seconds between listener health probes; `0` turns the watchdog off          |

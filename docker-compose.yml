@@ -51,6 +51,7 @@ services:
       # One Herdr session per workspace: they share the home volume, and must not share a server.
       HERDR_SESSION: ${COMPOSE_PROJECT_NAME}
       BBD_UI: ${BBD_UI:-web}
+      BBD_DEFAULT_AGENT: ${BBD_DEFAULT_AGENT:-auto}
       BITBANG_MAX_SESSIONS: ${BITBANG_MAX_SESSIONS:-3}
       BBD_WATCHDOG_INTERVAL: ${BBD_WATCHDOG_INTERVAL:-300}
       GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-}
