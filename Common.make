@@ -284,7 +284,7 @@ ping: check_docker
 	done
 
 .PHONY: down ## Stop REPO's workspace, or every workspace when REPO is not given (keeps the home volume)
-down: check_docker
+down: check_docker check_project_repo
 	@projects="$(if $(REPO_EXPANDED),$(PROJECT),$(WORKSPACE_PROJECTS))"; \
 	if [ -z "$$projects" ]; then \
 		$(LOGGER) log_info_dim "No workspaces to stop."; \

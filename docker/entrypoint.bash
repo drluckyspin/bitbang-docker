@@ -72,6 +72,15 @@ check_workspace() {
 #              locally, in .git/info/exclude, so they never show up as changes.
 # -----------------------------------------------------------------------------------------------------------
 configure_git() {
+  local lock="${HOME}/.config/bitbang-docker/git-config.lock"
+  mkdir -p "$(dirname "$lock")"
+  (
+    flock -x 9
+    configure_git_locked
+  ) 9>"$lock"
+}
+
+configure_git_locked() {
   local dir pattern exclude="${REPO}/.git/info/exclude"
 
   for dir in "$REPO" /workspace; do
@@ -229,7 +238,7 @@ build_listener_args() {
   if [ -n "${BITBANG_PIN:-}" ]; then
     LISTENER_ARGS+=(-pin "$BITBANG_PIN")
   fi
-  if [ -s "$ICE_SERVERS_FILE" ]; then
+  if [ -e "$ICE_SERVERS_FILE" ]; then
     LISTENER_ARGS+=(-ice-servers "$ICE_SERVERS_FILE")
     log_info "Using TURN/STUN servers from config/ice-servers.json"
   fi
