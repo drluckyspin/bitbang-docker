@@ -123,6 +123,9 @@ COPY docker/session.bash /usr/local/bin/bitbang-docker-session
 COPY docker/herdr.bash /usr/local/bin/bitbang-docker-herdr
 COPY docker/attach.bash /usr/local/bin/bitbang-docker-attach
 COPY docker/pair.bash /usr/local/bin/bitbang-docker-pair
+COPY docker/agent.bash /usr/local/bin/bitbang-docker-agent
+COPY docker/bashrc /usr/local/share/bitbang-docker/bashrc
+RUN printf '\n. /usr/local/share/bitbang-docker/bashrc\n' >>/etc/bash.bashrc
 
 # Read by bbd doctor and the session handoff, which warn when the laptop's agent CLIs differ.
 LABEL bitbang-docker.version.bitbang="${BITBANG_VERSION}" \

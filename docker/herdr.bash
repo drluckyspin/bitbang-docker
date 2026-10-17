@@ -14,7 +14,7 @@ set -euo pipefail
 
 # compose passes unset .env values as empty strings, and an empty ANTHROPIC_API_KEY would override a
 # subscription login.
-for var in ANTHROPIC_API_KEY OPENAI_API_KEY GH_TOKEN \
+for var in ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN OPENAI_API_KEY GH_TOKEN \
   GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL; do
   if [ -z "${!var:-}" ]; then
     unset "$var"
@@ -23,5 +23,8 @@ done
 unset BITBANG_PIN BITBANG_MAX_SESSIONS BBD_WATCHDOG_INTERVAL BBD_NTFY_TOPIC BBD_NTFY_SERVER BBD_NTFY_TOKEN
 
 export HOME=/home/agent
+# Herdr opens panes in $SHELL, and Docker sets none: /bin/sh has no line editing and types out the
+# bracketed paste the web UI's chat sends.
+export SHELL=/bin/bash
 cd "${BBD_REPO:-/workspace}"
 exec herdr "$@"

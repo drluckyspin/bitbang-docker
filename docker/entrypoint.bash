@@ -157,6 +157,7 @@ wait_for() {
 #              workspaces sharing the home volume never share a server), install the agent integrations
 #              that report session IDs, and make sure the repo has a Herdr workspace. A restored session
 #              brings its old workspaces back, so one is created only when none points at the repo.
+#              The agents' first-run questions are answered before the server restores any agent.
 # -----------------------------------------------------------------------------------------------------------
 start_herdr() {
   local agent
@@ -165,6 +166,7 @@ start_herdr() {
   for agent in claude codex; do
     herdr integration install "$agent" >/dev/null 2>&1 || log_warning "Could not install Herdr's ${agent} integration"
   done
+  bitbang-docker-agent prepare
 
   # Herdr writes its own log in the session directory; what it prints is a banner, kept out of docker logs.
   start_service herdr bash -c "exec bitbang-docker-herdr server >>'${RUNTIME_DIR}/herdr-server.out' 2>&1"
@@ -178,85 +180,14 @@ start_herdr() {
 }
 
 # -----------------------------------------------------------------------------------------------------------
-# Function: agent_ready
-# Description: Mirrors bbd's readiness check. Claude needs its first-run setup as well as credentials; Codex
-#              can start as soon as it has an API key or its saved device-login token.
-# -----------------------------------------------------------------------------------------------------------
-agent_ready() {
-  case "$1" in
-    claude)
-      { [ -n "${ANTHROPIC_API_KEY:-}" ] || [ -f "${HOME}/.claude/.credentials.json" ]; } &&
-        jq -e '.hasCompletedOnboarding == true' "${HOME}/.claude.json" >/dev/null 2>&1
-      ;;
-    codex) [ -n "${OPENAI_API_KEY:-}" ] || [ -f "${HOME}/.codex/auth.json" ] ;;
-    *) return 1 ;;
-  esac
-}
-
-# -----------------------------------------------------------------------------------------------------------
-# Function: default_agent_message
-# Description: The web UI's Chat view submits to its selected pane. Put the reason no agent exists in that
-#              terminal rather than letting a phone user discover it only after their message reaches the shell.
-# -----------------------------------------------------------------------------------------------------------
-default_agent_message() {
-  local pane
-  pane="$(herdr pane list | jq -r --arg repo "$REPO" \
-    '[.result.panes[]? | select(.cwd == $repo or (.cwd // "" | startswith($repo + "/")))] | first.pane_id // empty')"
-  [ -n "$pane" ] || return
-  herdr pane run "$pane" printf '%s\n' \
-    'No default agent started. Sign in with claude auth login or codex login --device-auth, then restart this workspace.' \
-    >/dev/null 2>&1 || true
-}
-
-# -----------------------------------------------------------------------------------------------------------
 # Function: start_default_agent
-# Description: Start the first authenticated configured agent in its own Herdr tab. `auto` prefers Claude,
-#              then Codex; `none` deliberately leaves the initial terminal alone.
+# Description: In the background, start the default agent (BBD_DEFAULT_AGENT) in its own Herdr tab once
+#              one is signed in, so the phone's Chat has an agent to talk to and the sign-in needs no restart.
+#              Its state is in /tmp/bbd/agent.json (bitbang-docker-agent status).
 # -----------------------------------------------------------------------------------------------------------
 start_default_agent() {
-  local configured agent workspace tab pane
-  configured="$(printf '%s' "${BBD_DEFAULT_AGENT:-auto}" | tr '[:upper:]' '[:lower:]')"
-  case "$configured" in
-    none) return ;;
-    auto)
-      if agent_ready claude; then
-        agent=claude
-      elif agent_ready codex; then
-        agent=codex
-      else
-        log_warning "No default agent started; sign in with claude auth login or codex login --device-auth, then restart."
-        default_agent_message
-        return
-      fi
-      ;;
-    claude | codex)
-      agent="$configured"
-      if ! agent_ready "$agent"; then
-        log_warning "Configured default agent ${agent} is not ready; sign in to it, then restart."
-        default_agent_message
-        return
-      fi
-      ;;
-    *)
-      log_warning "Ignoring BBD_DEFAULT_AGENT=${BBD_DEFAULT_AGENT}; use auto, claude, codex or none."
-      default_agent_message
-      return
-      ;;
-  esac
-
-  workspace="$(herdr pane list | jq -r --arg repo "$REPO" \
-    '[.result.panes[]? | select(.cwd == $repo or (.cwd // "" | startswith($repo + "/")))] | first.workspace_id // empty')"
-  if [ -z "$workspace" ]; then
-    log_warning "Could not find the repo's Herdr workspace to start ${agent}"
-    return
-  fi
-  tab="$(herdr tab create --workspace "$workspace" --cwd "$REPO" --label "$agent" --focus)"
-  pane="$(printf '%s' "$tab" | jq -r '.result.root_pane.pane_id // empty')"
-  if [ -z "$pane" ] || ! herdr agent start "$agent" --kind "$agent" --pane "$pane" --timeout 90000 -- >/dev/null; then
-    log_warning "Could not start the default ${agent} agent; open its terminal tab to see why."
-    return
-  fi
-  log_success "Started the default ${agent} agent in its own Herdr tab"
+  bitbang-docker-agent watch &
+  echo $! >"${RUNTIME_DIR}/agent-watch.pid"
 }
 
 # -----------------------------------------------------------------------------------------------------------
