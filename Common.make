@@ -97,7 +97,7 @@ CONTAINER_ID = $(shell docker ps -aq --filter label=com.docker.compose.project=$
 # -----------------------------------------------------------------------------------------------------------
 
 .PHONY: help build check run run-detached url attach ping logs down clean clean-home test lint format format-check
-.PHONY: check_docker check_env check_env_perms check_repo check_image require_project export_ca
+.PHONY: check_docker check_env check_env_perms check_repo check_project_repo check_image require_project export_ca
 .PHONY: check_dprint check_shfmt check_mbake check_shellcheck check_formatters
 
 .PHONY: help ## Show this help message
@@ -150,7 +150,7 @@ check_env_perms:
 		*) $(LOGGER) log_warning ".env is readable by other users (mode $$perms). Fix with: chmod 600 .env" ;; \
 	esac
 
-# Check REPO is a single, mountable repository that no other workspace is using
+# Check REPO is a single, mountable repository
 check_repo:
 	@if [ -z "$(REPO_EXPANDED)" ]; then \
 		$(LOGGER) log_error "Pass the repo to mount, e.g. make run REPO=~/src/my-repo"; \
@@ -171,8 +171,12 @@ check_repo:
 	@if [ ! -d "$(REPO_PATH)/.git" ]; then \
 		$(LOGGER) log_warning "$(REPO_PATH) is not a git repository; mounting it anyway."; \
 	fi
+
+# The project name uses the repo basename. Refuse to address a same-named repo's workspace: every target that
+# receives REPO runs this check before it uses PROJECT.
+check_project_repo:
 	@existing=$$(docker ps -a --filter label=com.docker.compose.project=$(PROJECT) --format '{{.Label "bitbang-docker.repo"}}' | head -n 1); \
-	if [ -n "$$existing" ] && [ "$$existing" != "$(REPO_PATH)" ]; then \
+	if [ -n "$(REPO_EXPANDED)" ] && [ -n "$$existing" ] && [ "$$existing" != "$(REPO_PATH)" ]; then \
 		$(LOGGER) log_error "$(PROJECT) already serves $$existing. Stop it first: make down REPO=$$existing"; \
 		exit 1; \
 	fi
@@ -185,7 +189,7 @@ check_image:
 	fi
 
 # Resolve PROJECT, or explain why it cannot be resolved
-require_project: check_docker
+require_project: check_docker check_project_repo
 	@if [ -z "$(PROJECT)" ]; then \
 		if [ -z "$(WORKSPACE_PROJECTS)" ]; then \
 			$(LOGGER) log_error "No workspace exists. Start one with: make run REPO=~/src/my-repo"; \
@@ -232,7 +236,7 @@ build: check_docker export_ca
 # -----------------------------------------------------------------------------------------------------------
 
 .PHONY: run-detached ## Start a workspace for REPO and print its QR code and URL (QR=false prints the URL only)
-run-detached: check check_repo check_image
+run-detached: check check_repo check_project_repo check_image
 	@$(LOGGER) log_separator
 	@$(LOGGER) log_info "Starting $(PROJECT) for $(REPO_PATH)"
 	@BBD_REPO="$(REPO_PATH)" \
@@ -287,7 +291,7 @@ ping: check_docker
 	done
 
 .PHONY: down ## Stop REPO's workspace, or every workspace when REPO is not given (keeps the home volume)
-down: check_docker
+down: check_docker check_project_repo
 	@projects="$(if $(REPO_EXPANDED),$(PROJECT),$(WORKSPACE_PROJECTS))"; \
 	if [ -z "$$projects" ]; then \
 		$(LOGGER) log_info_dim "No workspaces to stop."; \

@@ -17,12 +17,13 @@ set -euo pipefail
 source "$(dirname "$0")/log.bash"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PROJECT=bbd-smoke-test
+RUN_ID="$$-${RANDOM}"
+PROJECT="bbd-smoke-test-${RUN_ID}"
 PASSED=0
 FAILED=0
 
 # Never the real home volume: `down -v` below removes whatever this names.
-export BBD_HOME_VOLUME=bbd-smoke-test-home
+export BBD_HOME_VOLUME="bbd-smoke-test-home-${RUN_ID}"
 export BBD_ENV_FILE=.env.example
 export BBD_WATCHDOG_INTERVAL=10
 export USER_UID="${USER_UID:-1000}"

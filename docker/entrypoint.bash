@@ -44,6 +44,15 @@ check_workspace() {
 #              rewritten to HTTPS because the container holds no SSH keys; GH_TOKEN authenticates HTTPS.
 # -----------------------------------------------------------------------------------------------------------
 configure_git() {
+  local lock="${HOME}/.config/bitbang-docker/git-config.lock"
+  mkdir -p "$(dirname "$lock")"
+  (
+    flock -x 9
+    configure_git_locked
+  ) 9>"$lock"
+}
+
+configure_git_locked() {
   if ! git config --global --get-all safe.directory 2>/dev/null | grep -qxF "$WORKSPACE"; then
     git config --global --add safe.directory "$WORKSPACE"
   fi
@@ -72,7 +81,7 @@ build_listener_args() {
   if [ -n "${BITBANG_PIN:-}" ]; then
     LISTENER_ARGS+=(-pin "$BITBANG_PIN")
   fi
-  if [ -s "$ICE_SERVERS_FILE" ]; then
+  if [ -e "$ICE_SERVERS_FILE" ]; then
     LISTENER_ARGS+=(-ice-servers "$ICE_SERVERS_FILE")
     log_info "Using TURN/STUN servers from config/ice-servers.json"
   fi

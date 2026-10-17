@@ -517,7 +517,10 @@ merge_env_files() {
   log_dim " Output will be written to $output_file"
   log_dim " Preserving comments, blank lines, and formatting..."
 
-  # Clear output file
+  # The merge can preserve credentials. The usual umask (022) would make a new output world-readable, and an
+  # existing output may already be too permissive.
+  touch "$output_file"
+  chmod 600 "$output_file"
   : >"$output_file"
 
   # Read .env.example line by line and process each line
@@ -539,7 +542,7 @@ merge_env_files() {
         # Check if the value is empty
         if [ -n "$value" ]; then
           # Variable has a non-empty value, use that value
-          log_dim "  ${GREEN}✓${RESET} $var ${DIM}(using value ${value} from $env_file)"
+          log_dim "  ${GREEN}✓${RESET} $var ${DIM}(preserving existing value from $env_file)"
           echo "$var=$value" >>"$output_file"
         else
           # Variable exists but has empty value, use value from .env.example
