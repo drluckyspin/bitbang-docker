@@ -1,0 +1,5 @@
+# The build context is an allowlist, so .env and config/ never reach the image.
+*
+!docker/
+!scripts/log.bash
+!certs/
