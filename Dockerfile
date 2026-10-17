@@ -117,6 +117,7 @@ COPY third_party/ /usr/local/share/doc/bitbang-docker/third_party/
 COPY scripts/log.bash /usr/local/lib/bitbang-docker/log.bash
 COPY ingress/server.ts ingress/rewrite.ts ingress/compat.js ingress/alerts.ts /opt/bitbang-docker/ingress/
 COPY docker/herdr.toml /usr/local/share/bitbang-docker/herdr.toml
+COPY docker/codex.toml /etc/codex/config.toml
 COPY docker/tmux.conf /etc/tmux.conf
 COPY docker/entrypoint.bash /usr/local/bin/bitbang-docker-entrypoint
 COPY docker/session.bash /usr/local/bin/bitbang-docker-session

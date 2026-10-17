@@ -1,0 +1,7 @@
+# Codex defaults for the workspace container (/etc/codex/config.toml; ~/.codex/config.toml overrides them).
+
+# The container is the sandbox. Codex's own needs user namespaces, which Docker does not give an unprivileged
+# process, so in its read-only and workspace-write modes every command it runs fails. Codex still asks before
+# a command it judges risky.
+sandbox_mode = "danger-full-access"
+approval_policy = "on-request"
