@@ -1,0 +1,10 @@
+# Herdr settings for the workspace container (HERDR_CONFIG_PATH points here; the image owns this file).
+
+[update]
+# Versions are pinned in the image, so nothing checks herdr.dev for new builds or detection rules.
+version_check = false
+manifest_check = false
+
+[ui.sound]
+# The container has no audio device.
+enabled = false

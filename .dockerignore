@@ -3,3 +3,8 @@
 !docker/
 !scripts/log.bash
 !certs/
+!ingress/server.ts
+!ingress/rewrite.ts
+!ingress/compat.js
+!ingress/alerts.ts
+!third_party/
