@@ -1,0 +1,4 @@
+# The e2e image needs the corporate roots and the test, nothing else.
+*
+!certs/
+!e2e/phone.mjs
