@@ -11,6 +11,8 @@
 #              and removes it afterwards. That one's Claude Code talks to a stand-in for the Anthropic API
 #              (e2e/mock-anthropic.ts, inside the container), so the check also proves the default agent
 #              starts on its own and that a message sent from the phone's Chat comes back as its reply.
+#              It then moves a laptop session in, the way /go-remote does: the phone must see its earlier
+#              turns and carry on the same conversation.
 #
 # Usage: ./scripts/e2e.bash [compose_project]
 #
@@ -36,6 +38,10 @@ ENV_DIR=""
 THROWAWAY_REPO=""
 THROWAWAY_VOLUME=""
 MOCK_PORT=8099
+LAPTOP_DIR=""
+STAND_IN_PID=""
+MOVE_ID=""
+MOVED_PANE=""
 
 host_bbd() {
   local os arch
@@ -51,7 +57,10 @@ BBD="${BBD:-$(host_bbd)}"
 
 cleanup() {
   local dir
-  for dir in "$SECRET_DIR" "$ENV_DIR"; do
+  if [ -n "$STAND_IN_PID" ]; then
+    kill "$STAND_IN_PID" 2>/dev/null || true
+  fi
+  for dir in "$SECRET_DIR" "$ENV_DIR" "$LAPTOP_DIR"; do
     if [ -n "$dir" ]; then
       rm -rf "$dir"
     fi
@@ -111,9 +120,140 @@ start_mock_api() {
   done
 }
 
+new_uuid() {
+  uuidgen | tr '[:upper:]' '[:lower:]'
+}
+
+# -----------------------------------------------------------------------------------------------------------
+# Function: append_entry
+# Description: Append one entry to a Claude Code transcript, chained after its last message and in the
+#              shape of the entries Claude Code itself wrote there.
+# -----------------------------------------------------------------------------------------------------------
+append_entry() {
+  local file="$1" entry="$2" last
+  last="$(jq -c 'select(.type == "user" or .type == "assistant")' "$file" | tail -n 1)"
+  jq -c --argjson entry "$entry" --arg uuid "$(new_uuid)" \
+    '{parentUuid: .uuid, isSidechain: false, userType: "external", cwd, sessionId, version, gitBranch,
+      uuid: $uuid, timestamp: (now | todate)} + $entry' <<<"$last" >>"$file"
+}
+
+# -----------------------------------------------------------------------------------------------------------
+# Function: wait_for_file
+# Description: Wait up to a number of seconds for a file to exist (and, given a pattern, to contain it).
+# -----------------------------------------------------------------------------------------------------------
+wait_for_file() {
+  local file="$1" seconds="$2" pattern="${3:-}" waited=0
+  until [ -e "$file" ] && { [ -z "$pattern" ] || grep -qE -- "$pattern" "$file"; }; do
+    if [ "$waited" -ge "$((seconds * 2))" ]; then
+      return 1
+    fi
+    sleep 0.5
+    waited=$((waited + 1))
+  done
+}
+
+# -----------------------------------------------------------------------------------------------------------
+# Function: move_session
+# Description: The /go-remote path, with stand-ins for the laptop. Claude Code in the container makes a
+#              real session against the mock, which is then taken out to a laptop store (CLAUDE_CONFIG_DIR).
+#              A stand-in agent process named claude is in a turn of that session: it runs
+#              bbd start --resume on it, and the turn then ends. bbd must wait for the end, end the stand-in
+#              and resume the same session in the container. Sets MOVED_PANE.
+# -----------------------------------------------------------------------------------------------------------
+move_session() {
+  local cid="$1" marker="$2" project_dir file move_dir stores result
+  MOVE_ID="$(new_uuid)"
+  LAPTOP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/bbd-e2e-laptop.XXXXXX")"
+  chmod 700 "$LAPTOP_DIR"
+  move_dir="${LAPTOP_DIR}/move"
+  mkdir -p "$move_dir" "${LAPTOP_DIR}/state"
+  project_dir="$(printf '%s' "$THROWAWAY_REPO" | sed 's/[^A-Za-z0-9]/-/g')"
+  stores="/home/agent/.claude/projects/${project_dir}"
+
+  docker exec -w "$THROWAWAY_REPO" "$cid" claude -p "Reply to ${marker}" --session-id "$MOVE_ID" >/dev/null
+  mkdir -p "${LAPTOP_DIR}/claude/projects/${project_dir}"
+  file="${LAPTOP_DIR}/claude/projects/${project_dir}/${MOVE_ID}.jsonl"
+  docker exec "$cid" cat "${stores}/${MOVE_ID}.jsonl" >"$file"
+  docker exec "$cid" rm -f "${stores}/${MOVE_ID}.jsonl"
+  if ! grep -qF -- "${marker}-reply" "$file"; then
+    log_error "Claude Code did not make the session to move"
+    return 1
+  fi
+
+  # The laptop's agent, in the turn that runs /go-remote: its tool call is in the transcript.
+  append_entry "$file" '{"type": "user", "message": {"role": "user", "content": "/go-remote"}}'
+  append_entry "$file" '{"type": "assistant", "message": {"id": "msg_e2e_move", "type": "message", "role": "assistant",
+    "model": "claude-mock", "content": [{"type": "tool_use", "id": "toolu_e2e_move", "name": "Bash",
+    "input": {"command": "bbd start --resume"}}], "stop_reason": "tool_use", "stop_sequence": null,
+    "usage": {"input_tokens": 1, "output_tokens": 1}}}'
+  cat >"${move_dir}/claude" <<'STAND_IN'
+#!/usr/bin/env bash
+# Stands in for the laptop's Claude Code: runs bbd from its turn, then stays open until something ends it.
+trap 'touch "${MOVE_DIR}/ended"; exit 0' TERM
+"$BBD" start "$REPO" --json --no-window --resume "claude:${MOVE_ID}" >"${MOVE_DIR}/start.json" 2>"${MOVE_DIR}/start.err"
+echo "$?" >"${MOVE_DIR}/start.code"
+while :; do sleep 0.2; done
+STAND_IN
+  chmod +x "${move_dir}/claude"
+
+  log_info "Moving a laptop session in, as /go-remote does"
+  BBD="$BBD" REPO="$THROWAWAY_REPO" MOVE_ID="$MOVE_ID" MOVE_DIR="$move_dir" BBD_ROOT="$ROOT_DIR" \
+    BBD_ENV_FILE="${ENV_DIR}/env" BBD_HOME_VOLUME="$THROWAWAY_VOLUME" CLAUDE_CONFIG_DIR="${LAPTOP_DIR}/claude" \
+    XDG_STATE_HOME="${LAPTOP_DIR}/state" "${move_dir}/claude" &
+  STAND_IN_PID=$!
+  if ! wait_for_file "${move_dir}/start.code" 120 || [ "$(cat "${move_dir}/start.code")" != 0 ]; then
+    log_error "bbd start --resume failed: $(tail -n 3 "${move_dir}/start.err" 2>/dev/null)"
+    return 1
+  fi
+  result="$(cat "${move_dir}/start.json")"
+  if [ "$(jq -r '.moving' <<<"$result")" != true ] || [ "$(jq -r '.qr' <<<"$result")" != pending ]; then
+    log_error "bbd did not wait for the turn to end: $(jq -c '{moving, qr}' <<<"$result")"
+    return 1
+  fi
+  log_success "bbd saw the session was still in its turn, and left the move for when it ends"
+  sleep 3
+  if [ -e "${move_dir}/ended" ]; then
+    log_error "bbd ended the laptop's session before its turn was over"
+    return 1
+  fi
+
+  # The tool call returns and the agent's reply ends the turn.
+  append_entry "$file" '{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result",
+    "tool_use_id": "toolu_e2e_move", "content": "moving"}]}}'
+  append_entry "$file" '{"type": "assistant", "message": {"id": "msg_e2e_moved", "type": "message", "role": "assistant",
+    "model": "claude-mock", "content": [{"type": "text", "text": "This session moves when this reply ends."}],
+    "stop_reason": "end_turn", "stop_sequence": null, "usage": {"input_tokens": 1, "output_tokens": 1}}}'
+  append_entry "$file" '{"type": "system", "subtype": "turn_duration", "durationMs": 1000, "isMeta": false}'
+
+  if ! wait_for_file "${move_dir}/ended" 30; then
+    log_error "bbd did not end the laptop's session once its turn was over"
+    return 1
+  fi
+  STAND_IN_PID=""
+  log_success "Once the turn ended, bbd closed the laptop's session"
+  if ! wait_for_file "${LAPTOP_DIR}/state/bbd/move-claude-${MOVE_ID}.log" 120 "resumed the session|move failed"; then
+    log_error "The move did not finish"
+    return 1
+  fi
+  if grep -q "move failed" "${LAPTOP_DIR}/state/bbd/move-claude-${MOVE_ID}.log"; then
+    log_error "$(grep "move failed" "${LAPTOP_DIR}/state/bbd/move-claude-${MOVE_ID}.log")"
+    return 1
+  fi
+  MOVED_PANE="$(docker exec "$cid" herdr agent list | jq -r --arg id "$MOVE_ID" \
+    '[.result.agents[] | select((.agent_session.value // "") | contains($id)) | .pane_id][0] // empty')"
+  if [ -z "$MOVED_PANE" ]; then
+    MOVED_PANE="$(docker exec "$cid" herdr agent list | jq -r '[.result.agents[] | select(.name == "claude-2") | .pane_id][0] // empty')"
+  fi
+  if [ -z "$MOVED_PANE" ]; then
+    log_error "No agent in the container has the moved session"
+    return 1
+  fi
+  log_success "The same session resumed in the container, in pane ${MOVED_PANE}"
+}
+
 main() {
-  local cid url code pane agent_pane="" marker base fragment status=0
-  local -a shots=() chat=()
+  local cid url code pane agent_pane="" marker laptop_marker moved_marker base fragment status=0
+  local -a shots=() chat=() moved=()
 
   trap cleanup EXIT
   if [ $# -gt 0 ]; then
@@ -140,6 +280,8 @@ main() {
   code="$(docker exec "$cid" bitbang-docker-pair | jq -r .code)"
   pane="$(docker exec "$cid" herdr pane list | jq -r '.result.panes[0].pane_id')"
   marker="bbd-e2e-${RANDOM}${RANDOM}"
+  laptop_marker="bbd-e2e-${RANDOM}${RANDOM}"
+  moved_marker="bbd-e2e-${RANDOM}${RANDOM}"
 
   if [ -n "$THROWAWAY_REPO" ]; then
     start_mock_api "$cid"
@@ -149,6 +291,12 @@ main() {
       chat=(-e BBD_E2E_CHAT_MESSAGE="Reply to ${marker}" -e BBD_E2E_CHAT_EXPECT="${marker}-reply")
     else
       log_error "The default agent did not start: $(docker exec "$cid" bitbang-docker-agent status | jq -c .)"
+      status=1
+    fi
+    if move_session "$cid" "$laptop_marker"; then
+      moved=(-e BBD_E2E_MOVED_HISTORY="${laptop_marker}-reply" -e BBD_E2E_MOVED_MESSAGE="Reply to ${moved_marker}"
+        -e BBD_E2E_MOVED_EXPECT="${moved_marker}-reply")
+    else
       status=1
     fi
   fi
@@ -167,6 +315,9 @@ main() {
     if [ -n "$agent_pane" ]; then
       printf '%s#%s/?pane=%s&view=chat\n' "$base" "$fragment" "$agent_pane" >"${SECRET_DIR}/chat"
     fi
+    if [ -n "$MOVED_PANE" ]; then
+      printf '%s#%s/?pane=%s&view=chat\n' "$base" "$fragment" "$MOVED_PANE" >"${SECRET_DIR}/moved"
+    fi
   )
   unset url code base fragment
 
@@ -181,6 +332,7 @@ main() {
     -v "${SECRET_DIR}:/secrets:ro" \
     ${shots[@]+"${shots[@]}"} \
     ${chat[@]+"${chat[@]}"} \
+    ${moved[@]+"${moved[@]}"} \
     -e BBD_E2E_COMMAND="echo ${marker}-\$((6*7))" \
     -e BBD_E2E_EXPECT="${marker}-42" \
     -e BBD_E2E_TRACE -e BBD_E2E_TIMEOUT_MS \
@@ -200,6 +352,15 @@ main() {
       log_success "The message sent from the phone's Chat reached Claude Code, and its reply came back"
     else
       log_error "The message sent from the phone's Chat did not reach Claude Code"
+      status=1
+    fi
+  fi
+  if [ -n "$MOVED_PANE" ]; then
+    if docker exec "$cid" grep -qF -- "${moved_marker}-reply" \
+      "/home/agent/.claude/projects/$(printf '%s' "$THROWAWAY_REPO" | sed 's/[^A-Za-z0-9]/-/g')/${MOVE_ID}.jsonl"; then
+      log_success "The phone carried on the moved session itself: its reply is in that session's transcript"
+    else
+      log_error "The phone's message to the moved session is not in its transcript"
       status=1
     fi
   fi

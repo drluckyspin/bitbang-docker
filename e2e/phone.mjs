@@ -9,21 +9,27 @@
 //
 // With /secrets/chat (the URL deep-linked to an agent's chat, no pairing code: the phone is paired by then),
 // BBD_E2E_CHAT_MESSAGE is sent from the chat's composer and BBD_E2E_CHAT_EXPECT must come back as the
-// agent's turn.
+// agent's turn. With /secrets/moved (the chat of a session moved in from the laptop), BBD_E2E_MOVED_HISTORY
+// must be among its earlier turns, and BBD_E2E_MOVED_MESSAGE must be answered with BBD_E2E_MOVED_EXPECT.
 import { existsSync, readFileSync } from "node:fs";
 import { chromium, devices } from "playwright";
 
-const url = readFileSync("/secrets/url", "utf8").trim();
-const link = readFileSync("/secrets/link", "utf8").trim();
-const chatLink = existsSync("/secrets/chat") ? readFileSync("/secrets/chat", "utf8").trim() : "";
+const secret = (name) => (existsSync(`/secrets/${name}`) ? readFileSync(`/secrets/${name}`, "utf8").trim() : "");
+const url = secret("url");
+const link = secret("link");
+const chatLink = secret("chat");
+const movedLink = secret("moved");
 const command = process.env.BBD_E2E_COMMAND ?? "";
 const expected = process.env.BBD_E2E_EXPECT ?? "";
 const chatMessage = process.env.BBD_E2E_CHAT_MESSAGE ?? "";
 const chatExpected = process.env.BBD_E2E_CHAT_EXPECT ?? "";
+const movedHistory = process.env.BBD_E2E_MOVED_HISTORY ?? "";
+const movedMessage = process.env.BBD_E2E_MOVED_MESSAGE ?? "";
+const movedExpected = process.env.BBD_E2E_MOVED_EXPECT ?? "";
 const timeout = Number(process.env.BBD_E2E_TIMEOUT_MS ?? 120_000);
 const shots = process.env.BBD_E2E_SCREENSHOTS ?? "";
 
-const secrets = [link, chatLink, url, ...[...link.matchAll(/pair=(\d+)/g)].map((match) => match[1])];
+const secrets = [link, chatLink, movedLink, url, ...[...link.matchAll(/pair=(\d+)/g)].map((match) => match[1])];
 function redact(text) {
   let out = String(text);
   for (const secret of secrets) if (secret) out = out.replaceAll(secret, "<redacted>");
@@ -145,21 +151,49 @@ try {
   results.reloadStaysPaired = (await frame.locator("[data-testid=token-gate]").count()) === 0;
   await shot(page, "4-reloaded");
 
-  // The agent's chat: what the phone's Chat button opens.
-  if (chatLink && chatMessage) {
-    await page.goto(chatLink, { waitUntil: "domcontentloaded", timeout });
-    // Until the chat's socket is up, the composer's placeholder says it is reconnecting.
+  /** Opens an agent's chat, and returns its composer once the chat's socket is up. */
+  async function openChat(address) {
+    await page.goto(address, { waitUntil: "domcontentloaded", timeout });
+    // Until then, the composer's placeholder says it is reconnecting.
     const composer = frame.locator("textarea.composer-text:not([placeholder^='Reconnecting'])");
     await composer.waitFor({ timeout });
+    return composer;
+  }
+
+  async function send(composer, message) {
+    await composer.fill(message);
+    await frame.locator("button.composer-send").click();
+  }
+
+  const agentTurn = (text) => frame.locator("article.chat-turn-agent", { hasText: text }).first();
+
+  // The agent's chat: what the phone's Chat button opens.
+  if (chatLink && chatMessage) {
+    const composer = await openChat(chatLink);
     results.chatReady = (await frame.locator("[data-testid=token-gate]").count()) === 0;
     await shot(page, "5-chat");
-    await composer.fill(chatMessage);
-    await frame.locator("button.composer-send").click();
+    await send(composer, chatMessage);
     if (chatExpected) {
-      await frame.locator("article.chat-turn-agent", { hasText: chatExpected }).first().waitFor({ timeout });
+      await agentTurn(chatExpected).waitFor({ timeout });
       results.chatReplied = true;
     }
     await shot(page, "6-chat-reply");
+  }
+
+  // A session moved in from the laptop, as /go-remote moves it: the same conversation, carried on.
+  if (movedLink && movedMessage) {
+    const composer = await openChat(movedLink);
+    if (movedHistory) {
+      await agentTurn(movedHistory).waitFor({ timeout });
+      results.movedHistorySeen = true;
+    }
+    await shot(page, "7-moved");
+    await send(composer, movedMessage);
+    if (movedExpected) {
+      await agentTurn(movedExpected).waitFor({ timeout });
+      results.movedReplied = true;
+    }
+    await shot(page, "8-moved-reply");
   }
   await context.close();
 } catch (error) {
@@ -176,6 +210,8 @@ const required = ["unpairedSeesGate", "pairedSeesTerminal", "pairCodeLeftAddress
 if (expected) required.push("outputSeen");
 if (chatLink && chatMessage) required.push("chatReady");
 if (chatLink && chatMessage && chatExpected) required.push("chatReplied");
+if (movedLink && movedMessage && movedHistory) required.push("movedHistorySeen");
+if (movedLink && movedMessage && movedExpected) required.push("movedReplied");
 const ok = required.every((key) => results[key] === true) && problems.length === 0;
 console.log(JSON.stringify({
   ok,
