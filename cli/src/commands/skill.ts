@@ -43,7 +43,9 @@ async function installFromSkillsSh(source: string): Promise<boolean> {
   ui.info("Installing /go-remote from skills.sh");
   const status = await inherit(
     [npx, "--yes", "skills", "add", source, "--global", "--agent", "claude-code", "--agent", "codex", "--agent", "cursor", "--skill", SKILL_NAME, "--yes"],
-    { env: { DISABLE_TELEMETRY: "1", DO_NOT_TRACK: "1" } },
+    // bbd itself sets DO_NOT_TRACK for Bun's crash reporter. Let skills.sh receive its anonymous install event,
+    // which is how the public directory indexes a skill.
+    { env: { DISABLE_TELEMETRY: undefined, DO_NOT_TRACK: undefined } },
   );
   if (status === 0) {
     ui.success("Installed /go-remote from skills.sh");
