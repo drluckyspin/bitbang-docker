@@ -32,7 +32,7 @@ Commands:
                           signs in here, with claude setup-token, and bbd keeps the token in .env; Codex
                           (or Claude Code when it is not installed here) signs in inside the container
   qr [path]               Show a fresh QR code for a workspace (--open, --pane <id>)
-  ls                      List workspaces, their health and their agents
+  list                    List workspaces, their health and their agents
   sessions [path]         List Claude Code and Codex sessions on this computer that ran in a repo
   pull [path] [agent:id]  Copy the container's sessions for a repo back to this computer
   attach [path]           Open the workspace's Herdr terminal UI here (--shell for the tmux shell)
@@ -148,7 +148,7 @@ async function main(argv: string[]): Promise<number> {
       await finishMove(JSON.parse(rest[0] ?? "{}") as MovePlan);
       return process.exitCode === 1 ? 1 : 0;
     }
-    case "ls": {
+    case "list": {
       const { values } = parse(rest, { json: { type: "boolean" } });
       if (values.help) break;
       const rows = await ls({ json: values.json === true });
