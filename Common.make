@@ -66,6 +66,19 @@ USER_GID := 1000
 endif
 endif
 
+# make bump-version X.Y.Z: the version is an argument, not a goal, so it gets a rule that does nothing.
+ifeq ($(firstword $(MAKECMDGOALS)),bump-version)
+BUMP_VERSION := $(word 2,$(MAKECMDGOALS))
+ifneq ($(wordlist 3,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)),)
+$(error Usage: make bump-version [X.Y.Z])
+endif
+ifneq ($(BUMP_VERSION),)
+.PHONY: $(BUMP_VERSION)
+$(BUMP_VERSION):
+	@:
+endif
+endif
+
 # -----------------------------------------------------------------------------------------------------------
 # Workspace selection
 #
@@ -107,7 +120,7 @@ endif
 # -----------------------------------------------------------------------------------------------------------
 
 .PHONY: help build cli install-cli check run run-detached url login attach ping logs down clean clean-home
-.PHONY: test unit e2e lint format format-check
+.PHONY: test unit e2e lint format format-check bump-version
 .PHONY: check_docker check_env check_env_perms check_image require_repo export_ca
 .PHONY: check_dprint check_shfmt check_mbake check_shellcheck check_formatters
 
@@ -449,3 +462,15 @@ lint: format-check
 	@GR_REPO=/nonexistent/go-remote-lint $(COMPOSE) --env-file "$(COMMON_MAKEFILE_DIR).env.example" config -q
 	@$(LOGGER) log_indent log_success "docker-compose.yml is valid"
 	@$(LOGGER) log_success "All checks passed"
+
+# -----------------------------------------------------------------------------------------------------------
+# Version
+#
+# VERSION is the single source. Any other file that comes to carry the version goes in bump-version.bash.
+# -----------------------------------------------------------------------------------------------------------
+
+.PHONY: bump-version ## Set VERSION (make bump-version X.Y.Z) and sync it into package.json
+bump-version:
+	@$(LOGGER) log_info "Syncing the version"
+	@"$(SCRIPTS_DIR)/bump-version.bash" $(if $(BUMP_VERSION),"$(BUMP_VERSION)")
+	@$(LOGGER) log_success "The version is $$(cat "$(COMMON_MAKEFILE_DIR)VERSION")"
