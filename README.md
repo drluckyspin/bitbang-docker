@@ -114,7 +114,8 @@ same path as on your laptop, so the agent finds its session, and its files, wher
   the agent to read it. `/go-remote` in an agent `bbd` cannot resume, such as Cursor, writes a brief and starts Claude
   Code with it.
 - **Bring it back.** Quit the agent in the container, then run `bbd pull`. It copies the container's sessions for the
-  repo back, keeps a `.bak` of any laptop copy it replaces, and prints the command that resumes the session here.
+  repo back, keeps a `.bak` of any laptop copy it replaces, and prints the command that resumes the session here. A
+  session you carried on here since is left alone, and one still open here is not replaced until you quit it.
 
 The container's agent must be signed in first (see [Signing in](#signing-in-to-claude-code-and-codex)); otherwise the
 session stays on the laptop and `bbd` says so. If no QR code appears after a move, the terminal the session ran in says

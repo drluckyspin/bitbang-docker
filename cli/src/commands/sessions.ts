@@ -1,5 +1,6 @@
 /** bbd sessions and bbd pull: agent sessions on the laptop, and bringing the container's back. */
 import { containerFiles, fetchFile, groupSessions, hostCopy, openAnywhere, pullState } from "../handoff.ts";
+import { openOnHost } from "../move.ts";
 import { AGENT_NAMES, hostSessions, hostStores, parseSessionRef, writeBack } from "../sessions.ts";
 import { shellQuote, ui, UserError } from "../ui.ts";
 import { checkDocker, findWorkspace, requireRunning, resolveRepo } from "../workspace.ts";
@@ -54,6 +55,7 @@ export async function pull(options: { path?: string; ref?: string; json: boolean
     if (groups.length === 0) throw new UserError(`The container has no ${AGENT_NAMES[wanted.agent]} session ${wanted.id} for ${workspace.repo}`);
   }
   const openIn = await openAnywhere();
+  const isOpenHere = await openOnHost();
   const stores = hostStores();
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const results: Record<string, unknown>[] = [];
@@ -78,6 +80,12 @@ export async function pull(options: { path?: string; ref?: string; json: boolean
       results.push({ ref, state: states.some((entry) => entry.state === "ahead") ? "ahead" : "same", cwd: group.cwd });
       continue;
     }
+    // Replacing a file an agent here still writes to would split the conversation between it and the .bak.
+    if (isOpenHere(group)) {
+      if (wanted) throw new UserError(`${ref} is open on this computer`, "Quit it here first, so only one copy of the session is ever written to.");
+      results.push({ ref, state: "open here", cwd: group.cwd });
+      continue;
+    }
     let changed = 0;
     let isNew = false;
     for (const file of pending) {
@@ -99,6 +107,9 @@ export async function pull(options: { path?: string; ref?: string; json: boolean
         break;
       case "busy":
         ui.warn(`${ref} is still being written to; try again in a moment`);
+        break;
+      case "open here":
+        ui.warn(`${ref} is open on this computer; quit it here, then run bbd pull again`);
         break;
       case "same":
         ui.dim(`${ref} is the same on both sides`);
