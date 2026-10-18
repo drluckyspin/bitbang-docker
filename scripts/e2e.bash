@@ -17,11 +17,11 @@
 # Usage: ./scripts/e2e.bash [compose_project]
 #
 # Environment:
-#   GO_REMOTE                 go-remote command (default: dist/go-remote-<os>-<arch>, built by make cli)
+#   GO_REMOTE           go-remote command (default: dist/go-remote-<os>-<arch>, built by make cli)
 #   E2E_IMAGE           Test image (default go-remote-e2e:latest, built by make e2e)
 #   E2E_SCREENSHOTS     Directory for screenshots of each step (default: none)
-#   GR_E2E_TRACE       Set to print frame navigations and pairing requests (paths and parameter names only)
-#   GR_E2E_TIMEOUT_MS  How long each step may take (default 120000)
+#   GR_E2E_TRACE        Set to print frame navigations and pairing requests (paths and parameter names only)
+#   GR_E2E_TIMEOUT_MS   How long each step may take (default 120000)
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail
