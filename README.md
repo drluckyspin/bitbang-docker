@@ -1,11 +1,10 @@
 # Go Remote
 
-Go Remote lets you take your coding agent with you without moving your code to the cloud. Type `/go-remote` in Claude
-Code or Codex on your laptop, then hand off your active conversation to a secure Docker container running on the same
-machine. Scan a QR code to continue from your phone in a rich chat and terminal interface. Powered by Herdr and BitBang,
-it connects over an encrypted peer-to-peer link, without VPNs, open ports, or hosted infrastructure. Open source,
-local-first, and built for developers who don't want to stay at their desks. Go Remote's core benefits are the
-combination of local execution, container isolation, and seamless session handoff.
+Go Remote moves a Claude Code or Codex session from your laptop into a hardened Docker container on the same machine,
+and opens it on your phone. Type `/go-remote` in the agent. When its turn ends, the session resumes in the container and
+a QR code appears; scanning it opens the conversation in a chat and terminal view on the phone. The phone connects over
+an end-to-end encrypted peer-to-peer link. There is no VPN, no open port and no hosted service. The container mounts
+only the repo it was given, from where it already is on your machine.
 
 Supported platforms: **macOS** (Apple Silicon and Intel) and **Linux** (x86_64 and arm64). Windows is not supported.
 
@@ -14,29 +13,29 @@ Codex and the Cursor Agent CLI come in the image; to move a session from your la
 
 ## What is BitBang?
 
-[BitBang](https://github.com/richlegrand/bitbang) turns a machine into a URL. `bitbang serve` registers with the
-`bitba.ng` signaling server over an outbound connection and prints a link. A browser that opens it reaches the machine
-over WebRTC, peer to peer and end-to-end encrypted, through a relay when there is no direct path. There is no account,
-no client to install and no port to forward. The browser gets a shell, or a web app that the machine serves.
+[BitBang](https://github.com/richlegrand/bitbang) makes a machine reachable from a browser. `bitbang serve` registers
+with the `bitba.ng` signaling server over an outbound connection and prints a link. A browser that opens it reaches the
+machine over WebRTC, peer to peer and end-to-end encrypted, through a relay when there is no direct path. There is no
+account, no client to install and no port to forward. The browser gets a shell, or a web app that the machine serves.
 
 ## What is Herdr?
 
-[Herdr](https://herdr.dev) is "the runtime your coding agents live on": a terminal workspace that keeps agents running
-in a background server, each in its own tab, and knows which of them is working, blocked or idle.
+[Herdr](https://herdr.dev) is a terminal workspace for coding agents. It keeps them running in a background server, each
+in its own tab, and tracks whether each one is working, blocked or idle.
 [herdr-web-ui](https://github.com/devswha/herdr-web-ui) is its browser and phone client: a chat view of each agent, with
 its live terminal and the repo's files beside it.
 
 ## Why this project?
 
-A coding agent runs in a terminal on your laptop, and a long task tends to need you just after you walk away. The pieces
-for reaching it from a phone exist, but they do not fit together on their own, and fitting them carelessly is risky.
-BitBang hands a shell to whoever has the link. herdr-web-ui expects an ordinary reverse proxy, which BitBang is not. And
-an agent with your whole laptop in reach should not be one leaked link away from anyone.
+A coding agent runs in a terminal on the machine where it was started. Reaching it from a phone takes three things: a
+connection to that machine, an interface to the agent that works on a phone, and limits on what that connection can
+reach. BitBang provides the connection and herdr-web-ui the interface, but they do not work together as they are:
+herdr-web-ui expects a conventional reverse proxy, and BitBang serves apps in an iframe through a service worker.
+BitBang's own shell mode, run on the laptop, also gives anyone who has the link a shell with access to everything on it.
 
-go-remote does the fitting. It runs each repo's agents in a hardened container that sees only that repo, and serves
-herdr-web-ui through BitBang with an adapter that makes the two work together. It pairs your phone with a one-time code,
-and it moves an agent's session from your laptop into the container and back. There is nothing to host, and no port to
-open.
+Go Remote combines them. It runs each repo's agents in a hardened container that mounts only that repo, serves
+herdr-web-ui through BitBang with an adapter between the two, pairs each phone with a one-time code, and moves an
+agent's session from the laptop into the container and back.
 
 ## How it works
 
@@ -56,9 +55,10 @@ When you type `/go-remote` in an agent on the laptop:
 3. Once the turn has ended, it closes the laptop's agent, copies the session into the container, and resumes it in a new
    Herdr tab.
 4. It opens a window with a QR code. The link in it carries a one-time pairing code, and never passes through the agent.
-5. Scan it: BitBang connects, the code pairs the phone, and herdr-web-ui opens the agent's chat, history and all.
+5. When the phone scans it, BitBang connects, the code pairs the phone, and herdr-web-ui opens the agent's chat with its
+   earlier turns.
 
-[ARCHITECTURE.md](ARCHITECTURE.md) explains each piece, and why it is shaped the way it is.
+[ARCHITECTURE.md](ARCHITECTURE.md) describes each component and the reasons for its design.
 
 ## Quick start
 
@@ -80,7 +80,7 @@ Codex and Cursor sign in inside a running workspace, and so does Claude Code whe
 `go-remote start ~/src/my-repo` first: with no agent signed in, it offers to sign you in. See [Signing in](#signing-in).
 
 Then, in Claude Code, type `/go-remote` (`$go-remote` in Codex). When the reply ends, a QR code opens: scan it with your
-phone's camera. To start from scratch instead, with a new conversation:
+phone's camera. To start a new conversation instead:
 
 ```bash
 go-remote start ~/src/my-repo                   # the workspace and its default agent, and a QR code for it
@@ -107,18 +107,18 @@ go-remote sessions                      # find it: claude:<id> or codex:<id>
 go-remote start --resume claude:<id>    # continue it in the container, and open its chat on the phone
 ```
 
-- **One writer at a time.** A session moves, so only one side writes to it. `/go-remote` waits for its turn to end, then
-  closes the laptop's agent before resuming the session in the container. From a terminal, quit the session first; if
-  its transcript changed in the last minute, `go-remote` asks.
-- **Or fork it.** `--fork` continues a copy, so the laptop's session can carry on too.
-- **Brief it.** `--brief notes.md` copies a handoff note to `.go-remote/handoff.md` in the repo, which git ignores, and
-  asks the agent to read it. `/go-remote` in an agent `go-remote` cannot resume yet, such as Cursor, writes a brief and
-  starts Claude Code with it.
-- **Bring it back.** Quit the agent in the container, then run `go-remote pull`. It copies the container's sessions for
+- **Single writer.** A session moves rather than being copied, so only one side writes to it. `/go-remote` waits for its
+  turn to end, then closes the laptop's agent before resuming the session in the container. From a terminal, quit the
+  session first; if its transcript changed in the last minute, `go-remote` asks.
+- **Forking.** `--fork` continues a copy instead, so the laptop's session can continue too.
+- **Handoff notes.** `--brief notes.md` copies a handoff note to `.go-remote/handoff.md` in the repo, which git ignores,
+  and asks the agent to read it. `/go-remote` in an agent `go-remote` cannot resume yet, such as Cursor, writes a brief
+  and starts Claude Code with it.
+- **Moving back.** Quit the agent in the container, then run `go-remote pull`. It copies the container's sessions for
   the repo back, keeps a `.bak` of any laptop copy it replaces, and prints the command that resumes the session here. A
   session you carried on here since is left alone, and one still open here is not replaced until you quit it.
-- **Nothing is lost.** A move never writes over turns taken on the phone: if the container's copy has any, bring them
-  back with `go-remote pull` first.
+- **Turns taken on the phone are kept.** A move never overwrites them: if the container's copy has any, `go-remote pull`
+  has to bring them back first.
 
 The container's agent must be signed in first (see [Signing in](#signing-in)); otherwise the session stays on the laptop
 and `go-remote` says so. If no QR code appears after a move, the terminal the session ran in says why. `go-remote` warns
@@ -138,8 +138,8 @@ screen. herdr-web-ui's chat reads Claude Code and Codex sessions; Cursor's tab s
 laptop sees the same tabs with `go-remote attach`. The terminal view has a row of keys above the phone keyboard (Esc,
 Tab, ^C, Ctrl, Alt, Shift, Enter and the arrows), which Herdr's settings let you change.
 
-**A new workspace, a new conversation.** A workspace started again after `go-remote stop` opens fresh tabs; the last
-one's transcripts stay, for `go-remote pull` and `--resume`. A restarted container (`docker restart`) keeps its tabs.
+**Restarts.** A workspace started again after `go-remote stop` opens fresh tabs; the last one's transcripts stay, for
+`go-remote pull` and `--resume`. A restarted container (`docker restart`) keeps its tabs.
 
 **Alerts.** Set `GR_NTFY_TOPIC` and install the [ntfy](https://ntfy.sh) app to get a notification when an agent needs
 you or finishes, even with BitBang closed. Alerts name the agent and the repo, never what was said, and tapping one does
@@ -234,9 +234,9 @@ when it is not. Most take effect when a workspace next starts.
 `go-remote start` offers to sign you in, and the phone's Repo Shell says how.
 
 The container receives keys and tokens **only from `.env`**. Keys exported in your shell, such as an `ANTHROPIC_API_KEY`
-set in `~/.zprofile`, never reach it. Whoever gets into the workspace can read whatever the container holds, so keep
-that set small on purpose. Commits use the `user.name` and `user.email` from the repo's git config, or from your global
-one.
+set in `~/.zprofile`, never reach it. Anyone who gets into the workspace can read what the container holds, so `.env`
+should hold only the keys the workspace needs. Commits use the `user.name` and `user.email` from the repo's git config,
+or from your global one.
 
 ### Signing in
 
@@ -256,10 +256,10 @@ key, and mix them per agent.
 
 Logins made in the container live in the `go-remote-home` volume, shared by every workspace, so you sign in once for all
 repos. The volume also keeps shell history, global git config and moved sessions. `docker compose down -v` leaves it
-alone, and `make clean-home` deletes it after asking. Each agent asks a few questions the first time it runs, and on a
-phone they get in the way, so the container answers them when a workspace starts: Claude Code's theme and onboarding,
-whether to use the API key from `.env`, trust in the mounted repo, and Codex's review of the hook that tells Herdr its
-session ID.
+alone, and `make clean-home` deletes it after asking. Each agent asks a few questions the first time it runs, which
+would block the chat view on a phone, so the container answers them when a workspace starts: Claude Code's theme and
+onboarding, whether to use the API key from `.env`, trust in the mounted repo, and Codex's review of the hook that tells
+Herdr its session ID.
 
 ### GitHub access
 
@@ -269,7 +269,7 @@ The container holds no SSH keys. SSH remotes such as `git@github.com:org/repo.gi
 
 - **Repository access:** only the repo you mount
 - **Permissions:** Contents read and write, Pull requests read and write, Metadata read
-- **Expiration:** as short as you can live with
+- **Expiration:** the shortest that suits your work
 
 Leave `GH_TOKEN` empty and the container has no GitHub access at all. You can still commit there, and push from the
 laptop.
@@ -296,9 +296,9 @@ The container is built to limit what a shell, or an agent running in it, can rea
 | Web UI access         | A paired device, or a random access token that never leaves the container                                                              |
 | Updates and telemetry | Off in Herdr, herdr-web-ui, Claude Code, Codex, Bun and `go-remote`; every component is pinned, and `make test` checks the pins        |
 
-Know these limits before you rely on it:
+The isolation has these limits:
 
-- **The link is the key.** In the shell mode, the URL grants a shell to anyone who has it. In the web mode, the URL
+- **The link grants access.** In the shell mode, the URL grants a shell to anyone who has it. In the web mode, the URL
   alone reaches only the pairing screen, but the link in the QR code also carries a pairing code that lets one device
   in. `go-remote` shows the link only in an interactive terminal or in a window on your screen, never when its output
   goes to a pipe or an agent, and its logs take the URL out. Treat the QR code like a password: set `BITBANG_PIN` for a
@@ -336,7 +336,7 @@ Know these limits before you rely on it:
   [security model](https://github.com/richlegrand/bitbang-cli/blob/main/SECURITY.md) is that sessions are end-to-end
   encrypted and the signaling server cannot read or join them, so TLS on that leg is not what protects you. Anyone on
   the path can still block connections.
-- **These are young projects.** BitBang, Herdr and herdr-web-ui all move fast. Read
+- **The upstream projects are new.** BitBang, Herdr and herdr-web-ui are early in development and change often. Read
   [BitBang's README](https://github.com/richlegrand/bitbang-cli) before you depend on it.
 
 ## Networks and reliability
@@ -441,13 +441,13 @@ common changes, and which tests a change needs; [ARCHITECTURE.md](ARCHITECTURE.m
 
 ## Thanks to
 
-- [Rich LeGrand](https://github.com/richlegrand) for BitBang, which makes a machine reachable with no server in between
-- [Herdr](https://github.com/herdrdev/herdr) and [herdr-web-ui](https://github.com/devswha/herdr-web-ui) for agents you
-  can leave running and reach from a phone
+- [Rich LeGrand](https://github.com/richlegrand) for BitBang, the peer-to-peer link
+- [Herdr](https://github.com/herdrdev/herdr) and [herdr-web-ui](https://github.com/devswha/herdr-web-ui), which run the
+  agents and their phone interface
 - [Bun](https://bun.sh), [lean-qr](https://github.com/davidje13/lean-qr) and
   [xterm.js](https://github.com/xtermjs/xterm.js), which `go-remote` is built with
 
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists everything go-remote builds on, and its licenses.
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists everything Go Remote builds on, and its licenses.
 
 ## Contributing
 
