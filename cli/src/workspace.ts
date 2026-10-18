@@ -178,13 +178,19 @@ export function requireRunning(workspace: Workspace): void {
   }
 }
 
+/**
+ * The env file that gives the container its secrets also sets compose's own ${...} settings, as .env does by
+ * default, so BBD_ENV_FILE picks one file for both.
+ */
 export function compose(root: string, project: string): string[] {
-  return ["docker", "compose", "--project-directory", root, "-f", join(root, "docker-compose.yml"), "-p", project];
+  const env = envFile(root);
+  const envArgs = existsSync(env) ? ["--env-file", env] : [];
+  return ["docker", "compose", "--project-directory", root, "-f", join(root, "docker-compose.yml"), ...envArgs, "-p", project];
 }
 
 /**
  * Creates the external home volume, without which compose up fails. Compose resolves its name from the shell
- * and .env, so the name is taken from compose rather than worked out here.
+ * and the env file, so the name is taken from compose rather than worked out here.
  */
 export async function ensureHomeVolume(root: string, project: string, env: RunOptions["env"]): Promise<void> {
   const config = JSON.parse(await output([...compose(root, project), "config", "--format", "json"], { env }));

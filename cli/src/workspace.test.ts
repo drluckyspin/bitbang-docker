@@ -2,7 +2,22 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { projectName, reservedConflict, resolveRepo, uiMode } from "./workspace.ts";
+import { compose, projectName, reservedConflict, resolveRepo, uiMode } from "./workspace.ts";
+
+test("compose reads its settings from the env file BBD_ENV_FILE picks, when it exists", () => {
+  const root = mkdtempSync(join(tmpdir(), "bbd-compose-"));
+  const saved = process.env.BBD_ENV_FILE;
+  try {
+    process.env.BBD_ENV_FILE = "throwaway.env";
+    expect(compose(root, "bbd-app")).not.toContain("--env-file");
+    writeFileSync(join(root, "throwaway.env"), "BBD_UI=shell\n");
+    const args = compose(root, "bbd-app");
+    expect(args.slice(args.indexOf("--env-file"), args.indexOf("--env-file") + 2)).toEqual(["--env-file", join(root, "throwaway.env")]);
+  } finally {
+    if (saved === undefined) delete process.env.BBD_ENV_FILE;
+    else process.env.BBD_ENV_FILE = saved;
+  }
+});
 
 test("uiMode reads BBD_UI as the entrypoint does, and an image without it as the shell", () => {
   expect(uiMode(["PATH=/usr/bin", "BBD_UI=web"])).toBe("web");
