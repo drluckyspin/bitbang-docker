@@ -1,5 +1,5 @@
 /** The checkout's .env: created from .env.example on first use, checked by scripts/checkenv.bash, kept private. */
-import { chmodSync, existsSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { inherit } from "./proc.ts";
 import { ui, UserError } from "./ui.ts";
@@ -24,7 +24,9 @@ export function withEnvValue(text: string, name: string, value: string): string 
 export function setEnvValue(file: string, name: string, value: string): void {
   const text = existsSync(file) ? readFileSync(file, "utf8") : "";
   const next = `${file}.bbd-new`;
-  writeFileSync(next, withEnvValue(text, name, value), { mode: 0o600 });
+  // Created afresh, so a leftover file or a symlink planted at this name is never written through.
+  rmSync(next, { force: true });
+  writeFileSync(next, withEnvValue(text, name, value), { mode: 0o600, flag: "wx" });
   chmodSync(next, 0o600);
   renameSync(next, file);
 }
