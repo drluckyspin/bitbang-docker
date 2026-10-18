@@ -144,7 +144,7 @@ for `go-remote --version`. Never edit either by hand. If another file starts car
 
 ### Add an agent kind
 
-Cursor was added this way, in [pull request #4](https://github.com/drluckyspin/bitbang-docker/pull/4):
+Cursor was added this way, in [pull request #4](https://github.com/drluckyspin/go-remote/pull/4):
 
 - Install it in the `Dockerfile`, pinned and checksum-verified, with a version label, and add it to the smoke test's pin
   loop.

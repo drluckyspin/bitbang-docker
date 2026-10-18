@@ -62,7 +62,7 @@ When you type `/go-remote` in an agent on the laptop:
 Clone the repo, build the image, and install the `go-remote` command (`gr` for short) and the `/go-remote` skill:
 
 ```bash
-git clone https://github.com/drluckyspin/bitbang-docker.git go-remote && cd go-remote
+git clone https://github.com/drluckyspin/go-remote.git && cd go-remote
 make build                 # the image; bakes in a Zscaler root CA if this Mac has one
 make install-cli           # go-remote, and gr linked to it, into ~/.local/bin
 go-remote install-skill    # /go-remote for Claude Code, Codex and Cursor
