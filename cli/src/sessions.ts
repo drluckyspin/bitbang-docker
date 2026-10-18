@@ -12,7 +12,7 @@ import { printable, UserError } from "./ui.ts";
 
 /** An agent available in the container. Cursor sessions cannot yet be moved between the laptop and container. */
 export type AgentKind = "claude" | "codex" | "cursor";
-/** An agent whose transcript format GO_REMOTE knows how to copy, resume and pull. */
+/** An agent whose transcript format go-remote knows how to copy, resume and pull. */
 export type SessionAgentKind = Exclude<AgentKind, "cursor">;
 
 export const AGENT_NAMES: Record<AgentKind, string> = { claude: "Claude Code", codex: "Codex", cursor: "Cursor" };
