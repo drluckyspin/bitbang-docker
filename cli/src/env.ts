@@ -37,9 +37,9 @@ export function envHas(file: string, name: string): boolean {
     .some((line) => setter(name).test(line) && !/^(""|''|)$/.test(line.replace(setter(name), "").trim()));
 }
 
-/** The file compose gives the container: BBD_ENV_FILE (the tests use .env.example), else .env. */
+/** The file compose gives the container: GR_ENV_FILE (the tests use .env.example), else .env. */
 export function envFile(root: string): string {
-  return resolve(root, process.env.BBD_ENV_FILE || ".env");
+  return resolve(root, process.env.GR_ENV_FILE || ".env");
 }
 
 export async function checkEnv(root: string): Promise<void> {

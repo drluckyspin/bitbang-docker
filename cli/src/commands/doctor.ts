@@ -30,7 +30,7 @@ export async function doctor(options: { json: boolean; root?: string }): Promise
   }
   if (root) {
     const env = envFile(root);
-    if (env === join(root, ".env.example")) add(".env", "warn", "BBD_ENV_FILE points at the template, so workspaces get no keys");
+    if (env === join(root, ".env.example")) add(".env", "warn", "GR_ENV_FILE points at the template, so workspaces get no keys");
     else if (!existsSync(env)) add(".env", "warn", "not created yet; bbd start creates it from .env.example");
     else if ((statSync(env).mode & 0o077) !== 0) add(".env", "warn", `readable by other users; fix with chmod 600 ${env}`);
     else add(".env", "ok", "private");

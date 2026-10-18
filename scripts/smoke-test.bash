@@ -26,9 +26,9 @@ PASSED=0
 FAILED=0
 
 # Never the real home volume: cleanup deletes whatever this names.
-export BBD_HOME_VOLUME="bbd-smoke-test-home-${RUN_ID}"
-export BBD_ENV_FILE=.env.example
-export BBD_WATCHDOG_INTERVAL=10
+export GR_HOME_VOLUME="bbd-smoke-test-home-${RUN_ID}"
+export GR_ENV_FILE=.env.example
+export GR_WATCHDOG_INTERVAL=10
 export USER_UID="${USER_UID:-1000}"
 export USER_GID="${USER_GID:-1000}"
 export GIT_AUTHOR_NAME="Smoke Test" GIT_AUTHOR_EMAIL="smoke@example.invalid"
@@ -68,8 +68,8 @@ check() {
 cleanup() {
   log_info_dim "Removing the smoke-test container, volume and repo"
   compose down --remove-orphans >/dev/null 2>&1 || true
-  docker volume rm "$BBD_HOME_VOLUME" >/dev/null 2>&1 || true
-  rm -rf "${BBD_REPO:-}"
+  docker volume rm "$GR_HOME_VOLUME" >/dev/null 2>&1 || true
+  rm -rf "${GR_REPO:-}"
 }
 
 # -----------------------------------------------------------------------------------------------------------
@@ -79,8 +79,8 @@ cleanup() {
 start_workspace() {
   local mode="$1"
   log_info_dim "Starting ${PROJECT} in the ${mode} mode"
-  docker volume create "$BBD_HOME_VOLUME" >/dev/null
-  BBD_UI="$mode" compose --progress quiet up -d --force-recreate
+  docker volume create "$GR_HOME_VOLUME" >/dev/null
+  GR_UI="$mode" compose --progress quiet up -d --force-recreate
   wait_for_listener
   pass "Listener registered (${mode} mode)"
 }
@@ -104,11 +104,11 @@ wait_for_listener() {
 session_checks() {
   local tab='herdr tab list | jq -e '\''any(.result.tabs[]; .label == "smoke-tab")'\'''
   log_info "Herdr sessions across containers"
-  in_container 'herdr tab create --cwd "$BBD_REPO" --label smoke-tab >/dev/null'
+  in_container 'herdr tab create --cwd "$GR_REPO" --label smoke-tab >/dev/null'
   compose --progress quiet restart workspace
   wait_for_listener
   check "A restarted container brings its tabs back" "$tab"
-  BBD_UI=web compose --progress quiet up -d --force-recreate
+  GR_UI=web compose --progress quiet up -d --force-recreate
   wait_for_listener
   check "A new container starts a new session, without the last one's tabs" "! $tab"
 }
@@ -163,23 +163,23 @@ toolchain_checks() {
 git_checks() {
   log_info "Workspace and git"
   check "Workspace is writable and shared with the host" 'touch /workspace/.smoke && [ -f /workspace/.smoke ]'
-  if [ -f "$BBD_REPO/.smoke" ]; then
+  if [ -f "$GR_REPO/.smoke" ]; then
     pass "File written in the container is visible on the host"
   else
     fail "File written in the container is visible on the host"
   fi
-  check "The repo is mounted at its host path" '[ "$(cd /workspace && pwd -P)" = "$BBD_REPO" ] && mountpoint -q "$BBD_REPO"'
+  check "The repo is mounted at its host path" '[ "$(cd /workspace && pwd -P)" = "$GR_REPO" ] && mountpoint -q "$GR_REPO"'
   check "git commit works in /workspace" 'cd /workspace && git add .smoke && git commit -qm smoke'
   check "SSH GitHub remotes are rewritten to HTTPS" \
     'cd /workspace && git ls-remote --get-url origin | grep -q "^https://github.com/example/smoke.git$"'
   check "The web UI's uploads and bbd's briefs stay out of git" \
-    'grep -qxF /.herdr-web-ui/ "$BBD_REPO/.git/info/exclude" && grep -qxF /.bbd/ "$BBD_REPO/.git/info/exclude"'
+    'grep -qxF /.herdr-web-ui/ "$GR_REPO/.git/info/exclude" && grep -qxF /.bbd/ "$GR_REPO/.git/info/exclude"'
 }
 
 web_checks() {
   log_info "Web mode: Herdr, herdr-web-ui and bbd-ingress"
   check "Herdr server answers, with a workspace for the repo" \
-    'herdr pane list | jq -e --arg repo "$BBD_REPO" '\''any(.result.panes[]; .cwd == $repo)'\'''
+    'herdr pane list | jq -e --arg repo "$GR_REPO" '\''any(.result.panes[]; .cwd == $repo)'\'''
   check "herdr-web-ui and bbd-ingress answer" \
     'curl -fsS -o /dev/null http://127.0.0.1:7317/api/health && curl -fsS -o /dev/null http://127.0.0.1:7300/__bbd/health'
   # [b]un: the pattern must not match the command line of the shell running this check.
@@ -196,20 +196,20 @@ web_checks() {
   check "Herdr learns Claude Code, Codex and Cursor session IDs" \
     'jq -e .hooks.SessionStart ~/.claude/settings.json | grep -q herdr && grep -q herdr ~/.codex/hooks.json && grep -q herdr ~/.cursor/hooks.json'
   check "The repo's pane runs bash, which takes the web UI's bracketed paste" \
-    'pane="$(herdr pane list | jq -r --arg repo "$BBD_REPO" '\''first(.result.panes[] | select(.cwd == $repo)) | .pane_id'\'')" &&
+    'pane="$(herdr pane list | jq -r --arg repo "$GR_REPO" '\''first(.result.panes[] | select(.cwd == $repo)) | .pane_id'\'')" &&
      pid="$(herdr pane process-info --pane "$pane" | jq -r .result.process_info.shell_pid)" &&
      [ "$(cat "/proc/${pid}/comm")" = bash ]'
   check "Claude Code's and Codex's first-run questions are answered for the repo" \
-    'jq -e --arg repo "$BBD_REPO" '\''.hasCompletedOnboarding and .projects[$repo].hasTrustDialogAccepted'\'' ~/.claude.json &&
-     grep -qxF "[projects.\"${BBD_REPO}\"]" ~/.codex/config.toml && grep -q "^trusted_hash = \"sha256:" ~/.codex/config.toml'
+    'jq -e --arg repo "$GR_REPO" '\''.hasCompletedOnboarding and .projects[$repo].hasTrustDialogAccepted'\'' ~/.claude.json &&
+     grep -qxF "[projects.\"${GR_REPO}\"]" ~/.codex/config.toml && grep -q "^trusted_hash = \"sha256:" ~/.codex/config.toml'
   check "Codex runs without its own sandbox, which cannot work in a container" \
-    'cd "$BBD_REPO" && codex debug prompt-input hi 2>/dev/null | grep -qF "\`sandbox_mode\` is \`danger-full-access\`"'
+    'cd "$GR_REPO" && codex debug prompt-input hi 2>/dev/null | grep -qF "\`sandbox_mode\` is \`danger-full-access\`"'
   check "With no agent signed in, the default agent waits and the repo's terminal says how to sign in" \
     'bitbang-docker-agent status | jq -e '\''.state == "waiting"'\'' &&
-     pane="$(herdr pane list | jq -r --arg repo "$BBD_REPO" '\''first(.result.panes[] | select(.cwd == $repo)) | .pane_id'\'')" &&
+     pane="$(herdr pane list | jq -r --arg repo "$GR_REPO" '\''first(.result.panes[] | select(.cwd == $repo)) | .pane_id'\'')" &&
      herdr pane read "$pane" | grep -qF "make login"'
   check "Cursor waits for a sign-in when selected as the default agent" \
-    'BBD_DEFAULT_AGENT=cursor bitbang-docker-agent prepare &&
+    'GR_DEFAULT_AGENT=cursor bitbang-docker-agent prepare &&
      bitbang-docker-agent status | jq -e '\''.state == "waiting" and .agent == "cursor"'\'''
   check "The ingress lets only a same-origin page frame the app, and keeps its policy in the page" \
     'curl -fsS -D /tmp/smoke-headers -o /tmp/smoke-page.html http://127.0.0.1:7300/ &&
@@ -263,9 +263,9 @@ shell_checks() {
      tmux show-environment -g HOME | grep -qx HOME=/home/agent'
   in_container 'tmux kill-server' >/dev/null 2>&1 || true
 
-  check "BBD_KEY_BAR=false hides the phone key bar and true shows it" \
+  check "GR_KEY_BAR=false hides the phone key bar and true shows it" \
     'bar_is() {
-       BBD_KEY_BAR="$1" tmux -L "keybar-$1" new-session -d
+       GR_KEY_BAR="$1" tmux -L "keybar-$1" new-session -d
        status="$(tmux -L "keybar-$1" show -gv status)"
        tmux -L "keybar-$1" kill-server
        [ "$status" = "$2" ]
@@ -288,16 +288,16 @@ main() {
   log_separator
   log_info "Smoke test"
 
-  BBD_REPO="$(mktemp -d "${TMPDIR:-/tmp}/bbd-smoke.XXXXXX")"
-  BBD_REPO="$(cd "$BBD_REPO" && pwd -P)"
-  export BBD_REPO
+  GR_REPO="$(mktemp -d "${TMPDIR:-/tmp}/bbd-smoke.XXXXXX")"
+  GR_REPO="$(cd "$GR_REPO" && pwd -P)"
+  export GR_REPO
   trap cleanup EXIT
 
-  git -C "$BBD_REPO" init -q
-  git -C "$BBD_REPO" remote add origin git@github.com:example/smoke.git
-  echo "smoke" >"$BBD_REPO/README.md"
-  git -C "$BBD_REPO" add README.md
-  git -C "$BBD_REPO" -c user.name="Smoke Test" -c user.email=smoke@example.invalid commit -qm "initial"
+  git -C "$GR_REPO" init -q
+  git -C "$GR_REPO" remote add origin git@github.com:example/smoke.git
+  echo "smoke" >"$GR_REPO/README.md"
+  git -C "$GR_REPO" add README.md
+  git -C "$GR_REPO" -c user.name="Smoke Test" -c user.email=smoke@example.invalid commit -qm "initial"
 
   start_workspace web
   hardening_checks

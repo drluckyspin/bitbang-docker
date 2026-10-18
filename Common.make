@@ -2,7 +2,7 @@
 # Common Makefile — BitBang Docker
 # -----------------------------------------------------------------------------------------------------------
 # A hardened container around one local git repo, served over BitBang: Herdr's web UI for agent chat and a
-# terminal (BBD_UI=web), or BitBang's own terminal on a tmux session (BBD_UI=shell). The bbd CLI in cli/ does
+# terminal (GR_UI=web), or BitBang's own terminal on a tmux session (GR_UI=shell). The bbd CLI in cli/ does
 # the work; the run, url, attach and logs targets wrap it, building it first when needed.
 #
 # By convention (Code Red):
@@ -33,18 +33,18 @@ SCRIPTS_DIR := $(COMMON_MAKEFILE_DIR)scripts
 
 IMAGE := bitbang-docker:latest
 E2E_IMAGE := bitbang-docker-e2e:latest
-HOME_VOLUME := $(or $(BBD_HOME_VOLUME),bitbang-docker-home)
+HOME_VOLUME := $(or $(GR_HOME_VOLUME),bitbang-docker-home)
 QR ?= true
 BIN_DIR ?= $(HOME)/.local/bin
 
 # bbd for this host, built in Docker by `make cli` into dist/, and rebuilt when its sources change
-BBD_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
-BBD_ARCH := $(if $(filter arm64 aarch64,$(shell uname -m)),arm64,x64)
-BBD := $(COMMON_MAKEFILE_DIR)dist/bbd-$(BBD_OS)-$(BBD_ARCH)
-BBD_SOURCES := $(shell find "$(COMMON_MAKEFILE_DIR)cli/src" "$(COMMON_MAKEFILE_DIR)ingress" -name '*.ts' 2>/dev/null) \
+GR_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+GR_ARCH := $(if $(filter arm64 aarch64,$(shell uname -m)),arm64,x64)
+BBD := $(COMMON_MAKEFILE_DIR)dist/bbd-$(GR_OS)-$(GR_ARCH)
+GR_SOURCES := $(shell find "$(COMMON_MAKEFILE_DIR)cli/src" "$(COMMON_MAKEFILE_DIR)ingress" -name '*.ts' 2>/dev/null) \
 	$(addprefix $(COMMON_MAKEFILE_DIR),package.json bun.lock cli/Dockerfile skills/go-remote/SKILL.md)
-BBD_RUN := BBD_ROOT="$(COMMON_MAKEFILE_DIR)" "$(BBD)"
-BBD_QR_FLAG := $(if $(filter false False FALSE no 0,$(QR)),--no-qr)
+GR_RUN := GR_ROOT="$(COMMON_MAKEFILE_DIR)" "$(BBD)"
+GR_QR_FLAG := $(if $(filter false False FALSE no 0,$(QR)),--no-qr)
 
 DOCKER_COMPOSE := docker compose
 COMPOSE := $(DOCKER_COMPOSE) --project-directory "$(COMMON_MAKEFILE_DIR)" -f "$(COMMON_MAKEFILE_DIR)docker-compose.yml"
@@ -213,7 +213,7 @@ cli: check_docker export_ca
 	@touch "$(COMMON_MAKEFILE_DIR)"dist/bbd-*
 	@$(LOGGER) log_success "Built $$(cd "$(COMMON_MAKEFILE_DIR)dist" && ls bbd-* | tr '\n' ' ')"
 
-$(BBD): $(BBD_SOURCES)
+$(BBD): $(GR_SOURCES)
 	@$(MAKE) cli
 
 .PHONY: install-cli ## Install bbd into BIN_DIR (default ~/.local/bin), set to use this checkout
@@ -233,7 +233,7 @@ install-cli: $(BBD)
 
 .PHONY: install-skill ## Install the /go-remote skill for Claude Code, Codex and Cursor
 install-skill: $(BBD)
-	@$(BBD_RUN) install-skill
+	@$(GR_RUN) install-skill
 
 # -----------------------------------------------------------------------------------------------------------
 # Run targets
@@ -242,7 +242,7 @@ install-skill: $(BBD)
 .PHONY: run-detached ## Start a workspace for REPO and show its QR code (QR=false prints the link only)
 run-detached: require_repo $(BBD)
 	@$(LOGGER) log_separator
-	@$(BBD_RUN) start "$(REPO_EXPANDED)" $(BBD_QR_FLAG)
+	@$(GR_RUN) start "$(REPO_EXPANDED)" $(GR_QR_FLAG)
 	@$(LOGGER) log_info_dim "Here: make attach REPO=$(REPO)   New QR code: make url REPO=$(REPO)   Stop: make down REPO=$(REPO)"
 
 .PHONY: run ## Start a workspace for REPO, show its QR code, then follow its logs until Ctrl+C stops it
@@ -251,23 +251,23 @@ run: run-detached
 	@$(LOGGER) log_info_dim "Following logs. Ctrl+C stops the workspace (make run-detached leaves it running)."
 	@trap '$(MAKE) down REPO="$(REPO_PATH)"' EXIT; \
 	trap 'exit 130' INT TERM; \
-	$(BBD_RUN) logs "$(REPO_EXPANDED)" --tail 0
+	$(GR_RUN) logs "$(REPO_EXPANDED)" --tail 0
 
 .PHONY: url ## Show a fresh QR code and pairing link for a workspace (QR=false prints the link only)
 url: $(BBD)
-	@$(BBD_RUN) qr $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)") $(BBD_QR_FLAG)
+	@$(GR_RUN) qr $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)") $(GR_QR_FLAG)
 
 .PHONY: login ## Sign Claude Code (or AGENT=codex) in, once for every workspace
 login: $(BBD)
-	@$(BBD_RUN) login $(filter claude codex,$(AGENT)) $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
+	@$(GR_RUN) login $(filter claude codex,$(AGENT)) $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
 
 .PHONY: attach ## Open the workspace's Herdr terminal UI (or tmux session, in the shell mode) here
 attach: $(BBD)
-	@$(BBD_RUN) attach $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
+	@$(GR_RUN) attach $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
 
 .PHONY: logs ## Follow a workspace's logs, with its URL taken out
 logs: $(BBD)
-	@$(BBD_RUN) logs $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
+	@$(GR_RUN) logs $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
 
 .PHONY: ping ## List workspaces with their repo and BitBang listener health
 ping: check_docker
@@ -301,7 +301,7 @@ down: check_docker check_project_repo
 	for project in $$projects; do \
 		repo=$$(docker ps -a --filter label=com.docker.compose.project=$$project --format '{{.Label "bitbang-docker.repo"}}' | head -n 1); \
 		$(LOGGER) log_info "Stopping $$project"; \
-		BBD_REPO="$${repo:-/nonexistent}" $(COMPOSE) -p "$$project" down --remove-orphans; \
+		GR_REPO="$${repo:-/nonexistent}" $(COMPOSE) -p "$$project" down --remove-orphans; \
 	done
 
 # -----------------------------------------------------------------------------------------------------------
@@ -432,6 +432,6 @@ lint: format-check
 	@$(MAKE) check_shellcheck
 	@cd "$(COMMON_MAKEFILE_DIR)" && shellcheck -x -S warning scripts/*.bash docker/*.bash
 	@$(LOGGER) log_indent log_success "shellcheck passed"
-	@BBD_REPO=/nonexistent/bbd-lint $(COMPOSE) --env-file "$(COMMON_MAKEFILE_DIR).env.example" config -q
+	@GR_REPO=/nonexistent/bbd-lint $(COMPOSE) --env-file "$(COMMON_MAKEFILE_DIR).env.example" config -q
 	@$(LOGGER) log_indent log_success "docker-compose.yml is valid"
 	@$(LOGGER) log_success "All checks passed"

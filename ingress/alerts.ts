@@ -6,8 +6,8 @@
  * the secret (anyone who knows it can read it), so it is never logged. Tapping an alert cannot open the session,
  * because the BitBang URL is a credential and must not travel through ntfy.
  *
- * Settings: BBD_NTFY_TOPIC (required), BBD_NTFY_SERVER (default https://ntfy.sh), BBD_NTFY_TOKEN (an access
- * token for a self-hosted server), BBD_REPO_NAME, HERDR_SOCKET.
+ * Settings: GR_NTFY_TOPIC (required), GR_NTFY_SERVER (default https://ntfy.sh), GR_NTFY_TOKEN (an access
+ * token for a self-hosted server), GR_REPO_NAME, HERDR_SOCKET.
  */
 import { createConnection } from "node:net";
 
@@ -134,17 +134,17 @@ function log(message: string): void {
 }
 
 async function main(): Promise<void> {
-  const topic = process.env["BBD_NTFY_TOPIC"] ?? "";
+  const topic = process.env["GR_NTFY_TOPIC"] ?? "";
   if (topic === "") {
-    log("BBD_NTFY_TOPIC is not set; nothing to do");
+    log("GR_NTFY_TOPIC is not set; nothing to do");
     return;
   }
-  const server = process.env["BBD_NTFY_SERVER"] || "https://ntfy.sh";
-  const token = process.env["BBD_NTFY_TOKEN"] || undefined;
-  const repo = process.env["BBD_REPO_NAME"] || "workspace";
+  const server = process.env["GR_NTFY_SERVER"] || "https://ntfy.sh";
+  const token = process.env["GR_NTFY_TOKEN"] || undefined;
+  const repo = process.env["GR_REPO_NAME"] || "workspace";
   const socketPath = process.env["HERDR_SOCKET"]
     ?? `${process.env["HOME"]}/.config/herdr/sessions/${process.env["HERDR_SESSION"] ?? "default"}/herdr.sock`;
-  const interval = Number(process.env["BBD_ALERTS_INTERVAL_MS"] ?? 3000);
+  const interval = Number(process.env["GR_ALERTS_INTERVAL_MS"] ?? 3000);
 
   let previous = new Map<string, AgentInfo>();
   const lastSent = new Map<string, number>();

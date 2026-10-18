@@ -162,9 +162,9 @@ export function startIngress(options: IngressOptions) {
 if (import.meta.main) {
   const compatScript = await Bun.file(new URL("./compat.js", import.meta.url)).text();
   const server = startIngress({
-    hostname: process.env["BBD_INGRESS_HOST"] ?? "127.0.0.1",
-    port: Number(process.env["BBD_INGRESS_PORT"] ?? 7300),
-    upstream: process.env["BBD_INGRESS_UPSTREAM"] ?? "127.0.0.1:7317",
+    hostname: process.env["GR_INGRESS_HOST"] ?? "127.0.0.1",
+    port: Number(process.env["GR_INGRESS_PORT"] ?? 7300),
+    upstream: process.env["GR_INGRESS_UPSTREAM"] ?? "127.0.0.1:7317",
     compatScript,
   });
   log(`listening on ${server.hostname}:${server.port}`);

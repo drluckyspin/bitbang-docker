@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveRoot, saveRoot } from "./config.ts";
 
-const saved = { BBD_ROOT: process.env.BBD_ROOT, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME };
+const saved = { GR_ROOT: process.env.GR_ROOT, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME };
 
 afterEach(() => {
   for (const [key, value] of Object.entries(saved)) {
@@ -21,15 +21,15 @@ function checkout(): string {
   return dir;
 }
 
-test("the recorded checkout is found from anywhere, and --root and BBD_ROOT come first", () => {
-  delete process.env.BBD_ROOT;
+test("the recorded checkout is found from anywhere, and --root and GR_ROOT come first", () => {
+  delete process.env.GR_ROOT;
   process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "bbd-config-"));
   const recorded = checkout();
   expect(saveRoot(`${recorded}/`).root).toBe(recorded);
   expect(resolveRoot()).toBe(recorded);
 
   const other = checkout();
-  process.env.BBD_ROOT = other;
+  process.env.GR_ROOT = other;
   expect(resolveRoot()).toBe(other);
   expect(resolveRoot(recorded)).toBe(recorded);
 });
@@ -37,7 +37,7 @@ test("the recorded checkout is found from anywhere, and --root and BBD_ROOT come
 test("a named checkout that is not one fails, instead of falling through to another", () => {
   process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "bbd-config-"));
   saveRoot(checkout());
-  process.env.BBD_ROOT = tmpdir();
-  expect(() => resolveRoot()).toThrow("(from BBD_ROOT) is not a bitbang-docker checkout");
+  process.env.GR_ROOT = tmpdir();
+  expect(() => resolveRoot()).toThrow("(from GR_ROOT) is not a bitbang-docker checkout");
   expect(() => saveRoot(tmpdir())).toThrow("is not a bitbang-docker checkout");
 });

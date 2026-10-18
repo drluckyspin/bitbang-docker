@@ -4,7 +4,7 @@
 # Script Name: agent.bash
 #
 # Description: The web mode's default agent. Answers Claude Code's and Codex's first-run questions for the
-#              mounted repo, starts the default agent (BBD_DEFAULT_AGENT) in its own Herdr tab as soon as
+#              mounted repo, starts the default agent (GR_DEFAULT_AGENT) in its own Herdr tab as soon as
 #              one is signed in, and keeps its state in /tmp/bbd/agent.json for bbd and the shell's hint.
 #              An agent opened before anyone signed in sits at its sign-in screen; once the sign-in happens
 #              elsewhere (bbd login), it is restarted in its tab.
@@ -23,17 +23,17 @@ set -euo pipefail
 # shellcheck disable=SC1091
 source /usr/local/lib/bitbang-docker/log.bash
 
-REPO="${BBD_REPO:-/workspace}"
+REPO="${GR_REPO:-/workspace}"
 RUNTIME_DIR=/tmp/bbd
 STATE_FILE="${RUNTIME_DIR}/agent.json"
 LOCK_FILE="${HOME}/.config/bitbang-docker/agent-config.lock"
-POLL_SECONDS="${BBD_AGENT_POLL_SECONDS:-3}"
+POLL_SECONDS="${GR_AGENT_POLL_SECONDS:-3}"
 
 configured() {
-  printf '%s' "${BBD_DEFAULT_AGENT:-auto}" | tr '[:upper:]' '[:lower:]'
+  printf '%s' "${GR_DEFAULT_AGENT:-auto}" | tr '[:upper:]' '[:lower:]'
 }
 
-# The agents BBD_DEFAULT_AGENT allows, in order of preference: none for `none` (or a typo).
+# The agents GR_DEFAULT_AGENT allows, in order of preference: none for `none` (or a typo).
 candidates() {
   case "$(configured)" in
     auto) echo claude codex cursor ;;
@@ -41,7 +41,7 @@ candidates() {
   esac
 }
 
-# The agent a sign-in is awaited for, when BBD_DEFAULT_AGENT names one.
+# The agent a sign-in is awaited for, when GR_DEFAULT_AGENT names one.
 awaited() {
   case "$(configured)" in
     claude | codex | cursor) configured ;;
@@ -305,7 +305,7 @@ start_in_tab() {
 watch() {
   local warned="" name kind pane agent found_name found_kind found_pane
   if [ -z "$(candidates)" ]; then
-    [ "$(configured)" = none ] || log_warning "Ignoring BBD_DEFAULT_AGENT=${BBD_DEFAULT_AGENT}; use auto, claude, codex, cursor or none."
+    [ "$(configured)" = none ] || log_warning "Ignoring GR_DEFAULT_AGENT=${GR_DEFAULT_AGENT}; use auto, claude, codex, cursor or none."
     write_state off
     return 0
   fi

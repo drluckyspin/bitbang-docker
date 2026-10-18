@@ -20,8 +20,8 @@
 #   BBD                 bbd command (default: dist/bbd-<os>-<arch>, built by make cli)
 #   E2E_IMAGE           Test image (default bitbang-docker-e2e:latest, built by make e2e)
 #   E2E_SCREENSHOTS     Directory for screenshots of each step (default: none)
-#   BBD_E2E_TRACE       Set to print frame navigations and pairing requests (paths and parameter names only)
-#   BBD_E2E_TIMEOUT_MS  How long each step may take (default 120000)
+#   GR_E2E_TRACE       Set to print frame navigations and pairing requests (paths and parameter names only)
+#   GR_E2E_TIMEOUT_MS  How long each step may take (default 120000)
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail
@@ -67,7 +67,7 @@ cleanup() {
   done
   if [ -n "$THROWAWAY_REPO" ]; then
     log_info_dim "Removing the throwaway workspace, its home volume and repo"
-    BBD_ROOT="$ROOT_DIR" BBD_HOME_VOLUME="$THROWAWAY_VOLUME" "$BBD" stop "$THROWAWAY_REPO" >/dev/null 2>&1 || true
+    GR_ROOT="$ROOT_DIR" GR_HOME_VOLUME="$THROWAWAY_VOLUME" "$BBD" stop "$THROWAWAY_REPO" >/dev/null 2>&1 || true
     docker volume rm "$THROWAWAY_VOLUME" >/dev/null 2>&1 || true
     rm -rf "$THROWAWAY_REPO"
   fi
@@ -97,7 +97,7 @@ start_throwaway() {
   )
 
   log_info "Starting a throwaway workspace"
-  result="$(BBD_ROOT="$ROOT_DIR" BBD_ENV_FILE="${ENV_DIR}/env" BBD_HOME_VOLUME="$THROWAWAY_VOLUME" \
+  result="$(GR_ROOT="$ROOT_DIR" GR_ENV_FILE="${ENV_DIR}/env" GR_HOME_VOLUME="$THROWAWAY_VOLUME" \
     "$BBD" start "$THROWAWAY_REPO" --json --no-window)"
   PROJECT="$(jq -r .project <<<"$result")"
 }
@@ -197,8 +197,8 @@ STAND_IN
   chmod +x "${move_dir}/claude"
 
   log_info "Moving a laptop session in, as /go-remote does"
-  BBD="$BBD" REPO="$THROWAWAY_REPO" MOVE_ID="$MOVE_ID" MOVE_DIR="$move_dir" BBD_ROOT="$ROOT_DIR" \
-    BBD_ENV_FILE="${ENV_DIR}/env" BBD_HOME_VOLUME="$THROWAWAY_VOLUME" CLAUDE_CONFIG_DIR="${LAPTOP_DIR}/claude" \
+  BBD="$BBD" REPO="$THROWAWAY_REPO" MOVE_ID="$MOVE_ID" MOVE_DIR="$move_dir" GR_ROOT="$ROOT_DIR" \
+    GR_ENV_FILE="${ENV_DIR}/env" GR_HOME_VOLUME="$THROWAWAY_VOLUME" CLAUDE_CONFIG_DIR="${LAPTOP_DIR}/claude" \
     XDG_STATE_HOME="${LAPTOP_DIR}/state" "${move_dir}/claude" &
   STAND_IN_PID=$!
   if ! wait_for_file "${move_dir}/start.code" 120 || [ "$(cat "${move_dir}/start.code")" != 0 ]; then
@@ -297,14 +297,14 @@ main() {
         log_error "The default agent's tab is not labelled Claude"
         status=1
       fi
-      chat=(-e BBD_E2E_CHAT_MESSAGE="Reply to ${marker}" -e BBD_E2E_CHAT_EXPECT="${marker}-reply")
+      chat=(-e GR_E2E_CHAT_MESSAGE="Reply to ${marker}" -e GR_E2E_CHAT_EXPECT="${marker}-reply")
     else
       log_error "The default agent did not start: $(docker exec "$cid" bitbang-docker-agent status | jq -c .)"
       status=1
     fi
     if move_session "$cid" "$laptop_marker"; then
-      moved=(-e BBD_E2E_MOVED_HISTORY="${laptop_marker}-reply" -e BBD_E2E_MOVED_MESSAGE="Reply to ${moved_marker}"
-        -e BBD_E2E_MOVED_EXPECT="${moved_marker}-reply")
+      moved=(-e GR_E2E_MOVED_HISTORY="${laptop_marker}-reply" -e GR_E2E_MOVED_MESSAGE="Reply to ${moved_marker}"
+        -e GR_E2E_MOVED_EXPECT="${moved_marker}-reply")
     else
       status=1
     fi
@@ -332,7 +332,7 @@ main() {
 
   if [ -n "${E2E_SCREENSHOTS:-}" ]; then
     mkdir -p "$E2E_SCREENSHOTS"
-    shots=(-v "$(cd "$E2E_SCREENSHOTS" && pwd -P):/shots" -e BBD_E2E_SCREENSHOTS=/shots)
+    shots=(-v "$(cd "$E2E_SCREENSHOTS" && pwd -P):/shots" -e GR_E2E_SCREENSHOTS=/shots)
   fi
 
   log_info "Running the phone check through BitBang (this takes up to a few minutes)"
@@ -342,9 +342,9 @@ main() {
     ${shots[@]+"${shots[@]}"} \
     ${chat[@]+"${chat[@]}"} \
     ${moved[@]+"${moved[@]}"} \
-    -e BBD_E2E_COMMAND="echo ${marker}-\$((6*7))" \
-    -e BBD_E2E_EXPECT="${marker}-42" \
-    -e BBD_E2E_TRACE -e BBD_E2E_TIMEOUT_MS \
+    -e GR_E2E_COMMAND="echo ${marker}-\$((6*7))" \
+    -e GR_E2E_EXPECT="${marker}-42" \
+    -e GR_E2E_TRACE -e GR_E2E_TIMEOUT_MS \
     "$E2E_IMAGE" || status=$?
 
   # The typed text holds $((6*7)); only the shell's output holds 42.

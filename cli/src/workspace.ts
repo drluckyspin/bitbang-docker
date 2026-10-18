@@ -67,9 +67,9 @@ export interface Workspace {
   envFile?: string;
 }
 
-/** The entrypoint's reading of BBD_UI. Compose always sets it; images from before the web mode never had it. */
+/** The entrypoint's reading of GR_UI. Compose always sets it; images from before the web mode never had it. */
 export function uiMode(env: string[]): Workspace["ui"] {
-  const value = env.find((entry) => entry.startsWith("BBD_UI="))?.slice("BBD_UI=".length);
+  const value = env.find((entry) => entry.startsWith("GR_UI="))?.slice("GR_UI=".length);
   if (value === undefined) return "shell";
   return value.toLowerCase() === "shell" ? "shell" : "web";
 }
@@ -205,12 +205,12 @@ export async function composeUp(
   const name = await gitConfig(repo, "user.name");
   const email = await gitConfig(repo, "user.email");
   const env = {
-    BBD_REPO: repo,
+    GR_REPO: repo,
     GIT_AUTHOR_NAME: name,
     GIT_AUTHOR_EMAIL: email,
     GIT_COMMITTER_NAME: name,
     GIT_COMMITTER_EMAIL: email,
-    ...(options.handingOff ? { BBD_DEFAULT_AGENT: "none" } : {}),
+    ...(options.handingOff ? { GR_DEFAULT_AGENT: "none" } : {}),
   };
   await ensureHomeVolume(root, project, env);
   const up = [...compose(root, project), "up", "-d", ...(options.recreate ? ["--force-recreate"] : [])];

@@ -14,10 +14,10 @@
 set -euo pipefail
 
 TOKEN_FILE=/tmp/bbd/web-token
-WEB_UI="http://127.0.0.1:${BBD_WEB_PORT:-7317}"
+WEB_UI="http://127.0.0.1:${GR_WEB_PORT:-7317}"
 
 if [ ! -s "$TOKEN_FILE" ]; then
-  echo "herdr-web-ui is not running in this workspace (BBD_UI=shell, or still starting)" >&2
+  echo "herdr-web-ui is not running in this workspace (GR_UI=shell, or still starting)" >&2
   exit 1
 fi
 

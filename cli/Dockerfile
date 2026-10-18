@@ -27,9 +27,9 @@ RUN ./node_modules/.bin/tsc --noEmit && bun test && touch /passed
 
 FROM deps AS build
 COPY --from=test /passed /passed
-ARG BBD_TARGETS="darwin-arm64 darwin-x64 linux-arm64 linux-x64"
+ARG GR_TARGETS="darwin-arm64 darwin-x64 linux-arm64 linux-x64"
 RUN mkdir /dist \
-  && for target in ${BBD_TARGETS}; do \
+  && for target in ${GR_TARGETS}; do \
     bun build --compile --target="bun-${target}" cli/src/main.ts --outfile "/dist/bbd-${target}" || exit 1; \
   done
 

@@ -48,7 +48,7 @@ Options:
                 as it does whenever stdout is not a terminal
   --no-qr       Print the link without drawing the QR code
   --no-window   Never open a window for the QR code
-  --root <dir>  The bitbang-docker checkout (default: BBD_ROOT, then the one make install-cli recorded)
+  --root <dir>  The bitbang-docker checkout (default: GR_ROOT, then the one make install-cli recorded)
 
 The path defaults to the current directory for start and sessions. The other commands find the only
 workspace when there is one, and need the repo's path when there are several.
@@ -246,7 +246,7 @@ try {
     if (error.hint) ui.dim(error.hint);
   } else {
     ui.error(error instanceof Error ? error.message : String(error));
-    if (process.env.BBD_DEBUG && error instanceof Error && error.stack) ui.dim(error.stack);
+    if (process.env.GR_DEBUG && error instanceof Error && error.stack) ui.dim(error.stack);
   }
   process.exitCode = 1;
 }

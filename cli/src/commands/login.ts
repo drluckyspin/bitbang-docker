@@ -40,7 +40,7 @@ export async function saveClaudeToken(root: string): Promise<boolean> {
     throw new UserError("Signing in needs an interactive terminal", "Run bbd login in one.");
   }
   const env = envFile(root);
-  if (env === join(root, ".env.example")) throw new UserError("BBD_ENV_FILE points at the template, which holds no keys");
+  if (env === join(root, ".env.example")) throw new UserError("GR_ENV_FILE points at the template, which holds no keys");
   await checkEnv(root);
   ui.info("Signing in to Claude Code on this computer, with claude setup-token. bbd keeps the token it makes in .env, for every workspace, and does not show it.");
   const token = await setupToken(claude);

@@ -24,7 +24,7 @@ The first run also builds `bbd`, the command-line tool behind the `make` targets
 It creates `.env` from `.env.example`, readable by you only. Everything in it is optional, so the defaults work as they
 are.
 
-**Upgrading from an earlier version?** `.env.example` has new keys (`BBD_UI`, `BBD_DEFAULT_AGENT` and the `BBD_NTFY_*`
+**Upgrading from an earlier version?** `.env.example` has new keys (`GR_UI`, `GR_DEFAULT_AGENT` and the `GR_NTFY_*`
 alert settings). The first run offers to write `.env.new`, your `.env` with the new keys added, for you to move into
 place. It preserves existing values without printing them.
 
@@ -47,7 +47,7 @@ exists, these targets find it without `REPO`. With more than one, pass `REPO=` t
 
 ## Two modes
 
-`BBD_UI` in `.env` chooses what the QR code opens. It takes effect when the workspace next starts.
+`GR_UI` in `.env` chooses what the QR code opens. It takes effect when the workspace next starts.
 
 | Mode            | What the phone gets                                                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -58,10 +58,10 @@ In the web mode, the container runs a Herdr server, herdr-web-ui, and `bbd-ingre
 run inside BitBang's page. Each agent runs in its own Herdr tab, so the laptop (`make attach`) and every paired phone
 see the same agents. A new workspace has two tabs: Repo Shell, a shell in the repo, and one for the default agent, named
 Claude or Codex; the QR code opens the agent's chat. Chat and Terminal, at the top, are two views of the tab you are on:
-on the agent's tab, Terminal shows the agent's own screen, and the shell is in Repo Shell. `BBD_DEFAULT_AGENT=auto`
-picks Claude Code when it is signed in, else Codex. With neither signed in, `bbd start` offers to sign you in, and the
-repo's terminal on the phone says how. A new workspace starts a new conversation, with the tabs of the last one gone;
-their transcripts stay, for `bbd pull` and `--resume`. A restarted container (`docker restart`) keeps its tabs.
+on the agent's tab, Terminal shows the agent's own screen, and the shell is in Repo Shell. `GR_DEFAULT_AGENT=auto` picks
+Claude Code when it is signed in, else Codex. With neither signed in, `bbd start` offers to sign you in, and the repo's
+terminal on the phone says how. A new workspace starts a new conversation, with the tabs of the last one gone; their
+transcripts stay, for `bbd pull` and `--resume`. A restarted container (`docker restart`) keeps its tabs.
 
 ## The bbd command
 
@@ -134,7 +134,7 @@ devices, list the paired devices and revoke them.
 **Keys.** The terminal view has a row of keys above the phone keyboard: Esc, Tab, ^C, Ctrl, Alt, Shift, Enter and the
 arrows. Herdr's settings let you change the row.
 
-**Alerts.** Set `BBD_NTFY_TOPIC` and install the [ntfy](https://ntfy.sh) app to get a notification when an agent needs
+**Alerts.** Set `GR_NTFY_TOPIC` and install the [ntfy](https://ntfy.sh) app to get a notification when an agent needs
 you or finishes, even with BitBang closed. Alerts name the agent and the repo, never what was said, and tapping one does
 not open the session. Anyone who knows the topic can read its alerts, so make it long and random, for example
 `openssl rand -hex 16`.
@@ -159,30 +159,30 @@ status bar fills the gap with keys you tap:
 | `PgUp` `PgDn` | Page through the scrollback; paging back to the bottom returns to the live view |
 
 The row sits just above the keyboard and fits a 48-column phone screen. The laptop sees it too. To hide it, set
-`BBD_KEY_BAR=false` in `.env`; the workspace starts without it next time.
+`GR_KEY_BAR=false` in `.env`; the workspace starts without it next time.
 
 ## Configuration
 
 All settings live in `.env`. It is gitignored and should stay mode `600`; `make check` and `bbd doctor` warn when it is
 not.
 
-| Variable                | Default           | Purpose                                                                     |
-| ----------------------- | ----------------- | --------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`     | `""`              | API key for Claude Code. Leave empty to sign in with a subscription instead |
-| `OPENAI_API_KEY`        | `""`              | API key for Codex. Leave empty to sign in with a subscription instead       |
-| `GH_TOKEN`              | `""`              | Fine-grained GitHub token for `git push` and `gh` (see below)               |
-| `BBD_UI`                | `web`             | [What the QR code opens](#two-modes): `web` or `shell`                      |
-| `BBD_DEFAULT_AGENT`     | `auto`            | Web mode: `auto`, `claude`, `codex`, or `none`                              |
-| `BITBANG_PIN`           | `""`              | PIN that BitBang asks for before connecting                                 |
-| `BITBANG_MAX_SESSIONS`  | `3`               | Maximum concurrent shells across all browsers, in the shell mode            |
-| `BBD_WATCHDOG_INTERVAL` | `300`             | Seconds between listener health probes; `0` turns the watchdog off          |
-| `BBD_KEY_BAR`           | `true`            | `true` shows the [tmux key bar](#the-shell-mode); `false` hides it          |
-| `BBD_NTFY_TOPIC`        | `""`              | ntfy topic for [agent alerts](#using-it-from-a-phone); empty turns them off |
-| `BBD_NTFY_SERVER`       | `https://ntfy.sh` | The ntfy server                                                             |
-| `BBD_NTFY_TOKEN`        | `""`              | Access token, for an ntfy server that requires one                          |
-| `BBD_MEMORY`            | `4g`              | Container memory limit                                                      |
-| `BBD_CPUS`              | `2`               | Container CPU limit                                                         |
-| `BBD_RUNTIME`           | `runc`            | Container runtime; `runsc` runs it under gVisor on Linux hosts that have it |
+| Variable               | Default           | Purpose                                                                     |
+| ---------------------- | ----------------- | --------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`    | `""`              | API key for Claude Code. Leave empty to sign in with a subscription instead |
+| `OPENAI_API_KEY`       | `""`              | API key for Codex. Leave empty to sign in with a subscription instead       |
+| `GH_TOKEN`             | `""`              | Fine-grained GitHub token for `git push` and `gh` (see below)               |
+| `GR_UI`                | `web`             | [What the QR code opens](#two-modes): `web` or `shell`                      |
+| `GR_DEFAULT_AGENT`     | `auto`            | Web mode: `auto`, `claude`, `codex`, or `none`                              |
+| `BITBANG_PIN`          | `""`              | PIN that BitBang asks for before connecting                                 |
+| `BITBANG_MAX_SESSIONS` | `3`               | Maximum concurrent shells across all browsers, in the shell mode            |
+| `GR_WATCHDOG_INTERVAL` | `300`             | Seconds between listener health probes; `0` turns the watchdog off          |
+| `GR_KEY_BAR`           | `true`            | `true` shows the [tmux key bar](#the-shell-mode); `false` hides it          |
+| `GR_NTFY_TOPIC`        | `""`              | ntfy topic for [agent alerts](#using-it-from-a-phone); empty turns them off |
+| `GR_NTFY_SERVER`       | `https://ntfy.sh` | The ntfy server                                                             |
+| `GR_NTFY_TOKEN`        | `""`              | Access token, for an ntfy server that requires one                          |
+| `GR_MEMORY`            | `4g`              | Container memory limit                                                      |
+| `GR_CPUS`              | `2`               | Container CPU limit                                                         |
+| `GR_RUNTIME`           | `runc`            | Container runtime; `runsc` runs it under gVisor on Linux hosts that have it |
 
 The container receives keys and tokens **only from `.env`**. Keys exported in your shell, such as an `ANTHROPIC_API_KEY`
 set in `~/.zprofile`, never reach it. Whoever gets into the workspace can read whatever the container holds, so keep
@@ -292,8 +292,8 @@ Know these limits before you rely on it:
 ## Connection reliability
 
 **Watchdog.** If the host sleeps, BitBang's connection to the signaling server can die without either side noticing, and
-browsers then report "Device not found". Every `BBD_WATCHDOG_INTERVAL` seconds the container connects to its own URL,
-and in the web mode also checks that the app answers through the adapter. After two failures in a row, it restarts the
+browsers then report "Device not found". Every `GR_WATCHDOG_INTERVAL` seconds the container connects to its own URL, and
+in the web mode also checks that the app answers through the adapter. After two failures in a row, it restarts the
 listener with the same identity, so the URL keeps working. `make ping` shows the result of the most recent check.
 
 **Sleep.** While a workspace runs, `bbd` keeps the Mac awake (with `caffeinate`, until the container stops). Closing the
@@ -323,8 +323,8 @@ the cause.
 3. Lock the phone for a minute and unlock it: the page reconnects.
 4. Reload the page: it stays paired. Scan a code that is more than ten minutes old: only the pairing screen appears.
 5. `bbd start ~/src/my-repo --agent claude`: the chat view opens on the phone, and a message reaches the agent.
-6. With `BBD_NTFY_TOPIC` set, an agent that finishes sends an alert.
-7. With `BBD_UI=shell`: BitBang's terminal opens on the tmux session, with the key bar.
+6. With `GR_NTFY_TOPIC` set, an agent that finishes sends an alert.
+7. With `GR_UI=shell`: BitBang's terminal opens on the tmux session, with the key bar.
 8. `/go-remote` in a Claude Code session on the laptop: when its reply ends, the session closes and a QR code opens.
    Scan it, and the phone shows the conversation; send a message, and it carries on.
 

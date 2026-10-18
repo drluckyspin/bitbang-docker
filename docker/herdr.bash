@@ -20,11 +20,11 @@ for var in ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN OPENAI_API_KEY CURSOR_API_K
     unset "$var"
   fi
 done
-unset BITBANG_PIN BITBANG_MAX_SESSIONS BBD_WATCHDOG_INTERVAL BBD_NTFY_TOPIC BBD_NTFY_SERVER BBD_NTFY_TOKEN
+unset BITBANG_PIN BITBANG_MAX_SESSIONS GR_WATCHDOG_INTERVAL GR_NTFY_TOPIC GR_NTFY_SERVER GR_NTFY_TOKEN
 
 export HOME=/home/agent
 # Herdr opens panes in $SHELL, and Docker sets none: /bin/sh has no line editing and types out the
 # bracketed paste the web UI's chat sends.
 export SHELL=/bin/bash
-cd "${BBD_REPO:-/workspace}"
+cd "${GR_REPO:-/workspace}"
 exec herdr "$@"

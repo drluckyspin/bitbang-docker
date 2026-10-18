@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { projectName, reservedConflict, resolveRepo, uiMode } from "./workspace.ts";
 
-test("uiMode reads BBD_UI as the entrypoint does, and an image without it as the shell", () => {
-  expect(uiMode(["PATH=/usr/bin", "BBD_UI=web"])).toBe("web");
-  expect(uiMode(["BBD_UI=Shell"])).toBe("shell");
+test("uiMode reads GR_UI as the entrypoint does, and an image without it as the shell", () => {
+  expect(uiMode(["PATH=/usr/bin", "GR_UI=web"])).toBe("web");
+  expect(uiMode(["GR_UI=Shell"])).toBe("shell");
   expect(uiMode(["PATH=/usr/bin"])).toBe("shell");
 });
 

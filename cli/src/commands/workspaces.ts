@@ -102,7 +102,7 @@ export async function stop(options: { path?: string; all: boolean; root?: string
     ui.info(`Stopping ${workspace.project}`);
     const code = await inherit([...compose(root, workspace.project), "down", "--remove-orphans"], {
       stdoutToStderr: true,
-      env: { BBD_REPO: workspace.repo },
+      env: { GR_REPO: workspace.repo },
     });
     if (code !== 0) throw new UserError(`docker compose could not stop ${workspace.project}`);
   }

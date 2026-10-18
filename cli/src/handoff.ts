@@ -57,7 +57,7 @@ export async function agentReady(workspace: Workspace, agent: AgentKind): Promis
 /** The web mode's default agent, as the container's bitbang-docker-agent watch records it. */
 export interface DefaultAgent {
   state: "off" | "waiting" | "starting" | "running" | "failed";
-  /** the agent started, being started, or (when BBD_DEFAULT_AGENT names one) awaiting a sign-in */
+  /** the agent started, being started, or (when GR_DEFAULT_AGENT names one) awaiting a sign-in */
   agent?: AgentKind;
   pane?: string;
 }
@@ -304,6 +304,6 @@ export async function fetchFile(workspace: Workspace, agent: SessionAgentKind, f
 
 export function requireWeb(workspace: Workspace, what: string): void {
   if (workspace.ui !== "web") {
-    throw new UserError(`${what} needs the web mode`, "This workspace runs with BBD_UI=shell; set BBD_UI=web in .env and start it again.");
+    throw new UserError(`${what} needs the web mode`, "This workspace runs with GR_UI=shell; set GR_UI=web in .env and start it again.");
   }
 }
