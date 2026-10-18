@@ -1,12 +1,18 @@
-# BitBang Docker
+# go-remote
 
-Work on one of your local git repos from your phone: chat with Claude Code or Codex, open a terminal, and browse the
-files, all through [BitBang](https://github.com/richlegrand/bitbang). The repo is mounted into a locked-down container
-that has Claude Code, Codex, `gh`, Node, Python and `uv` installed, so an agent can work on it from anywhere while it
-stays fenced off from the rest of your machine.
+go-remote lets you leave your desk without leaving your coding agent behind. Type `/go-remote` in Claude Code or Codex.
+It waits for the agent to finish its turn, moves the conversation into a locked-down Docker container on your own
+computer, and shows a QR code. Scan it, and your phone opens the same session in a chat-and-terminal view, connected
+over [BitBang](https://github.com/richlegrand/bitbang)'s encrypted peer-to-peer link. There are no ports to open, no
+accounts to create and nothing to host. The container sees only the repo you gave it, and it can alert your phone when
+the agent needs you. Claude Code, Codex and Cursor all run inside. Everything stays on your machine, and it's open
+source.
 
-`make run` shows a QR code. Scan it with your phone's camera, and you are in [Herdr](https://herdr.dev)'s web UI for the
-repo, already paired. There are no ports to open, no accounts to create, and no SSH keys to manage.
+You can also start from scratch: `make run` mounts a repo and shows a QR code that opens [Herdr](https://herdr.dev)'s
+web UI for it, already paired. The container has Claude Code, Codex, the Cursor Agent CLI, `gh`, Node, Python and `uv`
+installed.
+
+go-remote was called bitbang-docker until October 2026; its command was `bbd`, and its settings started with `BBD_`.
 
 ## Quick start
 
@@ -23,10 +29,6 @@ Without `REPO`, `make run` and `make run-detached` mount the directory you run t
 The first run also builds `go-remote`, the command-line tool behind the `make` targets, in Docker, so you need nothing
 else. It creates `.env` from `.env.example`, readable by you only. Everything in it is optional, so the defaults work as
 they are.
-
-**Upgrading from an earlier version?** `.env.example` has new keys (`GR_UI`, `GR_DEFAULT_AGENT` and the `GR_NTFY_*`
-alert settings). The first run offers to write `.env.new`, your `.env` with the new keys added, for you to move into
-place. It preserves existing values without printing them.
 
 To leave the workspace running after you close the terminal, start it with `make run-detached REPO=~/src/my-repo`
 instead. Then use these targets:
@@ -86,6 +88,11 @@ repo:
 | `go-remote install-skill`        | Install the `/go-remote` skill for Claude Code, Codex and Cursor                 |
 
 `go-remote help` lists every option. `--json` gives machine-readable output for scripts and agents.
+
+`make install-cli` also links `gr` to `go-remote`, as a short name. A `gr` already in that directory that isn't
+go-remote's is kept as `gr.bak`, and the install warns about any other `gr` on your PATH. It cannot see shell aliases,
+though: Oh My Zsh's git plugin, which is on by default, makes `gr` an alias for `git remote`, and an alias wins over a
+command. To use `gr` there, add `alias gr=go-remote` to `~/.zshrc` after the line that loads Oh My Zsh.
 
 `go-remote install-skill` checks whether the published skill is available on [skills.sh](https://skills.sh) and offers
 to install it with the official `skills` CLI. Until it is published, if the directory or network is unavailable, or if
