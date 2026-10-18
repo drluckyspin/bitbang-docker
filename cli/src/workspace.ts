@@ -63,6 +63,8 @@ export interface Workspace {
   state: string;
   health: string;
   ui: "web" | "shell";
+  /** the .env it was given, as compose was told it (relative to the checkout, unless absolute) */
+  envFile?: string;
 }
 
 /** The entrypoint's reading of BBD_UI. Compose always sets it; images from before the web mode never had it. */
@@ -140,6 +142,7 @@ export async function listWorkspaces(): Promise<Workspace[]> {
       state: container.State.Status,
       health: container.State.Health?.Status ?? "",
       ui: uiMode(container.Config.Env),
+      envFile: container.Config.Labels["bitbang-docker.env-file"] ?? ".env",
     }))
     .sort((a, b) => a.project.localeCompare(b.project));
 }
@@ -183,6 +186,38 @@ export async function ensureHomeVolume(root: string, project: string, env: RunOp
   const name: unknown = config?.volumes?.home?.name;
   if (typeof name !== "string" || name === "") throw new UserError("docker-compose.yml names no home volume");
   await docker(["volume", "create", name]);
+}
+
+async function gitConfig(repo: string, key: string): Promise<string> {
+  return (await capture(["git", "-C", repo, "config", key])).stdout.trim();
+}
+
+/**
+ * compose up for a repo's workspace. With `handingOff` the container starts no default agent (bbd starts the
+ * one asked for); `recreate` replaces a running container, which is how it gets a changed .env.
+ */
+export async function composeUp(
+  root: string,
+  repo: string,
+  project: string,
+  options: { handingOff?: boolean; recreate?: boolean } = {},
+): Promise<Workspace> {
+  const name = await gitConfig(repo, "user.name");
+  const email = await gitConfig(repo, "user.email");
+  const env = {
+    BBD_REPO: repo,
+    GIT_AUTHOR_NAME: name,
+    GIT_AUTHOR_EMAIL: email,
+    GIT_COMMITTER_NAME: name,
+    GIT_COMMITTER_EMAIL: email,
+    ...(options.handingOff ? { BBD_DEFAULT_AGENT: "none" } : {}),
+  };
+  await ensureHomeVolume(root, project, env);
+  const up = [...compose(root, project), "up", "-d", ...(options.recreate ? ["--force-recreate"] : [])];
+  if ((await inherit(up, { stdoutToStderr: true, env })) !== 0) throw new UserError(`docker compose could not start ${project}`);
+  const started = (await listWorkspaces()).find((workspace) => workspace.project === project);
+  if (!started) throw new UserError(`${project} did not start`);
+  return started;
 }
 
 /** Runs a command in the workspace as the agent user. */

@@ -21,6 +21,8 @@ services:
     restart: "no"
     labels:
       bitbang-docker.repo: ${BBD_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
+      # Which .env the container was given, so bbd login restarts only the workspaces its token is for
+      bitbang-docker.env-file: ${BBD_ENV_FILE:-.env}
     healthcheck:
       test: ["CMD-SHELL", "[ \"$$(cat /tmp/bitbang/health 2>/dev/null)\" = ok ]"]
       interval: 30s

@@ -11,6 +11,7 @@ versions against them.
 | [herdr-web-ui](https://github.com/devswha/herdr-web-ui)                | MIT                        | Source at a pinned commit, run by Bun in the image          | `third_party/herdr-web-ui/LICENSE`    |
 | [Bun](https://bun.sh)                                                  | MIT; JavaScriptCore LGPL-2 | Runtime in the image, and embedded in each `bbd` executable | [Bun's licensing page][bun-licensing] |
 | [lean-qr](https://github.com/davidje13/lean-qr)                        | MIT                        | QR codes in `bbd`, compiled into it                         | `third_party/lean-qr/LICENSE`         |
+| [xterm.js](https://github.com/xtermjs/xterm.js) (`@xterm/headless`)    | MIT                        | Terminal emulator in `bbd login`, compiled into it          | `third_party/xterm/LICENSE`           |
 | [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code) | Anthropic's terms          | Installed from npm when the image is built                  | Its npm package                       |
 | [Codex CLI](https://github.com/openai/codex)                           | Apache-2.0                 | Installed from npm when the image is built                  | Its npm package                       |
 | [uv](https://github.com/astral-sh/uv)                                  | MIT or Apache-2.0          | Copied from its official image                              | Its repository                        |

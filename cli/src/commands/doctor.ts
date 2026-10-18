@@ -2,7 +2,7 @@
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { resolveRoot } from "../config.ts";
-import { envFile } from "../env.ts";
+import { envFile, envHas } from "../env.ts";
 import { onBattery } from "../host.ts";
 import { capture } from "../proc.ts";
 import { AGENT_NAMES, type AgentKind } from "../sessions.ts";
@@ -34,6 +34,11 @@ export async function doctor(options: { json: boolean; root?: string }): Promise
     else if (!existsSync(env)) add(".env", "warn", "not created yet; bbd start creates it from .env.example");
     else if ((statSync(env).mode & 0o077) !== 0) add(".env", "warn", `readable by other users; fix with chmod 600 ${env}`);
     else add(".env", "ok", "private");
+    if (existsSync(env) && env !== join(root, ".env.example")) {
+      if (envHas(env, "ANTHROPIC_API_KEY")) add("sign-in", "ok", "Claude Code uses the API key in .env");
+      else if (envHas(env, "CLAUDE_CODE_OAUTH_TOKEN")) add("sign-in", "ok", "Claude Code has a token in .env, for every workspace");
+      else add("sign-in", "ok", "no Claude Code token in .env; bbd login makes one");
+    }
   }
 
   let labels: Record<string, string> | undefined;
