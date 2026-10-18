@@ -55,10 +55,12 @@ exists, these targets find it without `REPO`. With more than one, pass `REPO=` t
 
 In the web mode, the container runs a Herdr server, herdr-web-ui, and `bbd-ingress`, a small adapter that lets the app
 run inside BitBang's page. Each agent runs in its own Herdr tab, so the laptop (`make attach`) and every paired phone
-see the same agents. The default agent gets its own tab, and the QR code opens its chat. `BBD_DEFAULT_AGENT=auto` picks
-Claude Code when it is signed in, else Codex. With neither signed in, `bbd start` offers to sign you in, and the repo's
-terminal on the phone says how. A new workspace starts a new conversation, with the tabs of the last one gone; their
-transcripts stay, for `bbd pull` and `--resume`. A restarted container (`docker restart`) keeps its tabs.
+see the same agents. A new workspace has two tabs: Repo Shell, a shell in the repo, and one for the default agent, named
+Claude or Codex; the QR code opens the agent's chat. Chat and Terminal, at the top, are two views of the tab you are on:
+on the agent's tab, Terminal shows the agent's own screen, and the shell is in Repo Shell. `BBD_DEFAULT_AGENT=auto`
+picks Claude Code when it is signed in, else Codex. With neither signed in, `bbd start` offers to sign you in, and the
+repo's terminal on the phone says how. A new workspace starts a new conversation, with the tabs of the last one gone;
+their transcripts stay, for `bbd pull` and `--resume`. A restarted container (`docker restart`) keeps its tabs.
 
 ## The bbd command
 

@@ -187,6 +187,8 @@ web_checks() {
      grep -qx HERDR_WEB_TELEMETRY=0 <<<"$environ" && grep -qx HERDR_WEB_AUTO_UPDATE=0 <<<"$environ" &&
      grep -qx DO_NOT_TRACK=1 <<<"$environ" &&
      grep -qx "version_check = false" "$HERDR_CONFIG_PATH" && grep -qx "manifest_check = false" "$HERDR_CONFIG_PATH"'
+  check "The repo's shell tab is named Repo Shell" \
+    'herdr tab list | jq -e '\''any(.result.tabs[]; .label == "Repo Shell")'\'''
   check "Herdr learns Claude and Codex session IDs" \
     'jq -e .hooks.SessionStart ~/.claude/settings.json | grep -q herdr && grep -q herdr ~/.codex/hooks.json'
   check "The repo's pane runs bash, which takes the web UI's bracketed paste" \

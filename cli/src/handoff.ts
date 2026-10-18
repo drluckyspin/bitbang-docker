@@ -108,19 +108,26 @@ export async function mainPane(workspace: Workspace): Promise<Pane | undefined> 
   return all.find((pane) => pane.cwd === workspace.repo) ?? all.find((pane) => within(pane.cwd, workspace.repo));
 }
 
+/** The label of the tab an agent runs in: Claude for the agent named claude, Claude 2 for claude-2. */
+export function tabLabel(agent: AgentKind, name: string): string {
+  const title = agent.charAt(0).toUpperCase() + agent.slice(1);
+  return name === agent ? title : `${title} ${name.slice(agent.length + 1)}`;
+}
+
 /**
  * Starts an agent in a new tab at `cwd`, so the repo's own shell stays as it was. Returns the agent's name,
- * its pane, and whether Herdr saw it come up ready for input.
+ * its tab's label, its pane, and whether Herdr saw it come up ready for input.
  */
 export async function startAgent(
   workspace: Workspace,
   agent: AgentKind,
   cwd: string,
   args: string[],
-): Promise<{ name: string; pane: string; ready: boolean }> {
+): Promise<{ name: string; tab: string; pane: string; ready: boolean }> {
   const taken = new Set((await agents(workspace)).map((info) => info.name));
   let name: string = agent;
   for (let n = 2; taken.has(name); n++) name = `${agent}-${n}`;
+  const label = tabLabel(agent, name);
 
   const home = await mainPane(workspace);
   const tab = await herdr<{ root_pane: { pane_id: string } }>(workspace, [
@@ -130,7 +137,7 @@ export async function startAgent(
     "--cwd",
     cwd,
     "--label",
-    name,
+    label,
     "--focus",
   ]);
   const pane = tab.root_pane.pane_id;
@@ -148,7 +155,7 @@ export async function startAgent(
   } catch {
     ready = false;
   }
-  return { name, pane, ready };
+  return { name, tab: label, pane, ready };
 }
 
 export async function prompt(workspace: Workspace, agent: string, text: string): Promise<void> {

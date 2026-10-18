@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { type ContainerFile, groupSessions, linkTarget, parseDefaultAgent, pullable } from "./handoff.ts";
+import { type ContainerFile, groupSessions, linkTarget, parseDefaultAgent, pullable, tabLabel } from "./handoff.ts";
 import { claudeProjectDir } from "./sessions.ts";
 
 const REPO = "/Users/me/src/app";
@@ -86,4 +86,10 @@ test("linkTarget opens the running default agent's chat, else the repo's termina
   expect(linkTarget(running, "w1:p1", "terminal")).toEqual({ pane: "w1:p2", view: "terminal" });
   expect(linkTarget({ state: "waiting" }, "w1:p1")).toEqual({ pane: "w1:p1", view: "terminal" });
   expect(linkTarget({ state: "starting", agent: "codex" }, undefined)).toEqual({ pane: undefined, view: "terminal" });
+});
+
+test("agent tabs are labelled for people, while the agent keeps its name", () => {
+  expect(tabLabel("claude", "claude")).toBe("Claude");
+  expect(tabLabel("claude", "claude-2")).toBe("Claude 2");
+  expect(tabLabel("codex", "codex-3")).toBe("Codex 3");
 });

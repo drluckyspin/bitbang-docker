@@ -237,12 +237,12 @@ export async function finishMove(plan: MovePlan): Promise<void> {
     if (!session) throw new UserError(`the session's transcript is gone from this computer`);
     await copyIn(workspace, session, hostStores());
     const started = await startAgent(workspace, plan.ref.agent, session.cwd ?? plan.repo, resumeArgs(plan.ref, false));
-    if (!started.ready) ui.warn(`${name} was started in the ${started.name} tab but is not ready for input yet`);
+    if (!started.ready) ui.warn(`${name} was started in the ${started.tab} tab but is not ready for input yet`);
     if (plan.brief) await prompt(workspace, started.name, `Read ${plan.brief} and continue the work it describes.`);
     const url = await waitForListener(workspace);
     await keepAwake(workspace.id);
     const shown = await showLink(workspace, url, { pane: started.pane, view: "chat" }, { json: true, qr: false, window: plan.window });
-    ui.success(`${name} resumed the session in the ${started.name} tab; QR code: ${shown.qr}`);
+    ui.success(`${name} resumed the session in the ${started.tab} tab; QR code: ${shown.qr}`);
     tell(
       plan.agent,
       shown.qr === "window"

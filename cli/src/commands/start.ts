@@ -209,13 +209,13 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
     pane = started.pane;
     agentName = started.name;
     if (started.ready) {
-      ui.success(`${AGENT_NAMES[agent]} is running in the ${started.name} tab${ref ? (options.fork ? ", on a copy of the session" : ", resuming the session") : ""}`);
+      ui.success(`${AGENT_NAMES[agent]} is running in the ${started.tab} tab${ref ? (options.fork ? ", on a copy of the session" : ", resuming the session") : ""}`);
       if (options.brief) {
         await prompt(workspace, started.name, `Read ${join(repo, BRIEF)} and continue the work it describes.`);
         ui.success("Gave it the handoff brief");
       }
     } else {
-      ui.warn(`${AGENT_NAMES[agent]} was started in the ${started.name} tab but is not ready for input yet; open its terminal view to see why.`);
+      ui.warn(`${AGENT_NAMES[agent]} was started in the ${started.tab} tab but is not ready for input yet; open its terminal view to see why.`);
     }
   } else if (workspace.ui === "web") {
     let current = await settledDefaultAgent(workspace);

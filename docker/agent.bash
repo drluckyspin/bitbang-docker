@@ -255,6 +255,15 @@ idle_tab_pane() {
   return 1
 }
 
+# The label of the tab an agent runs in: Claude for the agent named claude, Claude 2 for claude-2.
+tab_label() {
+  local name="$1" kind="$2" label="${2^}"
+  if [ "$name" != "$kind" ]; then
+    label="${label} ${name#"${kind}-"}"
+  fi
+  printf '%s\n' "$label"
+}
+
 # Starts an agent at the repo, in an idle tab already named after it or else a new one; prints its pane.
 start_in_tab() {
   local kind="$1" name="$1" n=2 taken workspace tab pane
@@ -274,7 +283,7 @@ start_in_tab() {
     log_warning "The repo has no Herdr workspace to start ${kind} in"
     return 1
   fi
-  tab="$(herdr tab create --workspace "$workspace" --cwd "$REPO" --label "$name" --focus)" || return 1
+  tab="$(herdr tab create --workspace "$workspace" --cwd "$REPO" --label "$(tab_label "$name" "$kind")" --focus)" || return 1
   pane="$(jq -r '.result.root_pane.pane_id // empty' <<<"$tab")"
   [ -n "$pane" ] || return 1
   start_in_pane "$name" "$kind" "$pane" || return 1

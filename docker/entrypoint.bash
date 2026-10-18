@@ -33,6 +33,7 @@ ALERTS_SCRIPT=/opt/bitbang-docker/ingress/alerts.ts
 WEB_PORT="${BBD_WEB_PORT:-7317}"
 INGRESS_PORT="${BBD_INGRESS_PORT:-7300}"
 HERDR_SOCKET="${HOME}/.config/herdr/sessions/${HERDR_SESSION:-default}/herdr.sock"
+SHELL_TAB="Repo Shell"
 
 LISTENER_PID=""
 SERVICE_PIDS=()
@@ -175,11 +176,11 @@ fresh_session() {
 #              workspaces sharing the home volume never share a server), install the agent integrations
 #              that report session IDs, and make sure the repo has a Herdr workspace. A restarted
 #              container's session brings its old workspaces back, so one is created only when none
-#              points at the repo. The agents' first-run questions are answered before the server
-#              restores any agent.
+#              points at the repo; its first tab, the repo's shell, is named Repo Shell. The agents'
+#              first-run questions are answered before the server restores any agent.
 # -----------------------------------------------------------------------------------------------------------
 start_herdr() {
-  local agent
+  local agent tab
 
   mkdir -p "${HOME}/.claude" "${HOME}/.codex"
   for agent in claude codex; do
@@ -194,7 +195,10 @@ start_herdr() {
 
   if ! herdr pane list | jq -e --arg repo "$REPO" \
     '.result.panes[]? | select(.cwd == $repo or (.cwd // "" | startswith($repo + "/")))' >/dev/null; then
-    herdr workspace create --cwd "$REPO" --label "$(basename "$REPO")" --focus >/dev/null
+    tab="$(herdr workspace create --cwd "$REPO" --label "$(basename "$REPO")" --focus | jq -r '.result.tab.tab_id // empty')"
+    if [ -z "$tab" ] || ! herdr tab rename "$tab" "$SHELL_TAB" >/dev/null; then
+      log_warning "Could not name the repo's shell tab ${SHELL_TAB}"
+    fi
   fi
   log_success "Herdr server is running (session ${HERDR_SESSION:-default})"
 }

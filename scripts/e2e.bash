@@ -252,7 +252,7 @@ STAND_IN
 }
 
 main() {
-  local cid url code pane agent_pane="" marker laptop_marker moved_marker base fragment status=0
+  local cid url code pane agent_pane="" agent_tab marker laptop_marker moved_marker base fragment status=0
   local -a shots=() chat=() moved=()
 
   trap cleanup EXIT
@@ -288,6 +288,15 @@ main() {
     if [ "$(docker exec "$cid" bitbang-docker-agent status | jq -r .state)" = running ]; then
       agent_pane="$(docker exec "$cid" bitbang-docker-agent status | jq -r .pane)"
       log_success "The default agent started on its own, in pane ${agent_pane}"
+      agent_tab="$(docker exec "$cid" herdr pane list | jq -r --arg pane "$agent_pane" \
+        '.result.panes[] | select(.pane_id == $pane) | .tab_id')"
+      if docker exec "$cid" herdr tab list | jq -e --arg tab "$agent_tab" \
+        'any(.result.tabs[]; .tab_id == $tab and .label == "Claude")' >/dev/null; then
+        log_success "Its tab is labelled Claude"
+      else
+        log_error "The default agent's tab is not labelled Claude"
+        status=1
+      fi
       chat=(-e BBD_E2E_CHAT_MESSAGE="Reply to ${marker}" -e BBD_E2E_CHAT_EXPECT="${marker}-reply")
     else
       log_error "The default agent did not start: $(docker exec "$cid" bitbang-docker-agent status | jq -c .)"
