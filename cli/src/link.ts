@@ -34,5 +34,6 @@ export function deviceLink(url: string, link: DeepLink): string {
 export function redact(text: string): string {
   return text
     .replace(/https:\/\/bitba\.ng\/\S*/g, "https://bitba.ng/<redacted>")
-    .replace(/\b[A-Za-z0-9_-]{22}_[0-9a-f]{8}\b/g, "<connection>");
+    // No word boundaries: an id may start with "-", where \b never matches, and redacting a little more is harmless.
+    .replace(/[A-Za-z0-9_-]{22}_[0-9a-f]{8}/g, "<connection>");
 }
