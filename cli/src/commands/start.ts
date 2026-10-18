@@ -6,10 +6,10 @@ import { copyFileSync, mkdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { resolveRoot } from "../config.ts";
 import { checkEnv } from "../env.ts";
-import { agentReady, copyIn, linkTarget, mainPane, prompt, requireWeb, settledDefaultAgent, startAgent } from "../handoff.ts";
+import { agentReady, checkCopyIn, copyIn, linkTarget, mainPane, prompt, requireWeb, settledDefaultAgent, startAgent } from "../handoff.ts";
 import { keepAwake, onBattery } from "../host.ts";
 import type { View } from "../link.ts";
-import { callingAgent, inTurn, movePending, spawnMove } from "../move.ts";
+import { type AgentProcess, callingAgent, inTurn, movePending, spawnMove } from "../move.ts";
 import { interactive, type LinkOptions, showLink } from "../present.ts";
 import { capture } from "../proc.ts";
 import {
@@ -61,7 +61,11 @@ async function uncommitted(repo: string): Promise<number> {
  * The session to hand over, after the checks that keep it to one writer. `moving` is a session still in the
  * turn that runs go-remote: its own agent asked for the move, and the move waits for that turn to end.
  */
-async function sessionToHand(ref: SessionRef, repo: string, fork: boolean): Promise<{ session: Session; moving: boolean }> {
+async function sessionToHand(
+  ref: SessionRef,
+  repo: string,
+  fork: boolean,
+): Promise<{ session: Session; moving: boolean; caller?: AgentProcess }> {
   const session = findHostSession(ref);
   if (!session) {
     throw new UserError(`No ${AGENT_NAMES[ref.agent]} session ${ref.id} on this computer`, `go-remote sessions ${repo} lists them.`);
@@ -75,7 +79,15 @@ async function sessionToHand(ref: SessionRef, repo: string, fork: boolean): Prom
   if (fork) return { session, moving: false };
   if (inTurn(session, LIVE_MS)) {
     if (movePending(ref)) throw new UserError("This session is already moving", "Its QR code opens once the reply that started the move ends.");
-    return { session, moving: true };
+    // Only the session's own agent, running go-remote from inside the turn, is a process the move can end.
+    const caller = await callingAgent(ref.agent);
+    if (!caller) {
+      throw new UserError(
+        `That ${AGENT_NAMES[ref.agent]} session is in the middle of a turn on this computer`,
+        "Let the turn finish and quit it there, then run this again, or use --fork to continue a copy.",
+      );
+    }
+    return { session, moving: true, caller };
   }
   if (Date.now() - session.modified < LIVE_MS) {
     ui.warn(`The session changed in the last minute, so it may still be open on the laptop. Two copies writing to one ${AGENT_NAMES[ref.agent]} session interleave.`);
@@ -145,7 +157,7 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
   }
   if (options.fork && !ref) throw new UserError("--fork needs --resume");
   const agent = ref?.agent ?? options.agent ?? (options.brief ? "claude" : undefined);
-  const { session, moving } = ref ? await sessionToHand(ref, repo, options.fork) : { session: undefined, moving: false };
+  const { session, moving, caller } = ref ? await sessionToHand(ref, repo, options.fork) : { session: undefined, moving: false, caller: undefined };
 
   await checkDocker();
   const labels = await imageLabels();
@@ -188,13 +200,14 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
     }
     if (options.brief) placeBrief(repo, options.brief);
     if (moving && ref && session) {
+      await checkCopyIn(workspace, session, hostStores());
       const log = spawnMove({
         root,
         project,
         repo,
         ref,
         transcript: session.transcript,
-        agent: await callingAgent(ref.agent),
+        agent: caller,
         ...(options.brief ? { brief: join(repo, BRIEF) } : {}),
         window: options.window,
       });

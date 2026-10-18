@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -149,4 +149,30 @@ test("writeBack refuses a path that leaves the store", () => {
   expect(() => writeBack(join(store, ".claude"), "projects/../../outside.jsonl", bytes, "stamp")).toThrow("outside");
   expect(() => writeBack(join(store, ".claude"), "..", bytes, "stamp")).toThrow("outside");
   expect(existsSync(join(store, "outside.jsonl"))).toBe(false);
+});
+
+test("writeBack refuses to write through a symlink under the store", () => {
+  const root = mkdtempSync(join(tmpdir(), "go-remote-back-"));
+  const store = join(root, ".claude");
+  const outside = join(root, "outside");
+  mkdirSync(join(store, "projects", "dir", CLAUDE_ID), { recursive: true });
+  mkdirSync(outside);
+  writeFileSync(join(outside, "result.txt"), "mine\n");
+  symlinkSync(outside, join(store, "projects", "dir", CLAUDE_ID, "tool-results"));
+  symlinkSync(join(outside, "new.jsonl"), join(store, "projects", "dir", "dangling.jsonl"));
+  const bytes = new TextEncoder().encode("x\n");
+  const toolResult = join("projects", "dir", CLAUDE_ID, "tool-results", "result.txt");
+  expect(() => writeBack(store, toolResult, bytes, "stamp")).toThrow("not a plain directory");
+  expect(() => writeBack(store, join("projects", "dir", "dangling.jsonl"), bytes, "stamp")).toThrow("not a plain file");
+  expect(readFileSync(join(outside, "result.txt"), "utf8")).toBe("mine\n");
+  expect(readdirSync(outside)).toEqual(["result.txt"]);
+});
+
+test("writeBack accepts a store that is itself a symlink", () => {
+  const root = mkdtempSync(join(tmpdir(), "go-remote-back-"));
+  mkdirSync(join(root, "real"));
+  symlinkSync(join(root, "real"), join(root, ".claude"));
+  const file = join("projects", "dir", `${CLAUDE_ID}.jsonl`);
+  expect(writeBack(join(root, ".claude"), file, new TextEncoder().encode("one\n"), "stamp")).toBe("new");
+  expect(readFileSync(join(root, "real", file), "utf8")).toBe("one\n");
 });

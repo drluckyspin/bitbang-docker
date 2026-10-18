@@ -117,6 +117,7 @@ export function herdrRequest<T>(socketPath: string, method: string, params: obje
       }
     });
     socket.on("error", reject);
+    socket.on("close", () => reject(new Error(`${method}: Herdr closed the connection without answering`)));
   });
 }
 

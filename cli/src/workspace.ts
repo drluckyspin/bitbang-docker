@@ -5,6 +5,7 @@
 import { existsSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import { envFile } from "./env.ts";
 import { capture, inherit, output, type RunOptions } from "./proc.ts";
 import { UserError } from "./ui.ts";
 
@@ -63,7 +64,7 @@ export interface Workspace {
   state: string;
   health: string;
   ui: "web" | "shell";
-  /** the .env it was given, as compose was told it (relative to the checkout, unless absolute) */
+  /** the .env it was given, as an absolute path */
   envFile?: string;
 }
 
@@ -142,7 +143,11 @@ export async function listWorkspaces(): Promise<Workspace[]> {
       state: container.State.Status,
       health: container.State.Health?.Status ?? "",
       ui: uiMode(container.Config.Env),
-      envFile: container.Config.Labels["go-remote.env-file"] ?? ".env",
+      // Older containers recorded the path as compose was given it, relative to their own checkout.
+      envFile: resolve(
+        container.Config.Labels["com.docker.compose.project.working_dir"] ?? "/",
+        container.Config.Labels["go-remote.env-file"] ?? ".env",
+      ),
     }))
     .sort((a, b) => a.project.localeCompare(b.project));
 }
@@ -206,6 +211,7 @@ export async function composeUp(
   const email = await gitConfig(repo, "user.email");
   const env = {
     GR_REPO: repo,
+    GR_ENV_FILE: envFile(root),
     GIT_AUTHOR_NAME: name,
     GIT_AUTHOR_EMAIL: email,
     GIT_COMMITTER_NAME: name,

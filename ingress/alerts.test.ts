@@ -89,3 +89,16 @@ test("herdrRequest speaks newline-delimited JSON", async () => {
     server.close();
   }
 });
+
+test("herdrRequest fails when Herdr closes the connection without a whole answer", async () => {
+  const path = join(mkdtempSync(join(tmpdir(), "go-remote-alerts-")), "herdr.sock");
+  const server = createServer((socket) => {
+    socket.on("data", () => socket.end('{"id":"go-remote-alerts","result":'));
+  });
+  await new Promise<void>((resolve) => server.listen(path, resolve));
+  try {
+    await expect(herdrRequest(path, "agent.list")).rejects.toThrow("closed the connection");
+  } finally {
+    server.close();
+  }
+});

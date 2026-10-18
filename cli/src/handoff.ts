@@ -9,6 +9,7 @@ import { join } from "node:path";
 import type { View } from "./link.ts";
 import { capture, outputBytes } from "./proc.ts";
 import {
+  AGENT_NAMES,
   type AgentKind,
   claudeProjectDir,
   CONTAINER_STORES,
@@ -19,7 +20,7 @@ import {
   within,
 } from "./sessions.ts";
 import { hasControl, UserError } from "./ui.ts";
-import { exec, herdr, type Workspace } from "./workspace.ts";
+import { exec, herdr, listWorkspaces, type Workspace } from "./workspace.ts";
 
 interface Pane {
   pane_id: string;
@@ -35,10 +36,63 @@ interface AgentInfo {
   agent_session?: { value: string } | null;
 }
 
+/** How the container's copy of a session file stands against the laptop's. */
+export type CopyState = "missing" | "same" | "older" | "diverged";
+
+/**
+ * Transcripts only grow, so a container copy that is a prefix of the laptop's is an older copy of the same
+ * session. One that is longer, or different, holds turns the laptop's lacks.
+ */
+export function compareCopy(laptop: Uint8Array, container: { size: number; sha256: string } | undefined): CopyState {
+  if (!container) return "missing";
+  if (container.size > laptop.length) return "diverged";
+  const prefix = new CryptoHasher("sha256").update(laptop.subarray(0, container.size)).digest("hex");
+  if (prefix !== container.sha256) return "diverged";
+  return container.size === laptop.length ? "same" : "older";
+}
+
+const STAT_SCRIPT = String.raw`
+for file in "$@"; do
+  if [ -f "$file" ]; then printf '%s %s\n' "$(stat -c %s "$file")" "$(sha256sum "$file" | cut -d' ' -f1)"; else echo -; fi
+done`;
+
+/**
+ * Refuses a copy in that would lose work: the session still open in a workspace (they share the home volume),
+ * or a container copy with turns the laptop's lacks, from working on the phone since the last move. Returns the
+ * files that need copying.
+ */
+export async function checkCopyIn(workspace: Workspace, session: Session, stores: Stores): Promise<string[]> {
+  for (const running of (await listWorkspaces()).filter((candidate) => candidate.state === "running")) {
+    if ((await openSessions(running))(session.id)) {
+      throw new UserError(
+        `${AGENT_NAMES[session.agent]} session ${session.id} is still open in ${running.project}`,
+        "Quit it there first, so only one copy of the session is ever written to.",
+      );
+    }
+  }
+  const containerStore = CONTAINER_STORES[session.agent];
+  const paths = session.files.map((file) => `${containerStore}/${file}`);
+  const stats = (await exec(workspace, ["sh", "-c", STAT_SCRIPT, "sh", ...paths])).split("\n");
+  const toCopy: string[] = [];
+  for (const [index, file] of session.files.entries()) {
+    const [size, sha256] = (stats[index] ?? "-").split(" ");
+    const container = size && size !== "-" && sha256 ? { size: Number(size), sha256 } : undefined;
+    const state = compareCopy(new Uint8Array(readFileSync(join(stores[session.agent], file))), container);
+    if (state === "diverged") {
+      throw new UserError(
+        `${workspace.project} has a copy of ${AGENT_NAMES[session.agent]} session ${session.id} with turns this computer's lacks`,
+        `Bring it back first with go-remote pull ${workspace.repo}, then move it again.`,
+      );
+    }
+    if (state !== "same") toCopy.push(file);
+  }
+  return toCopy;
+}
+
 export async function copyIn(workspace: Workspace, session: Session, stores: Stores): Promise<void> {
   const hostStore = stores[session.agent];
   const containerStore = CONTAINER_STORES[session.agent];
-  for (const file of session.files) {
+  for (const file of await checkCopyIn(workspace, session, stores)) {
     await exec(workspace, ["sh", "-c", 'mkdir -p "$(dirname "$1")" && cat >"$1"', "sh", `${containerStore}/${file}`], {
       stdin: Bun.file(join(hostStore, file)),
     });
@@ -190,7 +244,9 @@ export async function prompt(workspace: Workspace, agent: string, text: string):
 
 /** Session ids the container is still using: an agent Herdr tracks, or a process naming the id. */
 export async function openSessions(workspace: Workspace): Promise<(id: string) => boolean> {
-  const values = (await agents(workspace)).map((info) => info.agent_session?.value ?? "").filter(Boolean);
+  // The shell mode runs no Herdr; the process list still catches agents started in its tmux session.
+  const tracked = workspace.ui === "web" ? await agents(workspace) : [];
+  const values = tracked.map((info) => info.agent_session?.value ?? "").filter(Boolean);
   const processes = (await capture(["docker", "exec", workspace.id, "ps", "-eo", "args="])).stdout;
   return (id) => values.some((value) => value.includes(id)) || processes.includes(id);
 }
