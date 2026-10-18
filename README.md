@@ -9,8 +9,6 @@ Supported platforms: **macOS** (Apple Silicon and Intel) and **Linux** (x86_64 a
 Requires **Docker Desktop** on macOS, or **Docker Engine with Compose v2** on Linux, plus `make` and `git`. Claude Code,
 Codex and the Cursor Agent CLI come in the image; to move a session from your laptop, you need that agent there too.
 
-go-remote was called bitbang-docker until October 2026; its command was `bbd`, and its settings started with `BBD_`.
-
 ## What is BitBang?
 
 [BitBang](https://github.com/richlegrand/bitbang) turns a machine into a URL. `bitbang serve` registers with the
