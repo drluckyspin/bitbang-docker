@@ -7,6 +7,21 @@ it connects over an encrypted peer-to-peer link, without VPNs, open ports, or ho
 local-first, and built for developers who don't want to stay at their desks. Go Remote's core benefits are the
 combination of local execution, container isolation, and seamless session handoff.
 
+<!-- markdownlint-disable MD033 -->
+<p align="center">
+  <img src="docs/go-remote-qr.png" alt="A Go Remote QR code" width="480">
+</p>
+
+<p align="center">
+  <img src="docs/go-remote-agent.PNG" alt="Agent chat on a phone" width="240">
+  <img src="docs/go-remote-shell.PNG" alt="Terminal on a phone" width="240">
+</p>
+
+<p align="center">
+  <img src="docs/go-remote-desktop.png" alt="Go Remote agent chat in a desktop browser" width="480">
+</p>
+<!-- markdownlint-enable MD033 -->
+
 Supported platforms: **macOS** (Apple Silicon and Intel) and **Linux** (x86_64 and arm64). Windows is not supported.
 
 Requires **Docker Desktop** on macOS, or **Docker Engine with Compose v2** on Linux, plus `make` and `git`. Claude Code,
@@ -40,9 +55,19 @@ agent's session from the laptop into the container and back.
 
 ## How it works
 
-```text
-phone  <-WebRTC->  bitbang serve  ->  go-remote-ingress  ->  herdr-web-ui  ->  Herdr  ->  Claude Code, Codex, Cursor
-                   '-------------- workspace container, one per repo, no published ports ---------------'
+```mermaid
+flowchart LR
+    phone[Phone]
+
+    subgraph workspace["Workspace container · one per repo · no published ports"]
+        direction LR
+        bitbang[bitbang serve] --> ingress[go-remote-ingress]
+        ingress --> ui[herdr-web-ui]
+        ui --> herdr[Herdr]
+        herdr --> agents[Claude Code · Codex · Cursor]
+    end
+
+    phone <-->|WebRTC| bitbang
 ```
 
 Each repo gets its own workspace container, with the repo mounted at the same path as on your laptop. Inside, everything
