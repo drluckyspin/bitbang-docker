@@ -57,7 +57,8 @@ In the web mode, the container runs a Herdr server, herdr-web-ui, and `bbd-ingre
 run inside BitBang's page. Each agent runs in its own Herdr tab, so the laptop (`make attach`) and every paired phone
 see the same agents. The default agent gets its own tab, and the QR code opens its chat. `BBD_DEFAULT_AGENT=auto` picks
 Claude Code when it is signed in, else Codex. With neither signed in, `bbd start` offers to sign you in, and the repo's
-terminal on the phone says how; the agent starts as soon as one is, without a restart.
+terminal on the phone says how. A new workspace starts a new conversation, with the tabs of the last one gone; their
+transcripts stay, for `bbd pull` and `--resume`. A restarted container (`docker restart`) keeps its tabs.
 
 ## The bbd command
 
@@ -67,8 +68,9 @@ terminal on the phone says how; the agent starts as soon as one is, without a re
 | -------------------------- | -------------------------------------------------------------------------------- |
 | `bbd start [path]`         | Start the workspace for a repo (default: the current directory) and show its QR  |
 | `bbd start --agent claude` | Also start Claude Code (or `codex`) in a new tab, and open its chat on the phone |
+| `bbd start --resume <id>`  | Move a session from this computer into the workspace, and open its chat          |
 | `bbd qr [path]`            | Show a fresh QR code, with a new pairing code                                    |
-| `bbd login [claude/codex]` | Sign an agent in, in the container; every workspace's default agent then starts  |
+| `bbd login [claude/codex]` | Sign an agent in, once for every workspace; Claude Code's token goes in `.env`   |
 | `bbd ls`                   | List workspaces, their health, and the agents running in each                    |
 | `bbd sessions [path]`      | List the Claude Code and Codex sessions on this computer that ran in the repo    |
 | `bbd pull [path]`          | Copy the container's sessions back to this computer                              |
@@ -76,13 +78,18 @@ terminal on the phone says how; the agent starts as soon as one is, without a re
 | `bbd logs [path]`          | Show the container log, with the URL taken out                                   |
 | `bbd stop [path]`          | Stop a workspace (`--all` stops every one)                                       |
 | `bbd doctor`               | Check Docker, the image, `.env` and the agent CLIs on this computer              |
-| `bbd install-skill`        | Install the `/create-remote-session` skill for Claude Code, Codex and Cursor     |
+| `bbd install-skill`        | Install the `/go-remote` skill for Claude Code, Codex and Cursor                 |
 
 `bbd help` lists every option. `--json` gives machine-readable output for scripts and agents.
 
 ## Taking an agent session to your phone
 
-Started something on the laptop and want to carry on away from it? Hand the session over:
+Working with Claude Code in a terminal and want to carry on away from the laptop? Type `/go-remote` (`$go-remote` in
+Codex; `bbd install-skill` adds it). When the agent's reply ends, the session closes on the laptop and resumes in the
+workspace, history and all, and a QR code opens in a window. Scan it, and the phone opens that same conversation, ready
+for your next message. The link never passes through the agent.
+
+For a session you have already quit, the same move from a terminal:
 
 ```bash
 bbd sessions                      # find it: claude:<id> or codex:<id>
@@ -92,23 +99,23 @@ bbd start --resume claude:<id>    # continue it in the container, and open its c
 `bbd` copies the transcript into the container's home volume and resumes it in a new tab. The repo is mounted at the
 same path as on your laptop, so the agent finds its session, and its files, where it left them.
 
-- **One writer at a time.** Quit the session on the laptop first. If its transcript changed in the last minute, `bbd`
-  asks before going on, because two copies writing to one session interleave.
+- **One writer at a time.** A session moves, so only one side writes to it. Run from inside the session, as `/go-remote`
+  runs it, `bbd` waits for the turn that ran it to end, then closes the laptop's agent before resuming the session. From
+  a terminal, quit the session first; if its transcript changed in the last minute, `bbd` asks.
 - **Or fork it.** `--fork` continues a copy, so the laptop's session can carry on too.
 - **Brief it.** `--brief notes.md` copies a handoff note to `.bbd/handoff.md` in the repo, which git ignores, and asks
-  the agent to read it.
+  the agent to read it. `/go-remote` in an agent `bbd` cannot resume, such as Cursor, writes a brief and starts Claude
+  Code with it.
 - **Bring it back.** Quit the agent in the container, then run `bbd pull`. It copies the container's sessions for the
   repo back, keeps a `.bak` of any laptop copy it replaces, and prints the command that resumes the session here.
 
-`bbd` warns when the laptop's Claude Code or Codex is a different version from the one pinned in the image, because a
-newer transcript may not load in an older release. The container keeps its own logins: a session carries the
-conversation, never credentials.
+The container's agent must be signed in first (see [Signing in](#signing-in-to-claude-code-and-codex)); otherwise the
+session stays on the laptop and `bbd` says so. If no QR code appears after a move, the terminal the session ran in says
+why. `bbd` warns when the laptop's Claude Code or Codex is a different version from the one pinned in the image, because
+a newer transcript may not load in an older release. A session carries the conversation, never credentials.
 
-### From inside an agent
-
-`bbd install-skill` adds a `/create-remote-session` skill (`$create-remote-session` in Codex). Run it in a Claude Code,
-Codex or Cursor session, and the agent writes a handoff brief, finds its own session ID and runs `bbd start --fork`. The
-QR code opens in a window on your screen, so the link never passes through the agent.
+For a new conversation instead, `bbd start` starts the workspace with its default agent signed in and no history, and
+`bbd start --agent claude` opens another one beside it.
 
 ## Using it from a phone
 
@@ -125,10 +132,10 @@ you or finishes, even with BitBang closed. Alerts name the agent and the repo, n
 not open the session. Anyone who knows the topic can read its alerts, so make it long and random, for example
 `openssl rand -hex 16`.
 
-**Signing in.** Long URLs and codes are hard to copy on a phone, so sign in from the laptop: `make login` (or
-`bbd login`), and paste the code the sign-in page shows. The login is saved for the phone and every workspace, and the
-default agent starts in its own tab a few seconds later, ready to chat. An agent tab opened before then is restarted
-once its agent is signed in.
+**Signing in.** Long URLs and codes are hard to copy on a phone, so sign in from the laptop, once: `make login` (or
+`bbd login`). For Claude Code it runs `claude setup-token` on the laptop and keeps the token in `.env`, so every
+workspace starts signed in, its default agent ready to chat. `bbd` offers to restart the running ones so they get it.
+For Codex, `make login AGENT=codex` signs it in inside the container, and its default agent starts a few seconds later.
 
 ### The shell mode
 
@@ -193,12 +200,17 @@ host.
 
 You can authenticate either way, and mix them per tool.
 
+- **Claude Code subscription:** run `make login` (or `bbd login`). It runs `claude setup-token` on the laptop: you sign
+  in in the browser as usual, and `bbd` saves the long-lived token it makes in `.env` as `CLAUDE_CODE_OAUTH_TOKEN`,
+  without showing it. Every workspace then starts signed in. Running workspaces got their environment when they started,
+  so `bbd` offers to restart them, which gives them new links. To use a token you already have, put it in `.env`
+  yourself. Without Claude Code on the laptop, `bbd login` signs it in inside the container instead
+  (`claude auth login`: open the link, sign in, and paste the code back).
+- **Codex subscription:** run `make login AGENT=codex` (or `bbd login codex`). It runs `codex login --device-auth` in
+  the container, on your terminal: enter the shown code on the page. The same commands also work from a workspace
+  terminal. Logins made in the container are saved in the `bitbang-docker-home` volume and survive restarts.
 - **API key:** set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. Codex is signed in with its key when the workspace
-  starts. A `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token`, added to `.env`, works too.
-- **Subscription:** leave the key empty and run `make login` (`AGENT=codex` for Codex), or `bbd login [claude|codex]`.
-  It runs `claude auth login` or `codex login --device-auth` in the container, on your terminal: open the link, sign in,
-  and paste the code back (Claude Code) or enter the shown code on the page (Codex). The same commands also work from a
-  workspace terminal. Logins are saved in the `bitbang-docker-home` volume and survive restarts.
+  starts. Claude Code uses `ANTHROPIC_API_KEY` ahead of a token, so leave it empty to use your subscription.
 
 Each agent asks a few questions the first time it runs, and on a phone they get in the way of the chat. The container
 answers them for you when a workspace starts: Claude Code's theme and onboarding, whether to use the API key from
@@ -248,6 +260,12 @@ Know these limits before you rely on it:
   `approval_policy = "on-request"` in `/etc/codex/config.toml`, so the container's limits are the ones that apply, and
   Codex still asks before a command it judges risky. Your own settings in the container's `~/.codex/config.toml` take
   precedence. Claude Code asks for permissions as it does anywhere.
+- **The Claude Code token signs in every workspace.** `CLAUDE_CODE_OAUTH_TOKEN` is in each container's environment, like
+  the API keys, where anyone who gets into a workspace can read it. `bbd login` never prints it, and keeps `.env` mode
+  `600`.
+- **A move ends the laptop's agent.** `/go-remote` leaves a `bbd` helper running in the background. Once the turn ends,
+  it stops the agent process that ran it (the one the session is open in, and no other) before resuming the session in
+  the container. Its log, which holds no links, is in `~/.local/state/bbd/`.
 - **Handed-over sessions travel with the agent.** A transcript holds everything said in the session, including anything
   you pasted into it. `bbd start --resume` copies it into the home volume, where anyone who gets into a workspace can
   read it.
@@ -300,6 +318,8 @@ the cause.
 5. `bbd start ~/src/my-repo --agent claude`: the chat view opens on the phone, and a message reaches the agent.
 6. With `BBD_NTFY_TOPIC` set, an agent that finishes sends an alert.
 7. With `BBD_UI=shell`: BitBang's terminal opens on the tmux session, with the key bar.
+8. `/go-remote` in a Claude Code session on the laptop: when its reply ends, the session closes and a QR code opens.
+   Scan it, and the phone shows the conversation; send a message, and it carries on.
 
 ## Troubleshooting
 
@@ -319,15 +339,16 @@ the cause.
 make lint      # dprint formatting check, shellcheck, docker-compose.yml validation
 make format    # apply dprint, shfmt and mbake formatting
 make unit      # type-check and unit-test bbd and bbd-ingress, in Docker
-make test      # 64-check smoke test of both modes in a throwaway container (needs make build)
-make e2e       # Playwright phone test through a real BitBang URL, ending in a chat with Claude Code
+make test      # 66-check smoke test of both modes in a throwaway container (needs make build)
+make e2e       # Playwright phone test through a real BitBang URL: chat with Claude Code, then a moved session
 make cli       # bbd for macOS and Linux, arm64 and x64, into dist/
 ```
 
 `make test` and `make e2e` use `.env.example` and their own home volumes, so they never read your `.env` or touch your
 logins, and they never print a URL or pairing code. `make e2e` adds a made-up Anthropic key, for a stand-in API that it
 runs inside the container: the default agent starts on its own, and the phone's chat gets its reply from the real Claude
-Code.
+Code. It then moves a session in as `/go-remote` does, with stand-ins for the laptop's session store and agent, and the
+phone must see the session's earlier turns and carry the same conversation on.
 
 | Path                 | Purpose                                                                                                         |
 | -------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -336,7 +357,7 @@ Code.
 | `docker/`            | Entrypoint (git, services, the watched listener), the session, attach, pairing and agent commands, Codex config |
 | `ingress/`           | `bbd-ingress`, the adapter between BitBang's proxy and herdr-web-ui, and the ntfy alerts                        |
 | `cli/`               | `bbd`, compiled in Docker by `cli/Dockerfile`                                                                   |
-| `skills/`            | The `/create-remote-session` skill that `bbd install-skill` installs                                            |
+| `skills/`            | The `/go-remote` skill that `bbd install-skill` installs                                                        |
 | `e2e/`               | The Playwright phone test, and the stand-in Anthropic API its chat talks to                                     |
 | `Common.make`        | All make targets; `Makefile` only includes it                                                                   |
 | `scripts/`           | CA export, the smoke, e2e and key bar tests, and the `log.bash` logger                                          |
