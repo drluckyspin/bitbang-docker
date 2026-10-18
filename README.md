@@ -1,4 +1,4 @@
-# go-remote
+# Go Remote
 
 Leave your desk without leaving your coding agent behind. Type `/go-remote` in Claude Code or Codex, scan the QR code it
 shows, and carry on the same conversation from your phone, while the agent keeps working in a locked-down Docker
@@ -69,8 +69,9 @@ go-remote install-skill    # /go-remote for Claude Code, Codex and Cursor
 go-remote login            # with Claude Code on this computer: sign it in once, for every workspace
 ```
 
-`make install-cli` builds `go-remote` in Docker, so you need nothing else. The first `go-remote start` creates `.env`
-from `.env.example`, readable by you only. Everything in it is optional.
+`make install-cli` builds `go-remote` in Docker, so you need nothing else. It warns when `~/.local/bin` is not on your
+PATH: add `export PATH="$HOME/.local/bin:$PATH"` to your shell profile, and open a new terminal. The first
+`go-remote start` creates `.env` from `.env.example`, readable by you only. Everything in it is optional.
 
 Codex and Cursor sign in inside a running workspace, and so does Claude Code when it is not on this computer. Run
 `go-remote start ~/src/my-repo` first: with no agent signed in, it offers to sign you in. See [Signing in](#signing-in).
