@@ -62,13 +62,12 @@ done`;
  * files that need copying.
  */
 export async function checkCopyIn(workspace: Workspace, session: Session, stores: Stores): Promise<string[]> {
-  for (const running of (await listWorkspaces()).filter((candidate) => candidate.state === "running")) {
-    if ((await openSessions(running))(session.id)) {
-      throw new UserError(
-        `${AGENT_NAMES[session.agent]} session ${session.id} is still open in ${running.project}`,
-        "Quit it there first, so only one copy of the session is ever written to.",
-      );
-    }
+  const openIn = (await openAnywhere())(session.id);
+  if (openIn) {
+    throw new UserError(
+      `${AGENT_NAMES[session.agent]} session ${session.id} is still open in ${openIn}`,
+      "Quit it there first, so only one copy of the session is ever written to.",
+    );
   }
   const containerStore = CONTAINER_STORES[session.agent];
   const paths = session.files.map((file) => `${containerStore}/${file}`);
@@ -249,6 +248,13 @@ export async function openSessions(workspace: Workspace): Promise<(id: string) =
   const values = tracked.map((info) => info.agent_session?.value ?? "").filter(Boolean);
   const processes = (await capture(["docker", "exec", workspace.id, "ps", "-eo", "args="])).stdout;
   return (id) => values.some((value) => value.includes(id)) || processes.includes(id);
+}
+
+/** The workspace a session id is open in, if any: every workspace shares the home volume, so any of them can write it. */
+export async function openAnywhere(): Promise<(id: string) => string | undefined> {
+  const running = (await listWorkspaces()).filter((candidate) => candidate.state === "running");
+  const checks = await Promise.all(running.map(async (workspace) => ({ project: workspace.project, isOpen: await openSessions(workspace) })));
+  return (id) => checks.find((check) => check.isOpen(id))?.project;
 }
 
 export interface ContainerFile {
