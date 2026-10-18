@@ -77,10 +77,17 @@ cleanup() {
 # Description: (Re)create the workspace in a UI mode and wait for its listener to register. Sets URL.
 # -----------------------------------------------------------------------------------------------------------
 start_workspace() {
-  local mode="$1" waited=0
+  local mode="$1"
   log_info_dim "Starting ${PROJECT} in the ${mode} mode"
   docker volume create "$BBD_HOME_VOLUME" >/dev/null
   BBD_UI="$mode" compose --progress quiet up -d --force-recreate
+  wait_for_listener
+  pass "Listener registered (${mode} mode)"
+}
+
+# Wait for the listener to register, which a (re)started container does on a new URL. Sets URL.
+wait_for_listener() {
+  local waited=0
   until [ "$(in_container 'cat /tmp/bitbang/health 2>/dev/null' 2>/dev/null)" = ok ]; do
     if [ "$waited" -ge 120 ]; then
       log_error "The listener never registered"
@@ -91,7 +98,19 @@ start_workspace() {
     waited=$((waited + 1))
   done
   URL="$(in_container 'cat /tmp/bitbang/url')"
-  pass "Listener registered (${mode} mode)"
+}
+
+# A restarted container keeps its Herdr session; a new one (bbd start after bbd stop) starts afresh.
+session_checks() {
+  local tab='herdr tab list | jq -e '\''any(.result.tabs[]; .label == "smoke-tab")'\'''
+  log_info "Herdr sessions across containers"
+  in_container 'herdr tab create --cwd "$BBD_REPO" --label smoke-tab >/dev/null'
+  compose --progress quiet restart workspace
+  wait_for_listener
+  check "A restarted container brings its tabs back" "$tab"
+  BBD_UI=web compose --progress quiet up -d --force-recreate
+  wait_for_listener
+  check "A new container starts a new session, without the last one's tabs" "! $tab"
 }
 
 hardening_checks() {
@@ -277,6 +296,7 @@ main() {
   git_checks
   web_checks
   watchdog_checks
+  session_checks
 
   start_workspace shell
   shell_checks

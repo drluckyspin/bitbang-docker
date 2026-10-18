@@ -152,12 +152,31 @@ wait_for() {
 }
 
 # -----------------------------------------------------------------------------------------------------------
+# Function: fresh_session
+# Description: A new container starts a new Herdr session, so bbd start opens a new conversation: the
+#              tabs and agents of the last container are not brought back. Their transcripts stay, for
+#              bbd pull and --resume. A restarted container keeps its session; its hostname, the
+#              container ID, tells the two apart.
+# -----------------------------------------------------------------------------------------------------------
+fresh_session() {
+  local dir="${HOME}/.config/herdr/sessions/${HERDR_SESSION:-default}"
+  local marker="${dir}/bbd-container"
+
+  if [ "$(cat "$marker" 2>/dev/null)" != "$HOSTNAME" ]; then
+    rm -rf "${dir}/session.json" "${dir}/session-history.json" "${dir}/session-snapshots"
+  fi
+  mkdir -p "$dir"
+  printf '%s\n' "$HOSTNAME" >"$marker"
+}
+
+# -----------------------------------------------------------------------------------------------------------
 # Function: start_herdr
 # Description: Start the Herdr server for this repo's session (named after the compose project, so
 #              workspaces sharing the home volume never share a server), install the agent integrations
-#              that report session IDs, and make sure the repo has a Herdr workspace. A restored session
-#              brings its old workspaces back, so one is created only when none points at the repo.
-#              The agents' first-run questions are answered before the server restores any agent.
+#              that report session IDs, and make sure the repo has a Herdr workspace. A restarted
+#              container's session brings its old workspaces back, so one is created only when none
+#              points at the repo. The agents' first-run questions are answered before the server
+#              restores any agent.
 # -----------------------------------------------------------------------------------------------------------
 start_herdr() {
   local agent
@@ -167,6 +186,7 @@ start_herdr() {
     herdr integration install "$agent" >/dev/null 2>&1 || log_warning "Could not install Herdr's ${agent} integration"
   done
   bitbang-docker-agent prepare
+  fresh_session
 
   # Herdr writes its own log in the session directory; what it prints is a banner, kept out of docker logs.
   start_service herdr bash -c "exec bitbang-docker-herdr server >>'${RUNTIME_DIR}/herdr-server.out' 2>&1"
