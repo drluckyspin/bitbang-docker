@@ -49,12 +49,17 @@ ARG BUN_VERSION
 ARG HERDR_WEB_UI_VERSION
 ARG TARGETARCH
 
+# Claude Code and Bun send no usage data, error or crash reports, or surveys, and Claude Code never updates itself.
 ENV LANG=C.UTF-8 \
     TERM=xterm-256color \
     NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt \
     SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
     REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
     DISABLE_AUTOUPDATER=1 \
+    DISABLE_TELEMETRY=1 \
+    DISABLE_ERROR_REPORTING=1 \
+    CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1 \
+    DO_NOT_TRACK=1 \
     HERDR_CONFIG_PATH=/usr/local/share/bitbang-docker/herdr.toml
 
 # Corporate TLS-inspection roots (exported into certs/ by `make build`) must be trusted before any HTTPS fetch.

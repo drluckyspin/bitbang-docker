@@ -229,18 +229,18 @@ The image is read-only. To add tools, install them into your home directory, for
 
 The container is built to limit what a shell, or an agent running in it, can reach on your machine.
 
-| Control               | Setting                                                                                                  |
-| --------------------- | -------------------------------------------------------------------------------------------------------- |
-| Mounted files         | Only the repo (read-write, at its own path) and the home volume; `bbd` refuses `/`, `~` and system paths |
-| User                  | Non-root `agent`, matching your uid on Linux                                                             |
-| Linux capabilities    | All dropped, with `no-new-privileges`                                                                    |
-| Root filesystem       | Read-only; `/tmp` is a `nosuid`, `nodev` tmpfs                                                           |
-| Docker socket         | Not mounted                                                                                              |
-| Published ports       | None; BitBang connects outbound only, and everything inside listens on loopback                          |
-| Resource limits       | 1024 processes, plus the memory and CPU limits from `.env`                                               |
-| Secrets               | Only those in `.env`; host shell variables are not passed through                                        |
-| Web UI access         | A paired device, or a random access token that never leaves the container                                |
-| Updates and telemetry | Off in Herdr and herdr-web-ui; every component is pinned, and `make test` checks the pins                |
+| Control               | Setting                                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Mounted files         | Only the repo (read-write, at its own path) and the home volume; `bbd` refuses `/`, `~` and system paths                  |
+| User                  | Non-root `agent`, matching your uid on Linux                                                                              |
+| Linux capabilities    | All dropped, with `no-new-privileges`                                                                                     |
+| Root filesystem       | Read-only; `/tmp` is a `nosuid`, `nodev` tmpfs                                                                            |
+| Docker socket         | Not mounted                                                                                                               |
+| Published ports       | None; BitBang connects outbound only, and everything inside listens on loopback                                           |
+| Resource limits       | 1024 processes, plus the memory and CPU limits from `.env`                                                                |
+| Secrets               | Only those in `.env`; host shell variables are not passed through                                                         |
+| Web UI access         | A paired device, or a random access token that never leaves the container                                                 |
+| Updates and telemetry | Off in Herdr, herdr-web-ui, Claude Code, Codex, Bun and `bbd`; every component is pinned, and `make test` checks the pins |
 
 Know these limits before you rely on it:
 

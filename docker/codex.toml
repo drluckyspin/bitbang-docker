@@ -5,3 +5,7 @@
 # a command it judges risky.
 sandbox_mode = "danger-full-access"
 approval_policy = "on-request"
+
+# No usage analytics leave the container.
+[analytics]
+enabled = false

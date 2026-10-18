@@ -187,6 +187,9 @@ web_checks() {
      grep -qx HERDR_WEB_TELEMETRY=0 <<<"$environ" && grep -qx HERDR_WEB_AUTO_UPDATE=0 <<<"$environ" &&
      grep -qx DO_NOT_TRACK=1 <<<"$environ" &&
      grep -qx "version_check = false" "$HERDR_CONFIG_PATH" && grep -qx "manifest_check = false" "$HERDR_CONFIG_PATH"'
+  check "Claude Code, Codex and Bun send no usage data or crash reports" \
+    '[ "$DISABLE_TELEMETRY" = 1 ] && [ "$DISABLE_ERROR_REPORTING" = 1 ] && [ "$DO_NOT_TRACK" = 1 ] &&
+     sed -n "/^\[analytics\]/,/^\[/p" /etc/codex/config.toml | grep -qx "enabled = false"'
   check "The repo's shell tab is named Repo Shell" \
     'herdr tab list | jq -e '\''any(.result.tabs[]; .label == "Repo Shell")'\'''
   check "Herdr learns Claude and Codex session IDs" \

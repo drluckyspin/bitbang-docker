@@ -219,8 +219,26 @@ async function main(argv: string[]): Promise<number> {
   return 0;
 }
 
+/**
+ * A compiled bbd is the Bun runtime, which on macOS uploads a report of its own crashes unless DO_NOT_TRACK is
+ * in the environment it starts with. Without it, bbd runs itself again with it set, passing on the terminal,
+ * the exit code, and any signal sent to this process alone.
+ */
+async function rerunUntracked(): Promise<number | undefined> {
+  if (process.env.DO_NOT_TRACK || process.platform !== "darwin" || !Bun.main.startsWith("/$bunfs/")) return undefined;
+  const child = Bun.spawn([process.execPath, ...process.argv.slice(2)], {
+    env: { ...process.env, DO_NOT_TRACK: "1" },
+    stdio: ["inherit", "inherit", "inherit"],
+  });
+  // Ctrl+C reaches the child from the terminal itself; this process only has to outlive it
+  process.on("SIGINT", () => {});
+  for (const signal of ["SIGTERM", "SIGHUP"] as const) process.on(signal, () => child.kill(signal));
+  await child.exited;
+  return child.exitCode ?? 1;
+}
+
 try {
-  process.exitCode = await main(process.argv.slice(2));
+  process.exitCode = (await rerunUntracked()) ?? (await main(process.argv.slice(2)));
 } catch (error) {
   if (error instanceof UserError) {
     ui.error(error.message);
