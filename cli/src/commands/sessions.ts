@@ -1,5 +1,5 @@
 /** bbd sessions and bbd pull: agent sessions on the laptop, and bringing the container's back. */
-import { containerFiles, fetchFile, groupSessions, hostSha256, openSessions } from "../handoff.ts";
+import { containerFiles, fetchFile, groupSessions, hostSha256, openAnywhere } from "../handoff.ts";
 import { AGENT_NAMES, hostSessions, hostStores, parseSessionRef, writeBack } from "../sessions.ts";
 import { shellQuote, ui, UserError } from "../ui.ts";
 import { checkDocker, findWorkspace, requireRunning, resolveRepo } from "../workspace.ts";
@@ -53,18 +53,19 @@ export async function pull(options: { path?: string; ref?: string; json: boolean
     groups = groups.filter((group) => group.agent === wanted.agent && group.id === wanted.id);
     if (groups.length === 0) throw new UserError(`The container has no ${AGENT_NAMES[wanted.agent]} session ${wanted.id} for ${workspace.repo}`);
   }
-  const isOpen = await openSessions(workspace);
+  const openIn = await openAnywhere();
   const stores = hostStores();
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const results: Record<string, unknown>[] = [];
 
   for (const group of groups) {
     const ref = `${group.agent}:${group.id}`;
-    if (isOpen(group.id)) {
+    const where = openIn(group.id);
+    if (where) {
       if (wanted) {
-        throw new UserError(`${ref} is still open in the container`, "Quit the agent there first, so only one copy of the session is ever written to.");
+        throw new UserError(`${ref} is still open in ${where}`, "Quit the agent there first, so only one copy of the session is ever written to.");
       }
-      results.push({ ref, state: "open", cwd: group.cwd });
+      results.push({ ref, state: "open", cwd: group.cwd, workspace: where });
       continue;
     }
     if (group.files.some((file) => Date.now() - file.modified < SETTLED_MS)) {
@@ -89,7 +90,7 @@ export async function pull(options: { path?: string; ref?: string; json: boolean
     const [agent, id] = ref.split(":") as ["claude" | "codex", string];
     switch (result.state) {
       case "open":
-        ui.warn(`${ref} is still open in the container; quit it there, then run bbd pull again`);
+        ui.warn(`${ref} is still open in ${String(result.workspace)}; quit it there, then run bbd pull again`);
         break;
       case "busy":
         ui.warn(`${ref} is still being written to; try again in a moment`);
