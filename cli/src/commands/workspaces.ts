@@ -1,4 +1,4 @@
-/** bbd qr, ls, attach, logs and stop: working with workspaces that already exist. */
+/** go-remote qr, ls, attach, logs and stop: working with workspaces that already exist. */
 import { resolveRoot } from "../config.ts";
 import { agents, defaultAgent, linkTarget, mainPane } from "../handoff.ts";
 import { redact, type View } from "../link.ts";
@@ -42,7 +42,7 @@ export async function ls(options: { json: boolean }): Promise<Record<string, unk
   }
   if (options.json) return rows;
   if (rows.length === 0) {
-    ui.infoDim("No workspaces. Start one with: bbd start /path/to/repo");
+    ui.infoDim("No workspaces. Start one with: go-remote start /path/to/repo");
     return undefined;
   }
   for (const row of rows) {
@@ -63,11 +63,11 @@ export async function attach(options: { path?: string; shell: boolean }): Promis
   await checkDocker();
   const workspace = await findWorkspace(options.path);
   requireRunning(workspace);
-  if (process.stdin.isTTY !== true) throw new UserError("bbd attach needs an interactive terminal");
-  return attachTo(workspace, [options.shell ? "bitbang-docker-session" : "bitbang-docker-attach"]);
+  if (process.stdin.isTTY !== true) throw new UserError("go-remote attach needs an interactive terminal");
+  return attachTo(workspace, [options.shell ? "go-remote-session" : "go-remote-attach"]);
 }
 
-/** Follows the container's logs with BitBang URLs and connection ids taken out: bbd qr shows the way in. */
+/** Follows the container's logs with BitBang URLs and connection ids taken out: go-remote qr shows the way in. */
 export async function logs(options: { path?: string; follow: boolean; tail: string }): Promise<number> {
   await checkDocker();
   const workspace = await findWorkspace(options.path);
@@ -102,7 +102,7 @@ export async function stop(options: { path?: string; all: boolean; root?: string
     ui.info(`Stopping ${workspace.project}`);
     const code = await inherit([...compose(root, workspace.project), "down", "--remove-orphans"], {
       stdoutToStderr: true,
-      env: { BBD_REPO: workspace.repo },
+      env: { GR_REPO: workspace.repo },
     });
     if (code !== 0) throw new UserError(`docker compose could not stop ${workspace.project}`);
   }

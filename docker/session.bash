@@ -3,10 +3,10 @@
 # -----------------------------------------------------------------------------------------------------------
 # Script Name: session.bash
 #
-# Description: Opens, or attaches to, the shared tmux session in the repo (BBD_UI=shell). Both the BitBang
+# Description: Opens, or attaches to, the shared tmux session in the repo (GR_UI=shell). Both the BitBang
 #              shell and `make attach` go through here, so every shell starts from the same clean environment.
 #
-# Usage: bitbang-docker-session [extra tmux new-session flags]
+# Usage: go-remote-session [extra tmux new-session flags]
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail
@@ -19,10 +19,10 @@ for var in ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN OPENAI_API_KEY CURSOR_API_K
     unset "$var"
   fi
 done
-unset BITBANG_PIN BITBANG_MAX_SESSIONS BBD_WATCHDOG_INTERVAL BBD_NTFY_TOPIC BBD_NTFY_SERVER BBD_NTFY_TOKEN
+unset BITBANG_PIN BITBANG_MAX_SESSIONS GR_WATCHDOG_INTERVAL GR_NTFY_TOPIC GR_NTFY_SERVER GR_NTFY_TOKEN
 
 export HOME=/home/agent
 export SHELL=/bin/bash
-repo="${BBD_REPO:-/workspace}"
+repo="${GR_REPO:-/workspace}"
 cd "$repo"
 exec tmux new-session -A -s main -c "$repo" "$@"

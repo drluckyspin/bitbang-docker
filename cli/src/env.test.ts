@@ -26,7 +26,7 @@ describe("withEnvValue", () => {
 });
 
 describe("envHas and setEnvValue", () => {
-  const dir = mkdtempSync(join(tmpdir(), "bbd-env-"));
+  const dir = mkdtempSync(join(tmpdir(), "go-remote-env-"));
 
   test("tells a value from an empty one", () => {
     const file = join(dir, "has");
@@ -51,12 +51,12 @@ describe("envHas and setEnvValue", () => {
     const victim = join(dir, "victim");
     writeFileSync(file, "A=1\n");
     writeFileSync(victim, "untouched\n");
-    symlinkSync(victim, `${file}.bbd-new`);
+    symlinkSync(victim, `${file}.go-remote-new`);
     setEnvValue(file, "T", "v");
     expect(readFileSync(victim, "utf8")).toBe("untouched\n");
     expect(lstatSync(file).isFile()).toBe(true);
     expect(readFileSync(file, "utf8")).toBe('A=1\nT="v"\n');
-    writeFileSync(`${file}.bbd-new`, "left over\n");
+    writeFileSync(`${file}.go-remote-new`, "left over\n");
     setEnvValue(file, "U", "w");
     expect(readFileSync(file, "utf8")).toBe('A=1\nT="v"\nU="w"\n');
   });

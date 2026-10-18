@@ -4,13 +4,13 @@
 // pairing code and a deep link to the terminal). Neither is ever printed: every line this script writes
 // passes through redact(). Prints one JSON object with the results; exits 1 if any check failed.
 //
-// BBD_E2E_COMMAND is typed into the terminal and BBD_E2E_EXPECT must then appear in it. The caller checks
+// GR_E2E_COMMAND is typed into the terminal and GR_E2E_EXPECT must then appear in it. The caller checks
 // in the container that the command really ran in the pane.
 //
 // With /secrets/chat (the URL deep-linked to an agent's chat, no pairing code: the phone is paired by then),
-// BBD_E2E_CHAT_MESSAGE is sent from the chat's composer and BBD_E2E_CHAT_EXPECT must come back as the
-// agent's turn. With /secrets/moved (the chat of a session moved in from the laptop), BBD_E2E_MOVED_HISTORY
-// must be among its earlier turns, and BBD_E2E_MOVED_MESSAGE must be answered with BBD_E2E_MOVED_EXPECT.
+// GR_E2E_CHAT_MESSAGE is sent from the chat's composer and GR_E2E_CHAT_EXPECT must come back as the
+// agent's turn. With /secrets/moved (the chat of a session moved in from the laptop), GR_E2E_MOVED_HISTORY
+// must be among its earlier turns, and GR_E2E_MOVED_MESSAGE must be answered with GR_E2E_MOVED_EXPECT.
 import { existsSync, readFileSync } from "node:fs";
 import { chromium, devices } from "playwright";
 
@@ -19,15 +19,15 @@ const url = secret("url");
 const link = secret("link");
 const chatLink = secret("chat");
 const movedLink = secret("moved");
-const command = process.env.BBD_E2E_COMMAND ?? "";
-const expected = process.env.BBD_E2E_EXPECT ?? "";
-const chatMessage = process.env.BBD_E2E_CHAT_MESSAGE ?? "";
-const chatExpected = process.env.BBD_E2E_CHAT_EXPECT ?? "";
-const movedHistory = process.env.BBD_E2E_MOVED_HISTORY ?? "";
-const movedMessage = process.env.BBD_E2E_MOVED_MESSAGE ?? "";
-const movedExpected = process.env.BBD_E2E_MOVED_EXPECT ?? "";
-const timeout = Number(process.env.BBD_E2E_TIMEOUT_MS ?? 120_000);
-const shots = process.env.BBD_E2E_SCREENSHOTS ?? "";
+const command = process.env.GR_E2E_COMMAND ?? "";
+const expected = process.env.GR_E2E_EXPECT ?? "";
+const chatMessage = process.env.GR_E2E_CHAT_MESSAGE ?? "";
+const chatExpected = process.env.GR_E2E_CHAT_EXPECT ?? "";
+const movedHistory = process.env.GR_E2E_MOVED_HISTORY ?? "";
+const movedMessage = process.env.GR_E2E_MOVED_MESSAGE ?? "";
+const movedExpected = process.env.GR_E2E_MOVED_EXPECT ?? "";
+const timeout = Number(process.env.GR_E2E_TIMEOUT_MS ?? 120_000);
+const shots = process.env.GR_E2E_SCREENSHOTS ?? "";
 
 const secrets = [link, chatLink, movedLink, url, ...[...link.matchAll(/pair=(\d+)/g)].map((match) => match[1])];
 function redact(text) {
@@ -218,6 +218,6 @@ console.log(JSON.stringify({
   results,
   problems,
   responses: [...responses].map(([key, count]) => (count > 1 ? `${key} (x${count})` : key)),
-  ...(process.env.BBD_E2E_TRACE ? { trace } : {}),
+  ...(process.env.GR_E2E_TRACE ? { trace } : {}),
 }, null, 2));
 process.exit(ok ? 0 : 1);

@@ -11,7 +11,7 @@ function setter(name: string): RegExp {
 /** A .env file's text with `name` set to `value`: on the first line that sets it (dropping any later ones), else appended. */
 export function withEnvValue(text: string, name: string, value: string): string {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || !/^[A-Za-z0-9_.:/+-]*$/.test(value)) {
-    throw new Error(`Refusing to write ${name} to .env: it needs quoting bbd does not do`);
+    throw new Error(`Refusing to write ${name} to .env: it needs quoting go-remote does not do`);
   }
   const line = `${name}="${value}"`;
   const lines = text.split("\n");
@@ -23,7 +23,7 @@ export function withEnvValue(text: string, name: string, value: string): string 
 /** Sets one variable in a .env file, which stays private to this user. */
 export function setEnvValue(file: string, name: string, value: string): void {
   const text = existsSync(file) ? readFileSync(file, "utf8") : "";
-  const next = `${file}.bbd-new`;
+  const next = `${file}.go-remote-new`;
   // Created afresh, so a leftover file or a symlink planted at this name is never written through.
   rmSync(next, { force: true });
   writeFileSync(next, withEnvValue(text, name, value), { mode: 0o600, flag: "wx" });
@@ -39,9 +39,9 @@ export function envHas(file: string, name: string): boolean {
     .some((line) => setter(name).test(line) && !/^(""|''|)$/.test(line.replace(setter(name), "").trim()));
 }
 
-/** The file compose gives the container: BBD_ENV_FILE (the tests use .env.example), else .env. */
+/** The file compose gives the container: GR_ENV_FILE (the tests use .env.example), else .env. */
 export function envFile(root: string): string {
-  return resolve(root, process.env.BBD_ENV_FILE || ".env");
+  return resolve(root, process.env.GR_ENV_FILE || ".env");
 }
 
 export async function checkEnv(root: string): Promise<void> {

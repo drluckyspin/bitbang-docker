@@ -80,7 +80,7 @@ export async function checkCopyIn(workspace: Workspace, session: Session, stores
     if (state === "diverged") {
       throw new UserError(
         `${workspace.project} has a copy of ${AGENT_NAMES[session.agent]} session ${session.id} with turns this computer's lacks`,
-        `Bring it back first with bbd pull ${workspace.repo}, then move it again.`,
+        `Bring it back first with go-remote pull ${workspace.repo}, then move it again.`,
       );
     }
     if (state !== "same") toCopy.push(file);
@@ -100,17 +100,17 @@ export async function copyIn(workspace: Workspace, session: Session, stores: Sto
 
 /** Whether the container's agent CLI is signed in. Its first-run questions are answered when the container starts. */
 export async function agentReady(workspace: Workspace, agent: AgentKind): Promise<{ ok: boolean; reason?: string }> {
-  const result = await capture(["docker", "exec", workspace.id, "bitbang-docker-agent", "ready", agent]);
+  const result = await capture(["docker", "exec", workspace.id, "go-remote-agent", "ready", agent]);
   if (result.code === 0) return { ok: true };
   if (result.code === 3) return { ok: false, reason: "it is not signed in yet" };
-  if (result.code === 127) return { ok: false, reason: "the image is older than bbd; rebuild it with make build" };
-  return { ok: false, reason: "bbd could not check its sign-in" };
+  if (result.code === 127) return { ok: false, reason: "the image is older than go-remote; rebuild it with make build" };
+  return { ok: false, reason: "go-remote could not check its sign-in" };
 }
 
-/** The web mode's default agent, as the container's bitbang-docker-agent watch records it. */
+/** The web mode's default agent, as the container's go-remote-agent watch records it. */
 export interface DefaultAgent {
   state: "off" | "waiting" | "starting" | "running" | "failed";
-  /** the agent started, being started, or (when BBD_DEFAULT_AGENT names one) awaiting a sign-in */
+  /** the agent started, being started, or (when GR_DEFAULT_AGENT names one) awaiting a sign-in */
   agent?: AgentKind;
   pane?: string;
 }
@@ -132,7 +132,7 @@ export function parseDefaultAgent(text: string): DefaultAgent {
 }
 
 export async function defaultAgent(workspace: Workspace): Promise<DefaultAgent> {
-  const result = await capture(["docker", "exec", workspace.id, "bitbang-docker-agent", "status"]);
+  const result = await capture(["docker", "exec", workspace.id, "go-remote-agent", "status"]);
   return result.code === 0 ? parseDefaultAgent(result.stdout) : { state: "off" };
 }
 
@@ -309,7 +309,7 @@ export async function containerFiles(workspace: Workspace): Promise<ContainerFil
 }
 
 /**
- * Whether bbd pull may write a path the container listed onto the laptop: a plain relative path in the agent's
+ * Whether go-remote pull may write a path the container listed onto the laptop: a plain relative path in the agent's
  * session folders for this repo. An agent in the container can name files so that the listing says anything.
  */
 export function pullable(agent: SessionAgentKind, file: string, repo: string): boolean {
@@ -356,7 +356,7 @@ export function groupSessions(files: ContainerFile[], repo: string): ContainerSe
 }
 
 /**
- * What bbd pull does with one container file. The laptop's copy is kept when it is the same, or when the
+ * What go-remote pull does with one container file. The laptop's copy is kept when it is the same, or when the
  * container's is an older prefix of it: the session went on here after the last pull.
  */
 export function pullState(laptop: Uint8Array | undefined, container: { size: number; sha256: string }): "copy" | "same" | "ahead" {
@@ -376,6 +376,6 @@ export async function fetchFile(workspace: Workspace, agent: SessionAgentKind, f
 
 export function requireWeb(workspace: Workspace, what: string): void {
   if (workspace.ui !== "web") {
-    throw new UserError(`${what} needs the web mode`, "This workspace runs with BBD_UI=shell; set BBD_UI=web in .env and start it again.");
+    throw new UserError(`${what} needs the web mode`, "This workspace runs with GR_UI=shell; set GR_UI=web in .env and start it again.");
   }
 }

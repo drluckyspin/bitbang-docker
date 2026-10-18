@@ -1,5 +1,5 @@
 /**
- * bbd install-skill: the go-remote skill, embedded in the binary, into ~/.agents/skills (which Codex and Cursor
+ * go-remote install-skill: the go-remote skill, embedded in the binary, into ~/.agents/skills (which Codex and Cursor
  * read), with a link from ~/.claude/skills for Claude Code. It replaces create-remote-session, its old name.
  */
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, rmdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
@@ -11,7 +11,7 @@ import { confirm, ui } from "../ui.ts";
 
 export const SKILL_NAME = "go-remote";
 const OLD_NAME = "create-remote-session";
-const SKILLS_SOURCE = "drluckyspin/bitbang-docker";
+const SKILLS_SOURCE = "drluckyspin/go-remote";
 const SKILLS_SEARCH = `https://skills.sh/api/search?q=${SKILL_NAME}&owner=drluckyspin&limit=20`;
 
 /** A skills.sh result we trust to install this skill from. */
@@ -37,13 +37,13 @@ async function skillsShSource(): Promise<string | undefined> {
 async function installFromSkillsSh(source: string): Promise<boolean> {
   const npx = Bun.which("npx");
   if (!npx) {
-    ui.warn("The published /go-remote skill needs npx to install; using bbd's included copy instead.");
+    ui.warn("The published /go-remote skill needs npx to install; using go-remote's included copy instead.");
     return false;
   }
   ui.info("Installing /go-remote from skills.sh");
   const status = await inherit(
     [npx, "--yes", "skills", "add", source, "--global", "--agent", "claude-code", "--agent", "codex", "--agent", "cursor", "--skill", SKILL_NAME, "--yes"],
-    // bbd itself sets DO_NOT_TRACK for Bun's crash reporter. Let skills.sh receive its anonymous install event,
+    // go-remote itself sets DO_NOT_TRACK for Bun's crash reporter. Let skills.sh receive its anonymous install event,
     // which is how the public directory indexes a skill.
     { env: { DISABLE_TELEMETRY: undefined, DO_NOT_TRACK: undefined } },
   );
@@ -51,7 +51,7 @@ async function installFromSkillsSh(source: string): Promise<boolean> {
     ui.success("Installed /go-remote from skills.sh");
     return true;
   }
-  ui.warn("skills.sh could not install /go-remote; using bbd's included copy instead.");
+  ui.warn("skills.sh could not install /go-remote; using go-remote's included copy instead.");
   return false;
 }
 
@@ -75,8 +75,8 @@ function linkTarget(path: string): string | undefined {
 }
 
 /**
- * Takes out the skill under its old name, as bbd installed it: its SKILL.md, its folder once empty, and the
- * link. A skill of that name that bbd did not write stays, link and all.
+ * Takes out the skill under its old name, as bbd (go-remote's old name) installed it: its SKILL.md, its folder once
+ * empty, and the link. A skill of that name that bbd did not write stays, link and all.
  */
 function removeOldSkill(home: string): void {
   const { dir, file, claudeLink } = skillPaths(home, OLD_NAME);
@@ -125,7 +125,7 @@ export function installSkill(home = homedir()): void {
 
 /**
  * Uses the skills.sh copy once it is published, but always keeps the embedded installation usable offline.
- * The directory record is checked before asking because bbd must not download an unregistered skill.
+ * The directory record is checked before asking because go-remote must not download an unregistered skill.
  */
 export async function installPreferredSkill(): Promise<void> {
   const source = await skillsShSource();

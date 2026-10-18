@@ -1,13 +1,13 @@
 /**
- * bbd-alerts: posts to ntfy when an agent in this workspace needs you, or finishes a turn, so the phone hears
+ * go-remote-alerts: posts to ntfy when an agent in this workspace needs you, or finishes a turn, so the phone hears
  * about it with the BitBang tab closed. herdr-web-ui's own Web Push cannot work inside BitBang's frame.
  *
  * An alert names the agent and the repo, never transcript text: the ntfy server may be a public one. The topic is
  * the secret (anyone who knows it can read it), so it is never logged. Tapping an alert cannot open the session,
  * because the BitBang URL is a credential and must not travel through ntfy.
  *
- * Settings: BBD_NTFY_TOPIC (required), BBD_NTFY_SERVER (default https://ntfy.sh), BBD_NTFY_TOKEN (an access
- * token for a self-hosted server), BBD_REPO_NAME, HERDR_SOCKET.
+ * Settings: GR_NTFY_TOPIC (required), GR_NTFY_SERVER (default https://ntfy.sh), GR_NTFY_TOKEN (an access
+ * token for a self-hosted server), GR_REPO_NAME, HERDR_SOCKET.
  */
 import { createConnection } from "node:net";
 
@@ -102,7 +102,7 @@ export function herdrRequest<T>(socketPath: string, method: string, params: obje
     let buffer = "";
     socket.setEncoding("utf8");
     socket.setTimeout(10_000, () => socket.destroy(new Error(`${method} timed out`)));
-    socket.on("connect", () => socket.write(`${JSON.stringify({ id: "bbd-alerts", method, params })}\n`));
+    socket.on("connect", () => socket.write(`${JSON.stringify({ id: "go-remote-alerts", method, params })}\n`));
     socket.on("data", (chunk: string) => {
       buffer += chunk;
       const end = buffer.indexOf("\n");
@@ -141,21 +141,21 @@ export async function publish(
 }
 
 function log(message: string): void {
-  console.error(`${new Date().toISOString()} bbd-alerts: ${message}`);
+  console.error(`${new Date().toISOString()} go-remote-alerts: ${message}`);
 }
 
 async function main(): Promise<void> {
-  const topic = process.env["BBD_NTFY_TOPIC"] ?? "";
+  const topic = process.env["GR_NTFY_TOPIC"] ?? "";
   if (topic === "") {
-    log("BBD_NTFY_TOPIC is not set; nothing to do");
+    log("GR_NTFY_TOPIC is not set; nothing to do");
     return;
   }
-  const server = process.env["BBD_NTFY_SERVER"] || "https://ntfy.sh";
-  const token = process.env["BBD_NTFY_TOKEN"] || undefined;
-  const repo = process.env["BBD_REPO_NAME"] || "workspace";
+  const server = process.env["GR_NTFY_SERVER"] || "https://ntfy.sh";
+  const token = process.env["GR_NTFY_TOKEN"] || undefined;
+  const repo = process.env["GR_REPO_NAME"] || "workspace";
   const socketPath = process.env["HERDR_SOCKET"]
     ?? `${process.env["HOME"]}/.config/herdr/sessions/${process.env["HERDR_SESSION"] ?? "default"}/herdr.sock`;
-  const interval = Number(process.env["BBD_ALERTS_INTERVAL_MS"] ?? 3000);
+  const interval = Number(process.env["GR_ALERTS_INTERVAL_MS"] ?? 3000);
 
   let previous = new Map<string, AgentInfo>();
   const lastSent = new Map<string, number>();

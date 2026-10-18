@@ -3,15 +3,15 @@
 # -----------------------------------------------------------------------------------------------------------
 # Script Name: attach.bash
 #
-# Description: What `make attach` and `bbd attach` open: the Herdr TUI on the same panes the phone sees
-#              (BBD_UI=web), or the shared tmux session (BBD_UI=shell).
+# Description: What `make attach` and `go-remote attach` open: the Herdr TUI on the same panes the phone sees
+#              (GR_UI=web), or the shared tmux session (GR_UI=shell).
 #
-# Usage: bitbang-docker-attach
+# Usage: go-remote-attach
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail
 
-case "$(printf '%s' "${BBD_UI:-web}" | tr '[:upper:]' '[:lower:]')" in
-  shell) exec bitbang-docker-session ;;
-  *) exec bitbang-docker-herdr ;;
+case "$(printf '%s' "${GR_UI:-web}" | tr '[:upper:]' '[:lower:]')" in
+  shell) exec go-remote-session ;;
+  *) exec go-remote-herdr ;;
 esac

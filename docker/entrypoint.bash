@@ -8,30 +8,30 @@
 #              the URL is stable for the life of the container (watchdog restarts keep it) and gone once
 #              the container stops.
 #
-#              BBD_UI=web (default):  herdr server -> herdr-web-ui :7317 -> bbd-ingress :7300 -> BitBang proxy
-#              BBD_UI=shell:          BitBang's own terminal, pinned to the tmux session
+#              GR_UI=web (default):  herdr server -> herdr-web-ui :7317 -> go-remote-ingress :7300 -> BitBang proxy
+#              GR_UI=shell:          BitBang's own terminal, pinned to the tmux session
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail
 
 # shellcheck source=scripts/log.bash
 # shellcheck disable=SC1091
-source /usr/local/lib/bitbang-docker/log.bash
+source /usr/local/lib/go-remote/log.bash
 
-REPO="${BBD_REPO:-}"
-RUNTIME_DIR=/tmp/bbd
+REPO="${GR_REPO:-}"
+RUNTIME_DIR=/tmp/go-remote
 BITBANG_HOME=/tmp/bitbang
-ICE_SERVERS_FILE=/etc/bitbang-docker/ice-servers.json
-SESSION_COMMAND=bitbang-docker-session
-WATCHDOG_INTERVAL="${BBD_WATCHDOG_INTERVAL:-300}"
+ICE_SERVERS_FILE=/etc/go-remote/ice-servers.json
+SESSION_COMMAND=go-remote-session
+WATCHDOG_INTERVAL="${GR_WATCHDOG_INTERVAL:-300}"
 WATCHDOG_MAX_FAILURES=2
 READY_TIMEOUT=60
 
 WEB_UI_DIR=/opt/herdr-web-ui
-INGRESS_SCRIPT=/opt/bitbang-docker/ingress/server.ts
-ALERTS_SCRIPT=/opt/bitbang-docker/ingress/alerts.ts
-WEB_PORT="${BBD_WEB_PORT:-7317}"
-INGRESS_PORT="${BBD_INGRESS_PORT:-7300}"
+INGRESS_SCRIPT=/opt/go-remote/ingress/server.ts
+ALERTS_SCRIPT=/opt/go-remote/ingress/alerts.ts
+WEB_PORT="${GR_WEB_PORT:-7317}"
+INGRESS_PORT="${GR_INGRESS_PORT:-7300}"
 HERDR_SOCKET="${HOME}/.config/herdr/sessions/${HERDR_SESSION:-default}/herdr.sock"
 SHELL_TAB="Repo Shell"
 
@@ -39,7 +39,7 @@ LISTENER_PID=""
 SERVICE_PIDS=()
 
 ui_mode() {
-  case "$(printf '%s' "${BBD_UI:-web}" | tr '[:upper:]' '[:lower:]')" in
+  case "$(printf '%s' "${GR_UI:-web}" | tr '[:upper:]' '[:lower:]')" in
     shell) echo shell ;;
     *) echo web ;;
   esac
@@ -47,12 +47,12 @@ ui_mode() {
 
 # -----------------------------------------------------------------------------------------------------------
 # Function: check_workspace
-# Description: Refuse to start unless a host directory is mounted at BBD_REPO, its host path. /workspace
+# Description: Refuse to start unless a host directory is mounted at GR_REPO, its host path. /workspace
 #              is a symlink to it, for the shell and for anything that expects the old location.
 # -----------------------------------------------------------------------------------------------------------
 check_workspace() {
   if [ -z "$REPO" ] || [ "${REPO#/}" = "$REPO" ]; then
-    log_error "BBD_REPO must be the repo's absolute host path. Start the container with: make run-detached REPO=/path/to/repo"
+    log_error "GR_REPO must be the repo's absolute host path. Start the container with: make run-detached REPO=/path/to/repo"
     exit 1
   fi
   if ! mountpoint -q "$REPO"; then
@@ -69,11 +69,11 @@ check_workspace() {
 # Function: configure_git
 # Description: Global git config lives in the home volume, never in the mounted repo. SSH remotes are
 #              rewritten to HTTPS because the container holds no SSH keys; GH_TOKEN authenticates HTTPS.
-#              Files the web UI and bbd keep in the repo (pasted images, handoff briefs) are excluded
+#              Files the web UI and go-remote keep in the repo (pasted images, handoff briefs) are excluded
 #              locally, in .git/info/exclude, so they never show up as changes.
 # -----------------------------------------------------------------------------------------------------------
 configure_git() {
-  local lock="${HOME}/.config/bitbang-docker/git-config.lock"
+  local lock="${HOME}/.config/go-remote/git-config.lock"
   mkdir -p "$(dirname "$lock")"
   (
     flock -x 9
@@ -96,7 +96,7 @@ configure_git_locked() {
 
   if [ -d "${REPO}/.git" ]; then
     mkdir -p "${REPO}/.git/info"
-    for pattern in /.herdr-web-ui/ /.bbd/; do
+    for pattern in /.herdr-web-ui/ /.go-remote/; do
       if ! grep -qxF "$pattern" "$exclude" 2>/dev/null; then
         echo "$pattern" >>"$exclude"
       fi
@@ -154,14 +154,14 @@ wait_for() {
 
 # -----------------------------------------------------------------------------------------------------------
 # Function: fresh_session
-# Description: A new container starts a new Herdr session, so bbd start opens a new conversation: the
+# Description: A new container starts a new Herdr session, so go-remote start opens a new conversation: the
 #              tabs and agents of the last container are not brought back. Their transcripts stay, for
-#              bbd pull and --resume. A restarted container keeps its session; its hostname, the
+#              go-remote pull and --resume. A restarted container keeps its session; its hostname, the
 #              container ID, tells the two apart.
 # -----------------------------------------------------------------------------------------------------------
 fresh_session() {
   local dir="${HOME}/.config/herdr/sessions/${HERDR_SESSION:-default}"
-  local marker="${dir}/bbd-container"
+  local marker="${dir}/go-remote-container"
 
   if [ "$(cat "$marker" 2>/dev/null)" != "$HOSTNAME" ]; then
     rm -rf "${dir}/session.json" "${dir}/session-history.json" "${dir}/session-snapshots"
@@ -186,11 +186,11 @@ start_herdr() {
   for agent in claude codex cursor; do
     herdr integration install "$agent" >/dev/null 2>&1 || log_warning "Could not install Herdr's ${agent} integration"
   done
-  bitbang-docker-agent prepare
+  go-remote-agent prepare
   fresh_session
 
   # Herdr writes its own log in the session directory; what it prints is a banner, kept out of docker logs.
-  start_service herdr bash -c "exec bitbang-docker-herdr server >>'${RUNTIME_DIR}/herdr-server.out' 2>&1"
+  start_service herdr bash -c "exec go-remote-herdr server >>'${RUNTIME_DIR}/herdr-server.out' 2>&1"
   wait_for "The Herdr server" herdr workspace list
 
   if ! herdr pane list | jq -e --arg repo "$REPO" \
@@ -205,19 +205,19 @@ start_herdr() {
 
 # -----------------------------------------------------------------------------------------------------------
 # Function: start_default_agent
-# Description: In the background, start the default agent (BBD_DEFAULT_AGENT) in its own Herdr tab once
+# Description: In the background, start the default agent (GR_DEFAULT_AGENT) in its own Herdr tab once
 #              one is signed in, so the phone's Chat has an agent to talk to and the sign-in needs no restart.
-#              Its state is in /tmp/bbd/agent.json (bitbang-docker-agent status).
+#              Its state is in /tmp/go-remote/agent.json (go-remote-agent status).
 # -----------------------------------------------------------------------------------------------------------
 start_default_agent() {
-  bitbang-docker-agent watch &
+  go-remote-agent watch &
   echo $! >"${RUNTIME_DIR}/agent-watch.pid"
 }
 
 # -----------------------------------------------------------------------------------------------------------
 # Function: start_web_ui
 # Description: Start herdr-web-ui on loopback behind a random access token that never leaves the
-#              container's tmpfs. Phones get in by pairing (bitbang-docker-pair), never with the token.
+#              container's tmpfs. Phones get in by pairing (go-remote-pair), never with the token.
 #              It runs from source, not through its supervisor, so it never updates itself.
 # -----------------------------------------------------------------------------------------------------------
 start_web_ui() {
@@ -239,24 +239,24 @@ start_web_ui() {
     bun server/index.ts
   wait_for "herdr-web-ui" curl -fsS "http://127.0.0.1:${WEB_PORT}/api/health"
 
-  start_service bbd-ingress env \
-    BBD_INGRESS_PORT="$INGRESS_PORT" \
-    BBD_INGRESS_UPSTREAM="127.0.0.1:${WEB_PORT}" \
+  start_service go-remote-ingress env \
+    GR_INGRESS_PORT="$INGRESS_PORT" \
+    GR_INGRESS_UPSTREAM="127.0.0.1:${WEB_PORT}" \
     bun "$INGRESS_SCRIPT"
-  wait_for "bbd-ingress" curl -fsS "http://127.0.0.1:${INGRESS_PORT}/__bbd/health"
-  log_success "herdr-web-ui is running behind bbd-ingress"
+  wait_for "go-remote-ingress" curl -fsS "http://127.0.0.1:${INGRESS_PORT}/__go-remote/health"
+  log_success "herdr-web-ui is running behind go-remote-ingress"
 }
 
 # -----------------------------------------------------------------------------------------------------------
 # Function: start_alerts
-# Description: With BBD_NTFY_TOPIC set, post an alert to ntfy when an agent needs you or finishes.
+# Description: With GR_NTFY_TOPIC set, post an alert to ntfy when an agent needs you or finishes.
 # -----------------------------------------------------------------------------------------------------------
 start_alerts() {
-  if [ -z "${BBD_NTFY_TOPIC:-}" ]; then
+  if [ -z "${GR_NTFY_TOPIC:-}" ]; then
     return
   fi
-  start_service bbd-alerts env BBD_REPO_NAME="$(basename "$REPO")" HERDR_SOCKET="$HERDR_SOCKET" bun "$ALERTS_SCRIPT"
-  log_info "Agent alerts go to ntfy topic on ${BBD_NTFY_SERVER:-https://ntfy.sh}"
+  start_service go-remote-alerts env GR_REPO_NAME="$(basename "$REPO")" HERDR_SOCKET="$HERDR_SOCKET" bun "$ALERTS_SCRIPT"
+  log_info "Agent alerts go to ntfy topic on ${GR_NTFY_SERVER:-https://ntfy.sh}"
 }
 
 # -----------------------------------------------------------------------------------------------------------
@@ -345,7 +345,7 @@ probe_listener() {
     return 1
   fi
   if [ "$(ui_mode)" = web ] && ! curl -fsS -o /dev/null "http://127.0.0.1:${INGRESS_PORT}/api/health"; then
-    log_warning "Watchdog probe: herdr-web-ui is not answering through bbd-ingress"
+    log_warning "Watchdog probe: herdr-web-ui is not answering through go-remote-ingress"
     return 1
   fi
   return 0

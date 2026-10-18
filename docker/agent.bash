@@ -4,36 +4,36 @@
 # Script Name: agent.bash
 #
 # Description: The web mode's default agent. Answers Claude Code's and Codex's first-run questions for the
-#              mounted repo, starts the default agent (BBD_DEFAULT_AGENT) in its own Herdr tab as soon as
-#              one is signed in, and keeps its state in /tmp/bbd/agent.json for bbd and the shell's hint.
+#              mounted repo, starts the default agent (GR_DEFAULT_AGENT) in its own Herdr tab as soon as
+#              one is signed in, and keeps its state in /tmp/go-remote/agent.json for go-remote and the shell's hint.
 #              An agent opened before anyone signed in sits at its sign-in screen; once the sign-in happens
-#              elsewhere (bbd login), it is restarted in its tab.
+#              elsewhere (go-remote login), it is restarted in its tab.
 #
-# Usage: bitbang-docker-agent prepare         Answer the first-run questions and record the starting state
-#        bitbang-docker-agent watch           Start the default agent once it is signed in (the entrypoint)
-#        bitbang-docker-agent ready <agent>   Exit 0 when claude, codex or cursor is signed in, 3 when it is not
-#        bitbang-docker-agent status          Print the default agent's state as JSON
-#        bitbang-docker-agent hint            Say how to sign in while no agent is (interactive shells)
-#        bitbang-docker-agent login [agent]   Sign in to claude, codex or cursor (default: the one being waited for)
+# Usage: go-remote-agent prepare         Answer the first-run questions and record the starting state
+#        go-remote-agent watch           Start the default agent once it is signed in (the entrypoint)
+#        go-remote-agent ready <agent>   Exit 0 when claude, codex or cursor is signed in, 3 when it is not
+#        go-remote-agent status          Print the default agent's state as JSON
+#        go-remote-agent hint            Say how to sign in while no agent is (interactive shells)
+#        go-remote-agent login [agent]   Sign in to claude, codex or cursor (default: the one being waited for)
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail
 
 # shellcheck source=scripts/log.bash
 # shellcheck disable=SC1091
-source /usr/local/lib/bitbang-docker/log.bash
+source /usr/local/lib/go-remote/log.bash
 
-REPO="${BBD_REPO:-/workspace}"
-RUNTIME_DIR=/tmp/bbd
+REPO="${GR_REPO:-/workspace}"
+RUNTIME_DIR=/tmp/go-remote
 STATE_FILE="${RUNTIME_DIR}/agent.json"
-LOCK_FILE="${HOME}/.config/bitbang-docker/agent-config.lock"
-POLL_SECONDS="${BBD_AGENT_POLL_SECONDS:-3}"
+LOCK_FILE="${HOME}/.config/go-remote/agent-config.lock"
+POLL_SECONDS="${GR_AGENT_POLL_SECONDS:-3}"
 
 configured() {
-  printf '%s' "${BBD_DEFAULT_AGENT:-auto}" | tr '[:upper:]' '[:lower:]'
+  printf '%s' "${GR_DEFAULT_AGENT:-auto}" | tr '[:upper:]' '[:lower:]'
 }
 
-# The agents BBD_DEFAULT_AGENT allows, in order of preference: none for `none` (or a typo).
+# The agents GR_DEFAULT_AGENT allows, in order of preference: none for `none` (or a typo).
 candidates() {
   case "$(configured)" in
     auto) echo claude codex cursor ;;
@@ -41,7 +41,7 @@ candidates() {
   esac
 }
 
-# The agent a sign-in is awaited for, when BBD_DEFAULT_AGENT names one.
+# The agent a sign-in is awaited for, when GR_DEFAULT_AGENT names one.
 awaited() {
   case "$(configured)" in
     claude | codex | cursor) configured ;;
@@ -305,7 +305,7 @@ start_in_tab() {
 watch() {
   local warned="" name kind pane agent found_name found_kind found_pane
   if [ -z "$(candidates)" ]; then
-    [ "$(configured)" = none ] || log_warning "Ignoring BBD_DEFAULT_AGENT=${BBD_DEFAULT_AGENT}; use auto, claude, codex, cursor or none."
+    [ "$(configured)" = none ] || log_warning "Ignoring GR_DEFAULT_AGENT=${GR_DEFAULT_AGENT}; use auto, claude, codex, cursor or none."
     write_state off
     return 0
   fi
@@ -344,7 +344,7 @@ watch() {
 
     if [ -z "$warned" ]; then
       write_state waiting "$(awaited)"
-      log_warning "No agent is signed in yet. Sign in once with make login (or bbd login); the default agent then starts on its own."
+      log_warning "No agent is signed in yet. Sign in once with make login (or go-remote login); the default agent then starts on its own."
       warned=1
     fi
     sleep "$POLL_SECONDS"
@@ -364,7 +364,7 @@ hint() {
   cat <<'EOF'
 No agent is signed in yet. Sign in once and
 it opens in its own tab, ready to chat:
-  On your Mac:  make login  (or bbd login)
+  On your Mac:  make login  (or go-remote login)
   Or here:      claude auth login
                 codex login --device-auth
                 cursor-agent login
@@ -405,7 +405,7 @@ main() {
     hint) hint ;;
     login) login "$@" ;;
     *)
-      echo "Usage: bitbang-docker-agent prepare|watch|ready <agent>|status|hint|login [agent]" >&2
+      echo "Usage: go-remote-agent prepare|watch|ready <agent>|status|hint|login [agent]" >&2
       return 2
       ;;
   esac

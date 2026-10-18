@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 #
-# The repo's TypeScript (bbd and bbd-ingress), built and tested with nothing on the host but Docker. make unit
-# builds the test stage; make cli exports the dist stage, which holds only the bbd-<os>-<arch> executables and
-# builds after the tests pass.
+# The repo's TypeScript (go-remote and go-remote-ingress), built and tested with nothing on the host but Docker. make
+# unit builds the test stage; make cli exports the dist stage, which holds only the go-remote-<os>-<arch> executables
+# and builds after the tests pass.
 
 ARG BUN_VERSION=1.4.2
 
@@ -27,10 +27,10 @@ RUN ./node_modules/.bin/tsc --noEmit && bun test && touch /passed
 
 FROM deps AS build
 COPY --from=test /passed /passed
-ARG BBD_TARGETS="darwin-arm64 darwin-x64 linux-arm64 linux-x64"
+ARG GR_TARGETS="darwin-arm64 darwin-x64 linux-arm64 linux-x64"
 RUN mkdir /dist \
-  && for target in ${BBD_TARGETS}; do \
-    bun build --compile --target="bun-${target}" cli/src/main.ts --outfile "/dist/bbd-${target}" || exit 1; \
+  && for target in ${GR_TARGETS}; do \
+    bun build --compile --target="bun-${target}" cli/src/main.ts --outfile "/dist/go-remote-${target}" || exit 1; \
   done
 
 FROM scratch AS dist

@@ -12,7 +12,7 @@ export interface RunOptions {
   env?: Record<string, string | undefined>;
   /** bytes or a file to send to the program's stdin */
   stdin?: Uint8Array | Blob;
-  /** for inherit(): send the program's stdout to stderr, keeping stdout for bbd's own output */
+  /** for inherit(): send the program's stdout to stderr, keeping stdout for go-remote's own output */
   stdoutToStderr?: boolean;
 }
 

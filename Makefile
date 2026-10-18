@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------------
-# BitBang Docker — Makefile
+# go-remote — Makefile
 # -----------------------------------------------------------------------------------------------------------
 # A hardened container around one local git repo, with a tmux shell in it served over BitBang.
 #

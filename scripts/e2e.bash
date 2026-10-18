@@ -17,11 +17,11 @@
 # Usage: ./scripts/e2e.bash [compose_project]
 #
 # Environment:
-#   BBD                 bbd command (default: dist/bbd-<os>-<arch>, built by make cli)
-#   E2E_IMAGE           Test image (default bitbang-docker-e2e:latest, built by make e2e)
+#   GO_REMOTE           go-remote command (default: dist/go-remote-<os>-<arch>, built by make cli)
+#   E2E_IMAGE           Test image (default go-remote-e2e:latest, built by make e2e)
 #   E2E_SCREENSHOTS     Directory for screenshots of each step (default: none)
-#   BBD_E2E_TRACE       Set to print frame navigations and pairing requests (paths and parameter names only)
-#   BBD_E2E_TIMEOUT_MS  How long each step may take (default 120000)
+#   GR_E2E_TRACE        Set to print frame navigations and pairing requests (paths and parameter names only)
+#   GR_E2E_TIMEOUT_MS   How long each step may take (default 120000)
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail
@@ -31,7 +31,7 @@ set -euo pipefail
 source "$(dirname "$0")/log.bash"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-E2E_IMAGE="${E2E_IMAGE:-bitbang-docker-e2e:latest}"
+E2E_IMAGE="${E2E_IMAGE:-go-remote-e2e:latest}"
 PROJECT=""
 SECRET_DIR=""
 ENV_DIR=""
@@ -43,17 +43,17 @@ STAND_IN_PID=""
 MOVE_ID=""
 MOVED_PANE=""
 
-host_bbd() {
+host_go_remote() {
   local os arch
   os="$(uname -s | tr '[:upper:]' '[:lower:]')"
   case "$(uname -m)" in
     arm64 | aarch64) arch=arm64 ;;
     *) arch=x64 ;;
   esac
-  echo "${ROOT_DIR}/dist/bbd-${os}-${arch}"
+  echo "${ROOT_DIR}/dist/go-remote-${os}-${arch}"
 }
 
-BBD="${BBD:-$(host_bbd)}"
+GO_REMOTE="${GO_REMOTE:-$(host_go_remote)}"
 
 cleanup() {
   local dir
@@ -67,7 +67,7 @@ cleanup() {
   done
   if [ -n "$THROWAWAY_REPO" ]; then
     log_info_dim "Removing the throwaway workspace, its home volume and repo"
-    BBD_ROOT="$ROOT_DIR" BBD_HOME_VOLUME="$THROWAWAY_VOLUME" "$BBD" stop "$THROWAWAY_REPO" >/dev/null 2>&1 || true
+    GR_ROOT="$ROOT_DIR" GR_HOME_VOLUME="$THROWAWAY_VOLUME" "$GO_REMOTE" stop "$THROWAWAY_REPO" >/dev/null 2>&1 || true
     docker volume rm "$THROWAWAY_VOLUME" >/dev/null 2>&1 || true
     rm -rf "$THROWAWAY_REPO"
   fi
@@ -80,13 +80,13 @@ cleanup() {
 # -----------------------------------------------------------------------------------------------------------
 start_throwaway() {
   local result
-  THROWAWAY_REPO="$(mktemp -d "${TMPDIR:-/tmp}/bbd-e2e.XXXXXX")"
+  THROWAWAY_REPO="$(mktemp -d "${TMPDIR:-/tmp}/go-remote-e2e.XXXXXX")"
   THROWAWAY_REPO="$(cd "$THROWAWAY_REPO" && pwd -P)"
-  THROWAWAY_VOLUME="bbd-e2e-home-${RANDOM}${RANDOM}"
+  THROWAWAY_VOLUME="go-remote-e2e-home-${RANDOM}${RANDOM}"
   git -C "$THROWAWAY_REPO" init -q
   echo "e2e" >"${THROWAWAY_REPO}/README.md"
 
-  ENV_DIR="$(mktemp -d "${TMPDIR:-/tmp}/bbd-e2e-env.XXXXXX")"
+  ENV_DIR="$(mktemp -d "${TMPDIR:-/tmp}/go-remote-e2e-env.XXXXXX")"
   chmod 700 "$ENV_DIR"
   cp "${ROOT_DIR}/.env.example" "${ENV_DIR}/env.example"
   (
@@ -97,8 +97,8 @@ start_throwaway() {
   )
 
   log_info "Starting a throwaway workspace"
-  result="$(BBD_ROOT="$ROOT_DIR" BBD_ENV_FILE="${ENV_DIR}/env" BBD_HOME_VOLUME="$THROWAWAY_VOLUME" \
-    "$BBD" start "$THROWAWAY_REPO" --json --no-window)"
+  result="$(GR_ROOT="$ROOT_DIR" GR_ENV_FILE="${ENV_DIR}/env" GR_HOME_VOLUME="$THROWAWAY_VOLUME" \
+    "$GO_REMOTE" start "$THROWAWAY_REPO" --json --no-window)"
   PROJECT="$(jq -r .project <<<"$result")"
 }
 
@@ -108,8 +108,8 @@ start_throwaway() {
 # -----------------------------------------------------------------------------------------------------------
 start_mock_api() {
   local cid="$1" waited=0
-  docker exec -i "$cid" sh -c 'cat >/tmp/bbd/mock-anthropic.ts' <"${ROOT_DIR}/e2e/mock-anthropic.ts"
-  docker exec -d "$cid" sh -c "exec bun /tmp/bbd/mock-anthropic.ts ${MOCK_PORT} >/tmp/bbd/mock-anthropic.log 2>&1"
+  docker exec -i "$cid" sh -c 'cat >/tmp/go-remote/mock-anthropic.ts' <"${ROOT_DIR}/e2e/mock-anthropic.ts"
+  docker exec -d "$cid" sh -c "exec bun /tmp/go-remote/mock-anthropic.ts ${MOCK_PORT} >/tmp/go-remote/mock-anthropic.log 2>&1"
   until docker exec "$cid" curl -fsS -o /dev/null -X POST "http://127.0.0.1:${MOCK_PORT}/v1/messages/count_tokens" -d '{}'; do
     if [ "$waited" -ge 20 ]; then
       log_error "The mock Anthropic API did not start"
@@ -157,13 +157,13 @@ wait_for_file() {
 # Description: The /go-remote path, with stand-ins for the laptop. Claude Code in the container makes a
 #              real session against the mock, which is then taken out to a laptop store (CLAUDE_CONFIG_DIR).
 #              A stand-in agent process named claude is in a turn of that session: it runs
-#              bbd start --resume on it, and the turn then ends. bbd must wait for the end, end the stand-in
+#              go-remote start --resume on it, and the turn then ends. go-remote must wait for the end, end the stand-in
 #              and resume the same session in the container. Sets MOVED_PANE.
 # -----------------------------------------------------------------------------------------------------------
 move_session() {
   local cid="$1" marker="$2" project_dir file move_dir stores result
   MOVE_ID="$(new_uuid)"
-  LAPTOP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/bbd-e2e-laptop.XXXXXX")"
+  LAPTOP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/go-remote-e2e-laptop.XXXXXX")"
   chmod 700 "$LAPTOP_DIR"
   move_dir="${LAPTOP_DIR}/move"
   mkdir -p "$move_dir" "${LAPTOP_DIR}/state"
@@ -184,36 +184,36 @@ move_session() {
   append_entry "$file" '{"type": "user", "message": {"role": "user", "content": "/go-remote"}}'
   append_entry "$file" '{"type": "assistant", "message": {"id": "msg_e2e_move", "type": "message", "role": "assistant",
     "model": "claude-mock", "content": [{"type": "tool_use", "id": "toolu_e2e_move", "name": "Bash",
-    "input": {"command": "bbd start --resume"}}], "stop_reason": "tool_use", "stop_sequence": null,
+    "input": {"command": "go-remote start --resume"}}], "stop_reason": "tool_use", "stop_sequence": null,
     "usage": {"input_tokens": 1, "output_tokens": 1}}}'
   cat >"${move_dir}/claude" <<'STAND_IN'
 #!/usr/bin/env bash
-# Stands in for the laptop's Claude Code: runs bbd from its turn, then stays open until something ends it.
+# Stands in for the laptop's Claude Code: runs go-remote from its turn, then stays open until something ends it.
 trap 'touch "${MOVE_DIR}/ended"; exit 0' TERM
-"$BBD" start "$REPO" --json --no-window --resume "claude:${MOVE_ID}" >"${MOVE_DIR}/start.json" 2>"${MOVE_DIR}/start.err"
+"$GO_REMOTE" start "$REPO" --json --no-window --resume "claude:${MOVE_ID}" >"${MOVE_DIR}/start.json" 2>"${MOVE_DIR}/start.err"
 echo "$?" >"${MOVE_DIR}/start.code"
 while :; do sleep 0.2; done
 STAND_IN
   chmod +x "${move_dir}/claude"
 
   log_info "Moving a laptop session in, as /go-remote does"
-  BBD="$BBD" REPO="$THROWAWAY_REPO" MOVE_ID="$MOVE_ID" MOVE_DIR="$move_dir" BBD_ROOT="$ROOT_DIR" \
-    BBD_ENV_FILE="${ENV_DIR}/env" BBD_HOME_VOLUME="$THROWAWAY_VOLUME" CLAUDE_CONFIG_DIR="${LAPTOP_DIR}/claude" \
+  GO_REMOTE="$GO_REMOTE" REPO="$THROWAWAY_REPO" MOVE_ID="$MOVE_ID" MOVE_DIR="$move_dir" GR_ROOT="$ROOT_DIR" \
+    GR_ENV_FILE="${ENV_DIR}/env" GR_HOME_VOLUME="$THROWAWAY_VOLUME" CLAUDE_CONFIG_DIR="${LAPTOP_DIR}/claude" \
     XDG_STATE_HOME="${LAPTOP_DIR}/state" "${move_dir}/claude" &
   STAND_IN_PID=$!
   if ! wait_for_file "${move_dir}/start.code" 120 || [ "$(cat "${move_dir}/start.code")" != 0 ]; then
-    log_error "bbd start --resume failed: $(tail -n 3 "${move_dir}/start.err" 2>/dev/null)"
+    log_error "go-remote start --resume failed: $(tail -n 3 "${move_dir}/start.err" 2>/dev/null)"
     return 1
   fi
   result="$(cat "${move_dir}/start.json")"
   if [ "$(jq -r '.moving' <<<"$result")" != true ] || [ "$(jq -r '.qr' <<<"$result")" != pending ]; then
-    log_error "bbd did not wait for the turn to end: $(jq -c '{moving, qr}' <<<"$result")"
+    log_error "go-remote did not wait for the turn to end: $(jq -c '{moving, qr}' <<<"$result")"
     return 1
   fi
-  log_success "bbd saw the session was still in its turn, and left the move for when it ends"
+  log_success "go-remote saw the session was still in its turn, and left the move for when it ends"
   sleep 3
   if [ -e "${move_dir}/ended" ]; then
-    log_error "bbd ended the laptop's session before its turn was over"
+    log_error "go-remote ended the laptop's session before its turn was over"
     return 1
   fi
 
@@ -226,17 +226,17 @@ STAND_IN
   append_entry "$file" '{"type": "system", "subtype": "turn_duration", "durationMs": 1000, "isMeta": false}'
 
   if ! wait_for_file "${move_dir}/ended" 30; then
-    log_error "bbd did not end the laptop's session once its turn was over"
+    log_error "go-remote did not end the laptop's session once its turn was over"
     return 1
   fi
   STAND_IN_PID=""
-  log_success "Once the turn ended, bbd closed the laptop's session"
-  if ! wait_for_file "${LAPTOP_DIR}/state/bbd/move-claude-${MOVE_ID}.log" 120 "resumed the session|move failed"; then
+  log_success "Once the turn ended, go-remote closed the laptop's session"
+  if ! wait_for_file "${LAPTOP_DIR}/state/go-remote/move-claude-${MOVE_ID}.log" 120 "resumed the session|move failed"; then
     log_error "The move did not finish"
     return 1
   fi
-  if grep -q "move failed" "${LAPTOP_DIR}/state/bbd/move-claude-${MOVE_ID}.log"; then
-    log_error "$(grep "move failed" "${LAPTOP_DIR}/state/bbd/move-claude-${MOVE_ID}.log")"
+  if grep -q "move failed" "${LAPTOP_DIR}/state/go-remote/move-claude-${MOVE_ID}.log"; then
+    log_error "$(grep "move failed" "${LAPTOP_DIR}/state/go-remote/move-claude-${MOVE_ID}.log")"
     return 1
   fi
   MOVED_PANE="$(docker exec "$cid" herdr agent list | jq -r --arg id "$MOVE_ID" \
@@ -259,8 +259,8 @@ main() {
   if [ $# -gt 0 ]; then
     PROJECT="$1"
   else
-    if [ ! -x "$BBD" ]; then
-      log_error "bbd is not built: run make cli (or set BBD)"
+    if [ ! -x "$GO_REMOTE" ]; then
+      log_error "go-remote is not built: run make cli (or set GO_REMOTE)"
       exit 1
     fi
     start_throwaway
@@ -273,20 +273,20 @@ main() {
     exit 1
   fi
 
-  SECRET_DIR="$(mktemp -d "${TMPDIR:-/tmp}/bbd-e2e-secrets.XXXXXX")"
+  SECRET_DIR="$(mktemp -d "${TMPDIR:-/tmp}/go-remote-e2e-secrets.XXXXXX")"
   chmod 700 "$SECRET_DIR"
 
   url="$(docker exec "$cid" cat /tmp/bitbang/url)"
-  code="$(docker exec "$cid" bitbang-docker-pair | jq -r .code)"
+  code="$(docker exec "$cid" go-remote-pair | jq -r .code)"
   pane="$(docker exec "$cid" herdr pane list | jq -r '.result.panes[0].pane_id')"
-  marker="bbd-e2e-${RANDOM}${RANDOM}"
-  laptop_marker="bbd-e2e-${RANDOM}${RANDOM}"
-  moved_marker="bbd-e2e-${RANDOM}${RANDOM}"
+  marker="go-remote-e2e-${RANDOM}${RANDOM}"
+  laptop_marker="go-remote-e2e-${RANDOM}${RANDOM}"
+  moved_marker="go-remote-e2e-${RANDOM}${RANDOM}"
 
   if [ -n "$THROWAWAY_REPO" ]; then
     start_mock_api "$cid"
-    if [ "$(docker exec "$cid" bitbang-docker-agent status | jq -r .state)" = running ]; then
-      agent_pane="$(docker exec "$cid" bitbang-docker-agent status | jq -r .pane)"
+    if [ "$(docker exec "$cid" go-remote-agent status | jq -r .state)" = running ]; then
+      agent_pane="$(docker exec "$cid" go-remote-agent status | jq -r .pane)"
       log_success "The default agent started on its own, in pane ${agent_pane}"
       agent_tab="$(docker exec "$cid" herdr pane list | jq -r --arg pane "$agent_pane" \
         '.result.panes[] | select(.pane_id == $pane) | .tab_id')"
@@ -297,14 +297,14 @@ main() {
         log_error "The default agent's tab is not labelled Claude"
         status=1
       fi
-      chat=(-e BBD_E2E_CHAT_MESSAGE="Reply to ${marker}" -e BBD_E2E_CHAT_EXPECT="${marker}-reply")
+      chat=(-e GR_E2E_CHAT_MESSAGE="Reply to ${marker}" -e GR_E2E_CHAT_EXPECT="${marker}-reply")
     else
-      log_error "The default agent did not start: $(docker exec "$cid" bitbang-docker-agent status | jq -c .)"
+      log_error "The default agent did not start: $(docker exec "$cid" go-remote-agent status | jq -c .)"
       status=1
     fi
     if move_session "$cid" "$laptop_marker"; then
-      moved=(-e BBD_E2E_MOVED_HISTORY="${laptop_marker}-reply" -e BBD_E2E_MOVED_MESSAGE="Reply to ${moved_marker}"
-        -e BBD_E2E_MOVED_EXPECT="${moved_marker}-reply")
+      moved=(-e GR_E2E_MOVED_HISTORY="${laptop_marker}-reply" -e GR_E2E_MOVED_MESSAGE="Reply to ${moved_marker}"
+        -e GR_E2E_MOVED_EXPECT="${moved_marker}-reply")
     else
       status=1
     fi
@@ -332,7 +332,7 @@ main() {
 
   if [ -n "${E2E_SCREENSHOTS:-}" ]; then
     mkdir -p "$E2E_SCREENSHOTS"
-    shots=(-v "$(cd "$E2E_SCREENSHOTS" && pwd -P):/shots" -e BBD_E2E_SCREENSHOTS=/shots)
+    shots=(-v "$(cd "$E2E_SCREENSHOTS" && pwd -P):/shots" -e GR_E2E_SCREENSHOTS=/shots)
   fi
 
   log_info "Running the phone check through BitBang (this takes up to a few minutes)"
@@ -342,9 +342,9 @@ main() {
     ${shots[@]+"${shots[@]}"} \
     ${chat[@]+"${chat[@]}"} \
     ${moved[@]+"${moved[@]}"} \
-    -e BBD_E2E_COMMAND="echo ${marker}-\$((6*7))" \
-    -e BBD_E2E_EXPECT="${marker}-42" \
-    -e BBD_E2E_TRACE -e BBD_E2E_TIMEOUT_MS \
+    -e GR_E2E_COMMAND="echo ${marker}-\$((6*7))" \
+    -e GR_E2E_EXPECT="${marker}-42" \
+    -e GR_E2E_TRACE -e GR_E2E_TIMEOUT_MS \
     "$E2E_IMAGE" || status=$?
 
   # The typed text holds $((6*7)); only the shell's output holds 42.
@@ -356,7 +356,7 @@ main() {
   fi
   if [ -n "$agent_pane" ]; then
     # Only Claude Code's request to the API carries the message on to the mock, which answers <marker>-reply.
-    if docker exec "$cid" grep -qF -- "${marker}-reply" /tmp/bbd/mock-anthropic.log &&
+    if docker exec "$cid" grep -qF -- "${marker}-reply" /tmp/go-remote/mock-anthropic.log &&
       docker exec "$cid" herdr pane read "$agent_pane" --source recent --lines 80 | grep -qF -- "${marker}-reply"; then
       log_success "The message sent from the phone's Chat reached Claude Code, and its reply came back"
     else

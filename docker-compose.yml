@@ -1,8 +1,8 @@
-# One hardened workspace container per repo. `make` and `bbd` set the project name (bbd-<repo>), BBD_REPO,
+# One hardened workspace container per repo. `make` and `go-remote` set the project name (go-remote-<repo>), GR_REPO,
 # USER_UID/GID and the git identity; everything else is interpolated from .env.
 services:
   workspace:
-    image: bitbang-docker:latest
+    image: go-remote:latest
     pull_policy: never
     init: true
     user: agent
@@ -14,15 +14,15 @@ services:
       - /tmp:rw,nosuid,nodev,mode=1777
     # Herdr, herdr-web-ui and its terminal sidecars, and each agent's own helpers all count here.
     pids_limit: 1024
-    mem_limit: ${BBD_MEMORY:-4g}
-    cpus: ${BBD_CPUS:-2}
-    runtime: ${BBD_RUNTIME:-runc}
+    mem_limit: ${GR_MEMORY:-4g}
+    cpus: ${GR_CPUS:-2}
+    runtime: ${GR_RUNTIME:-runc}
     # A restart starts a fresh tmpfs, which mints a new URL nobody has seen. Stay down instead.
     restart: "no"
     labels:
-      bitbang-docker.repo: ${BBD_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
-      # Which .env the container was given, so bbd login restarts only the workspaces its token is for
-      bitbang-docker.env-file: ${BBD_ENV_FILE:-.env}
+      go-remote.repo: ${GR_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
+      # Which .env the container was given, so go-remote login restarts only the workspaces its token is for
+      go-remote.env-file: ${GR_ENV_FILE:-.env}
     healthcheck:
       test: ["CMD-SHELL", "[ \"$$(cat /tmp/bitbang/health 2>/dev/null)\" = ok ]"]
       interval: 30s
@@ -33,29 +33,29 @@ services:
       # The repo keeps its host path, so agent sessions copied from the laptop resume unchanged and
       # worktree pointers stay valid on both sides. /workspace links to it.
       - type: bind
-        source: ${BBD_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
-        target: ${BBD_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
+        source: ${GR_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
+        target: ${GR_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
       - type: volume
         source: home
         target: /home/agent
       - type: bind
         source: ./config
-        target: /etc/bitbang-docker
+        target: /etc/go-remote
         read_only: true
-    # Secrets (API keys, GH_TOKEN, BITBANG_PIN, BBD_NTFY_TOPIC) come only from this file. ${VAR} interpolation
+    # Secrets (API keys, GH_TOKEN, BITBANG_PIN, GR_NTFY_TOPIC) come only from this file. ${VAR} interpolation
     # would let the host shell's exported keys win over .env and leak into a remotely reachable container.
     env_file:
-      - path: ${BBD_ENV_FILE:-.env}
+      - path: ${GR_ENV_FILE:-.env}
         required: false
-    # Non-secret settings, which make, bbd and the smoke test may override from the shell.
+    # Non-secret settings, which make, go-remote and the smoke test may override from the shell.
     environment:
-      BBD_REPO: ${BBD_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
+      GR_REPO: ${GR_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
       # One Herdr session per workspace: they share the home volume, and must not share a server.
       HERDR_SESSION: ${COMPOSE_PROJECT_NAME}
-      BBD_UI: ${BBD_UI:-web}
-      BBD_DEFAULT_AGENT: ${BBD_DEFAULT_AGENT:-auto}
+      GR_UI: ${GR_UI:-web}
+      GR_DEFAULT_AGENT: ${GR_DEFAULT_AGENT:-auto}
       BITBANG_MAX_SESSIONS: ${BITBANG_MAX_SESSIONS:-3}
-      BBD_WATCHDOG_INTERVAL: ${BBD_WATCHDOG_INTERVAL:-300}
+      GR_WATCHDOG_INTERVAL: ${GR_WATCHDOG_INTERVAL:-300}
       GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-}
       GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-}
       GIT_COMMITTER_NAME: ${GIT_COMMITTER_NAME:-}
@@ -63,7 +63,7 @@ services:
 
 volumes:
   # Shared by every workspace. External, so compose neither ties it to whichever project created it (and warns
-  # all the others) nor deletes it on down -v. bbd creates it before starting; make clean-home deletes it.
+  # all the others) nor deletes it on down -v. go-remote creates it before starting; make clean-home deletes it.
   home:
-    name: ${BBD_HOME_VOLUME:-bitbang-docker-home}
+    name: ${GR_HOME_VOLUME:-go-remote-home}
     external: true

@@ -1,5 +1,5 @@
 /**
- * Workspaces: one compose project per repo, named bbd-<repo directory>, whose container is labelled with the
+ * Workspaces: one compose project per repo, named go-remote-<repo directory>, whose container is labelled with the
  * repo's path. The container mounts the repo at that same path.
  */
 import { existsSync, realpathSync, statSync } from "node:fs";
@@ -9,8 +9,8 @@ import { envFile } from "./env.ts";
 import { capture, inherit, output, type RunOptions } from "./proc.ts";
 import { UserError } from "./ui.ts";
 
-export const IMAGE = "bitbang-docker:latest";
-export const REPO_LABEL = "bitbang-docker.repo";
+export const IMAGE = "go-remote:latest";
+export const REPO_LABEL = "go-remote.repo";
 
 /**
  * Container paths a repo mounted at its host path must not cover or land inside: the image's own files, the
@@ -32,7 +32,7 @@ export const RESERVED_PATHS = [
   "/run",
   "/sbin",
   "/sys",
-  "/tmp/bbd",
+  "/tmp/go-remote",
   "/tmp/bitbang",
   "/usr",
   "/workspace",
@@ -44,7 +44,7 @@ export function reservedConflict(path: string): string | undefined {
 }
 
 /**
- * bbd-<repo directory name>, as Common.make's bbd_project computes it with tr: ASCII letters lowercased,
+ * go-remote-<repo directory name>, as Common.make's go_remote_project computes it with tr: ASCII letters lowercased,
  * then every byte outside [a-z0-9_-] becomes a dash.
  */
 export function projectName(repo: string): string {
@@ -54,7 +54,7 @@ export function projectName(repo: string): string {
     const char = String.fromCharCode(byte);
     name += /[a-z0-9_-]/.test(char) ? char : "-";
   }
-  return `bbd-${name}`;
+  return `go-remote-${name}`;
 }
 
 export interface Workspace {
@@ -68,9 +68,9 @@ export interface Workspace {
   envFile?: string;
 }
 
-/** The entrypoint's reading of BBD_UI. Compose always sets it; images from before the web mode never had it. */
+/** The entrypoint's reading of GR_UI. Compose always sets it; images from before the web mode never had it. */
 export function uiMode(env: string[]): Workspace["ui"] {
-  const value = env.find((entry) => entry.startsWith("BBD_UI="))?.slice("BBD_UI=".length);
+  const value = env.find((entry) => entry.startsWith("GR_UI="))?.slice("GR_UI=".length);
   if (value === undefined) return "shell";
   return value.toLowerCase() === "shell" ? "shell" : "web";
 }
@@ -86,7 +86,7 @@ export function resolveRepo(input: string): { path: string; isGit: boolean } {
   }
   if (!statSync(path).isDirectory()) throw new UserError(`${path} is not a directory`);
   if (path === "/" || path === realpathSync(homedir())) {
-    throw new UserError(`Refusing to mount ${path}`, "Point bbd at a single repository.");
+    throw new UserError(`Refusing to mount ${path}`, "Point go-remote at a single repository.");
   }
   const reserved = reservedConflict(path);
   if (reserved) {
@@ -146,7 +146,7 @@ export async function listWorkspaces(): Promise<Workspace[]> {
       // Older containers recorded the path as compose was given it, relative to their own checkout.
       envFile: resolve(
         container.Config.Labels["com.docker.compose.project.working_dir"] ?? "/",
-        container.Config.Labels["bitbang-docker.env-file"] ?? ".env",
+        container.Config.Labels["go-remote.env-file"] ?? ".env",
       ),
     }))
     .sort((a, b) => a.project.localeCompare(b.project));
@@ -164,23 +164,23 @@ export async function findWorkspace(path?: string): Promise<Workspace> {
     if (recorded) return recorded;
     const repo = resolveRepo(path).path;
     const found = workspaces.find((workspace) => workspace.repo === repo);
-    if (!found) throw new UserError(`No workspace for ${repo}`, `Start one with: bbd start ${repo}`);
+    if (!found) throw new UserError(`No workspace for ${repo}`, `Start one with: go-remote start ${repo}`);
     return found;
   }
   if (workspaces.length === 1 && workspaces[0]) return workspaces[0];
-  if (workspaces.length === 0) throw new UserError("No workspace exists", "Start one with: bbd start /path/to/repo");
-  throw new UserError("Several workspaces exist", "Name the repo, e.g. bbd qr ~/src/my-repo (bbd ls lists them).");
+  if (workspaces.length === 0) throw new UserError("No workspace exists", "Start one with: go-remote start /path/to/repo");
+  throw new UserError("Several workspaces exist", "Name the repo, e.g. go-remote qr ~/src/my-repo (go-remote ls lists them).");
 }
 
 export function requireRunning(workspace: Workspace): void {
   if (workspace.state !== "running") {
-    throw new UserError(`The workspace for ${workspace.repo} is not running (${workspace.state})`, `See bbd logs ${workspace.repo}`);
+    throw new UserError(`The workspace for ${workspace.repo} is not running (${workspace.state})`, `See go-remote logs ${workspace.repo}`);
   }
 }
 
 /**
  * The env file that gives the container its secrets also sets compose's own ${...} settings, as .env does by
- * default, so BBD_ENV_FILE picks one file for both.
+ * default, so GR_ENV_FILE picks one file for both.
  */
 export function compose(root: string, project: string): string[] {
   const env = envFile(root);
@@ -204,7 +204,7 @@ async function gitConfig(repo: string, key: string): Promise<string> {
 }
 
 /**
- * compose up for a repo's workspace. With `handingOff` the container starts no default agent (bbd starts the
+ * compose up for a repo's workspace. With `handingOff` the container starts no default agent (go-remote starts the
  * one asked for); `recreate` replaces a running container, which is how it gets a changed .env.
  */
 export async function composeUp(
@@ -216,13 +216,13 @@ export async function composeUp(
   const name = await gitConfig(repo, "user.name");
   const email = await gitConfig(repo, "user.email");
   const env = {
-    BBD_REPO: repo,
-    BBD_ENV_FILE: envFile(root),
+    GR_REPO: repo,
+    GR_ENV_FILE: envFile(root),
     GIT_AUTHOR_NAME: name,
     GIT_AUTHOR_EMAIL: email,
     GIT_COMMITTER_NAME: name,
     GIT_COMMITTER_EMAIL: email,
-    ...(options.handingOff ? { BBD_DEFAULT_AGENT: "none" } : {}),
+    ...(options.handingOff ? { GR_DEFAULT_AGENT: "none" } : {}),
   };
   await ensureHomeVolume(root, project, env);
   const up = [...compose(root, project), "up", "-d", ...(options.recreate ? ["--force-recreate"] : [])];
@@ -250,7 +250,7 @@ export async function waitForListener(workspace: Workspace, timeoutMs = 120_000)
   while (Date.now() < deadline) {
     const state = await capture(["docker", "inspect", "-f", "{{.State.Running}}", workspace.id]);
     if (state.stdout.trim() !== "true") {
-      throw new UserError(`The workspace for ${workspace.repo} stopped while starting`, `See bbd logs ${workspace.repo}`);
+      throw new UserError(`The workspace for ${workspace.repo} stopped while starting`, `See go-remote logs ${workspace.repo}`);
     }
     const probe = await capture([
       "docker",
@@ -264,7 +264,7 @@ export async function waitForListener(workspace: Workspace, timeoutMs = 120_000)
     if (probe.code === 0 && url) return url;
     await Bun.sleep(1000);
   }
-  throw new UserError(`BitBang did not register within ${Math.round(timeoutMs / 1000)}s`, `See bbd logs ${workspace.repo}`);
+  throw new UserError(`BitBang did not register within ${Math.round(timeoutMs / 1000)}s`, `See go-remote logs ${workspace.repo}`);
 }
 
 export async function attach(workspace: Workspace, command: string[]): Promise<number> {

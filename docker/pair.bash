@@ -8,21 +8,21 @@
 #              a new one replaces the last. Runs inside the container only (the host CLI calls it through
 #              docker exec), because it holds the app's access token.
 #
-# Usage: bitbang-docker-pair
+# Usage: go-remote-pair
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail
 
-TOKEN_FILE=/tmp/bbd/web-token
-WEB_UI="http://127.0.0.1:${BBD_WEB_PORT:-7317}"
+TOKEN_FILE=/tmp/go-remote/web-token
+WEB_UI="http://127.0.0.1:${GR_WEB_PORT:-7317}"
 
 if [ ! -s "$TOKEN_FILE" ]; then
-  echo "herdr-web-ui is not running in this workspace (BBD_UI=shell, or still starting)" >&2
+  echo "herdr-web-ui is not running in this workspace (GR_UI=shell, or still starting)" >&2
   exit 1
 fi
 
 # The token goes in a header file, never on a command line where ps would show it.
-header_file="$(mktemp /tmp/bbd/pair-headers.XXXXXX)"
+header_file="$(mktemp /tmp/go-remote/pair-headers.XXXXXX)"
 trap 'rm -f "$header_file"' EXIT
 printf 'Authorization: Bearer %s\n' "$(cat "$TOKEN_FILE")" >"$header_file"
 

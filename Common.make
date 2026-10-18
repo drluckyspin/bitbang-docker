@@ -1,8 +1,8 @@
 # -----------------------------------------------------------------------------------------------------------
-# Common Makefile — BitBang Docker
+# Common Makefile — go-remote
 # -----------------------------------------------------------------------------------------------------------
 # A hardened container around one local git repo, served over BitBang: Herdr's web UI for agent chat and a
-# terminal (BBD_UI=web), or BitBang's own terminal on a tmux session (BBD_UI=shell). The bbd CLI in cli/ does
+# terminal (GR_UI=web), or BitBang's own terminal on a tmux session (GR_UI=shell). The go-remote CLI in cli/ does
 # the work; the run, url, attach and logs targets wrap it, building it first when needed.
 #
 # By convention (Code Red):
@@ -23,7 +23,7 @@
 .DEFAULT_GOAL := help
 MAKEFLAGS += --no-print-directory
 
-PROJECT_NAME := BitBang Docker
+PROJECT_NAME := go-remote
 SHELL := /bin/bash
 
 COMMON_MAKEFILE_DIR := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
@@ -31,20 +31,20 @@ LOGGER := source $(COMMON_MAKEFILE_DIR)scripts/log.bash &&
 CHECKENV_SCRIPT := $(COMMON_MAKEFILE_DIR)scripts/checkenv.bash
 SCRIPTS_DIR := $(COMMON_MAKEFILE_DIR)scripts
 
-IMAGE := bitbang-docker:latest
-E2E_IMAGE := bitbang-docker-e2e:latest
-HOME_VOLUME := $(or $(BBD_HOME_VOLUME),bitbang-docker-home)
+IMAGE := go-remote:latest
+E2E_IMAGE := go-remote-e2e:latest
+HOME_VOLUME := $(or $(GR_HOME_VOLUME),go-remote-home)
 QR ?= true
 BIN_DIR ?= $(HOME)/.local/bin
 
-# bbd for this host, built in Docker by `make cli` into dist/, and rebuilt when its sources change
-BBD_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
-BBD_ARCH := $(if $(filter arm64 aarch64,$(shell uname -m)),arm64,x64)
-BBD := $(COMMON_MAKEFILE_DIR)dist/bbd-$(BBD_OS)-$(BBD_ARCH)
-BBD_SOURCES := $(shell find "$(COMMON_MAKEFILE_DIR)cli/src" "$(COMMON_MAKEFILE_DIR)ingress" -name '*.ts' 2>/dev/null) \
+# go-remote for this host, built in Docker by `make cli` into dist/, and rebuilt when its sources change
+GR_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+GR_ARCH := $(if $(filter arm64 aarch64,$(shell uname -m)),arm64,x64)
+GO_REMOTE := $(COMMON_MAKEFILE_DIR)dist/go-remote-$(GR_OS)-$(GR_ARCH)
+GR_SOURCES := $(shell find "$(COMMON_MAKEFILE_DIR)cli/src" "$(COMMON_MAKEFILE_DIR)ingress" -name '*.ts' 2>/dev/null) \
 	$(addprefix $(COMMON_MAKEFILE_DIR),package.json bun.lock cli/Dockerfile skills/go-remote/SKILL.md)
-BBD_RUN := BBD_ROOT="$(COMMON_MAKEFILE_DIR)" "$(BBD)"
-BBD_QR_FLAG := $(if $(filter false False FALSE no 0,$(QR)),--no-qr)
+GR_RUN := GR_ROOT="$(COMMON_MAKEFILE_DIR)" "$(GO_REMOTE)"
+GR_QR_FLAG := $(if $(filter false False FALSE no 0,$(QR)),--no-qr)
 
 DOCKER_COMPOSE := docker compose
 COMPOSE := $(DOCKER_COMPOSE) --project-directory "$(COMMON_MAKEFILE_DIR)" -f "$(COMMON_MAKEFILE_DIR)docker-compose.yml"
@@ -66,10 +66,23 @@ USER_GID := 1000
 endif
 endif
 
+# make bump-version X.Y.Z: the version is an argument, not a goal, so it gets a rule that does nothing.
+ifeq ($(firstword $(MAKECMDGOALS)),bump-version)
+BUMP_VERSION := $(word 2,$(MAKECMDGOALS))
+ifneq ($(wordlist 3,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS)),)
+$(error Usage: make bump-version [X.Y.Z])
+endif
+ifneq ($(BUMP_VERSION),)
+.PHONY: $(BUMP_VERSION)
+$(BUMP_VERSION):
+	@:
+endif
+endif
+
 # -----------------------------------------------------------------------------------------------------------
 # Workspace selection
 #
-# Each repo gets its own compose project, bbd-<repo directory name>. Its label bitbang-docker.repo
+# Each repo gets its own compose project, go-remote-<repo directory name>. Its label go-remote.repo
 # records the mounted path, which is how targets find workspaces without REPO.
 # -----------------------------------------------------------------------------------------------------------
 
@@ -87,14 +100,14 @@ endif
 REPO_EXPANDED := $(patsubst ~%,$(HOME)%,$(strip $(REPO)))
 REPO_PATH := $(if $(REPO_EXPANDED),$(shell cd "$(REPO_EXPANDED)" 2>/dev/null && pwd -P))
 
-bbd_project = bbd-$(shell printf '%s' "$$(basename "$(1)")" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-')
+go_remote_project = go-remote-$(shell printf '%s' "$$(basename "$(1)")" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-')
 
 # Recursive on purpose: docker is only asked when a target actually needs the list.
-WORKSPACE_PROJECTS = $(shell docker ps -a --filter label=bitbang-docker.repo \
+WORKSPACE_PROJECTS = $(shell docker ps -a --filter label=go-remote.repo \
 	--format '{{.Label "com.docker.compose.project"}}' 2>/dev/null | sort -u)
 
 ifneq ($(REPO_EXPANDED),)
-PROJECT := $(call bbd_project,$(or $(REPO_PATH),$(REPO_EXPANDED)))
+PROJECT := $(call go_remote_project,$(or $(REPO_PATH),$(REPO_EXPANDED)))
 else
 PROJECT = $(if $(filter 1,$(words $(WORKSPACE_PROJECTS))),$(WORKSPACE_PROJECTS))
 endif
@@ -107,7 +120,7 @@ endif
 # -----------------------------------------------------------------------------------------------------------
 
 .PHONY: help build cli install-cli check run run-detached url login attach ping logs down clean clean-home
-.PHONY: test unit e2e lint format format-check
+.PHONY: test unit e2e lint format format-check bump-version
 .PHONY: check_docker check_env check_env_perms check_image require_repo export_ca
 .PHONY: check_dprint check_shfmt check_mbake check_shellcheck check_formatters
 
@@ -123,7 +136,7 @@ help:
 	@echo ""
 	@$(LOGGER) log_info "Quick start"
 	@$(LOGGER) log_dim "make build && make run REPO=~/src/my-repo"
-	@$(LOGGER) log_dim "make install-cli && bbd start ~/src/my-repo   # the CLI, for agent handoff and more"
+	@$(LOGGER) log_dim "make install-cli && go-remote start ~/src/my-repo   # the CLI, for agent handoff and more"
 
 # -----------------------------------------------------------------------------------------------------------
 # Check environment and tools targets
@@ -162,7 +175,7 @@ check_env_perms:
 		*) $(LOGGER) log_warning ".env is readable by other users (mode $$perms). Fix with: chmod 600 .env" ;; \
 	esac
 
-# REPO defaults to the current directory, so this catches an explicit REPO= only; bbd checks it is a single,
+# REPO defaults to the current directory, so this catches an explicit REPO= only; go-remote checks it is a single,
 # mountable repository
 require_repo:
 	@if [ -z "$(REPO_EXPANDED)" ]; then \
@@ -193,7 +206,7 @@ check:
 export_ca:
 	@$(SCRIPTS_DIR)/export-ca.bash
 
-.PHONY: build ## Build the bitbang-docker image (trusts a Zscaler root CA when the host has one)
+.PHONY: build ## Build the go-remote image (trusts a Zscaler root CA when the host has one)
 build: check_docker export_ca
 	@$(LOGGER) log_separator
 	@$(LOGGER) log_info "Building $(IMAGE) (agent uid $(USER_UID), gid $(USER_GID))"
@@ -204,45 +217,59 @@ build: check_docker export_ca
 		"$(COMMON_MAKEFILE_DIR)"
 	@$(LOGGER) log_success "Built $(IMAGE)"
 
-.PHONY: cli ## Build bbd for macOS and Linux into dist/ after its unit tests, in Docker
+.PHONY: cli ## Build go-remote for macOS and Linux into dist/ after its unit tests, in Docker
 cli: check_docker export_ca
 	@$(LOGGER) log_separator
-	@$(LOGGER) log_info "Building bbd into dist/"
+	@$(LOGGER) log_info "Building go-remote into dist/"
 	@docker build --target dist --output "type=local,dest=$(COMMON_MAKEFILE_DIR)dist" \
 		-f "$(COMMON_MAKEFILE_DIR)cli/Dockerfile" "$(COMMON_MAKEFILE_DIR)"
-	@touch "$(COMMON_MAKEFILE_DIR)"dist/bbd-*
-	@$(LOGGER) log_success "Built $$(cd "$(COMMON_MAKEFILE_DIR)dist" && ls bbd-* | tr '\n' ' ')"
+	@touch "$(COMMON_MAKEFILE_DIR)"dist/go-remote-*
+	@$(LOGGER) log_success "Built $$(cd "$(COMMON_MAKEFILE_DIR)dist" && ls go-remote-* | tr '\n' ' ')"
 
-$(BBD): $(BBD_SOURCES)
+$(GO_REMOTE): $(GR_SOURCES)
 	@$(MAKE) cli
 
-.PHONY: install-cli ## Install bbd into BIN_DIR (default ~/.local/bin), set to use this checkout
-install-cli: $(BBD)
+.PHONY: install-cli ## Install go-remote, and gr linked to it, into BIN_DIR (default ~/.local/bin), set to use this checkout
+install-cli: $(GO_REMOTE)
 	@mkdir -p "$(BIN_DIR)"
-	@install -m 0755 "$(BBD)" "$(BIN_DIR)/bbd"
-	@if [ "$(UNAME_S)" = Darwin ] && ! codesign --verify "$(BIN_DIR)/bbd" >/dev/null 2>&1; then \
-		codesign --force --sign - "$(BIN_DIR)/bbd"; \
+	@install -m 0755 "$(GO_REMOTE)" "$(BIN_DIR)/go-remote"
+	@if [ "$(UNAME_S)" = Darwin ] && ! codesign --verify "$(BIN_DIR)/go-remote" >/dev/null 2>&1; then \
+		codesign --force --sign - "$(BIN_DIR)/go-remote"; \
 	fi
-	@"$(BIN_DIR)/bbd" setup --root "$(COMMON_MAKEFILE_DIR)"
-	@$(LOGGER) log_success "Installed $$("$(BIN_DIR)/bbd" --version) as $(BIN_DIR)/bbd"
+	@"$(BIN_DIR)/go-remote" setup --root "$(COMMON_MAKEFILE_DIR)"
+	@$(LOGGER) log_success "Installed $$("$(BIN_DIR)/go-remote" --version) as $(BIN_DIR)/go-remote"
+	@gr="$(BIN_DIR)/gr"; \
+	if [ -L "$$gr" ] && [ "$$(readlink "$$gr")" = go-remote ]; then :; \
+	elif [ -e "$$gr" ] || [ -L "$$gr" ]; then \
+		if [ -e "$$gr.bak" ] || [ -L "$$gr.bak" ]; then \
+			$(LOGGER) log_warning "$$gr is not go-remote and $$gr.bak exists, so gr is not linked; left both as they are"; \
+			exit 0; \
+		fi; \
+		mv "$$gr" "$$gr.bak" && $(LOGGER) log_warning "Moved the $$gr that was there to $$gr.bak"; \
+	fi; \
+	ln -sfn go-remote "$$gr" && $(LOGGER) log_success "Linked $$gr to go-remote"; \
+	printf '%s\n' "$$PATH" | tr ':' '\n' | while IFS= read -r dir; do \
+		[ -n "$$dir" ] && [ -f "$$dir/gr" ] && [ -x "$$dir/gr" ] && [ ! "$$dir/gr" -ef "$$gr" ] && \
+			$(LOGGER) log_warning "$$dir/gr is also on PATH; whichever comes first runs as gr, so use go-remote to be sure"; \
+	done; true
 	@case ":$$PATH:" in \
 		*":$(BIN_DIR):"*) ;; \
 		*) $(LOGGER) log_warning "$(BIN_DIR) is not on PATH; add it in your shell profile" ;; \
 	esac
-	@$(LOGGER) log_info_dim "Next: bbd install-skill adds /go-remote to Claude Code, Codex and Cursor"
+	@$(LOGGER) log_info_dim "Next: go-remote install-skill adds /go-remote to Claude Code, Codex and Cursor"
 
 .PHONY: install-skill ## Install the /go-remote skill for Claude Code, Codex and Cursor
-install-skill: $(BBD)
-	@$(BBD_RUN) install-skill
+install-skill: $(GO_REMOTE)
+	@$(GR_RUN) install-skill
 
 # -----------------------------------------------------------------------------------------------------------
 # Run targets
 # -----------------------------------------------------------------------------------------------------------
 
 .PHONY: run-detached ## Start a workspace for REPO and show its QR code (QR=false prints the link only)
-run-detached: require_repo $(BBD)
+run-detached: require_repo $(GO_REMOTE)
 	@$(LOGGER) log_separator
-	@$(BBD_RUN) start "$(REPO_EXPANDED)" $(BBD_QR_FLAG)
+	@$(GR_RUN) start "$(REPO_EXPANDED)" $(GR_QR_FLAG)
 	@$(LOGGER) log_info_dim "Here: make attach REPO=$(REPO)   New QR code: make url REPO=$(REPO)   Stop: make down REPO=$(REPO)"
 
 .PHONY: run ## Start a workspace for REPO, show its QR code, then follow its logs until Ctrl+C stops it
@@ -251,34 +278,34 @@ run: run-detached
 	@$(LOGGER) log_info_dim "Following logs. Ctrl+C stops the workspace (make run-detached leaves it running)."
 	@trap '$(MAKE) down REPO="$(REPO_PATH)"' EXIT; \
 	trap 'exit 130' INT TERM; \
-	$(BBD_RUN) logs "$(REPO_EXPANDED)" --tail 0
+	$(GR_RUN) logs "$(REPO_EXPANDED)" --tail 0
 
 .PHONY: url ## Show a fresh QR code and pairing link for a workspace (QR=false prints the link only)
-url: $(BBD)
-	@$(BBD_RUN) qr $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)") $(BBD_QR_FLAG)
+url: $(GO_REMOTE)
+	@$(GR_RUN) qr $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)") $(GR_QR_FLAG)
 
 .PHONY: login ## Sign Claude Code (or AGENT=codex) in, once for every workspace
-login: $(BBD)
-	@$(BBD_RUN) login $(filter claude codex,$(AGENT)) $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
+login: $(GO_REMOTE)
+	@$(GR_RUN) login $(filter claude codex,$(AGENT)) $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
 
 .PHONY: attach ## Open the workspace's Herdr terminal UI (or tmux session, in the shell mode) here
-attach: $(BBD)
-	@$(BBD_RUN) attach $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
+attach: $(GO_REMOTE)
+	@$(GR_RUN) attach $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
 
 .PHONY: logs ## Follow a workspace's logs, with its URL taken out
-logs: $(BBD)
-	@$(BBD_RUN) logs $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
+logs: $(GO_REMOTE)
+	@$(GR_RUN) logs $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
 
 .PHONY: ping ## List workspaces with their repo and BitBang listener health
 ping: check_docker
 	@$(LOGGER) log_separator
 	@$(LOGGER) log_info "$(PROJECT_NAME) workspaces"
-	@ids=$$(docker ps -aq --filter label=bitbang-docker.repo); \
+	@ids=$$(docker ps -aq --filter label=go-remote.repo); \
 	if [ -z "$$ids" ]; then \
 		$(LOGGER) log_info_dim "None. Start one with: make run REPO=~/src/my-repo"; \
 		exit 0; \
 	fi; \
-	docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "bitbang-docker.repo"}}|{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}' $$ids | \
+	docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "go-remote.repo"}}|{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}' $$ids | \
 	while IFS='|' read -r project repo state health; do \
 		echo ""; \
 		$(LOGGER) log "$$project"; \
@@ -299,9 +326,9 @@ down: check_docker check_project_repo
 		exit 0; \
 	fi; \
 	for project in $$projects; do \
-		repo=$$(docker ps -a --filter label=com.docker.compose.project=$$project --format '{{.Label "bitbang-docker.repo"}}' | head -n 1); \
+		repo=$$(docker ps -a --filter label=com.docker.compose.project=$$project --format '{{.Label "go-remote.repo"}}' | head -n 1); \
 		$(LOGGER) log_info "Stopping $$project"; \
-		BBD_REPO="$${repo:-/nonexistent}" $(COMPOSE) -p "$$project" down --remove-orphans; \
+		GR_REPO="$${repo:-/nonexistent}" $(COMPOSE) -p "$$project" down --remove-orphans; \
 	done
 
 # -----------------------------------------------------------------------------------------------------------
@@ -344,7 +371,7 @@ clean-home: check_docker
 test: check_docker check_image
 	@USER_UID=$(USER_UID) USER_GID=$(USER_GID) $(SCRIPTS_DIR)/smoke-test.bash
 
-.PHONY: unit ## Type-check and unit-test bbd and bbd-ingress, in Docker
+.PHONY: unit ## Type-check and unit-test go-remote and go-remote-ingress, in Docker
 unit: check_docker export_ca
 	@$(LOGGER) log_separator
 	@$(LOGGER) log_info "Type-checking and unit-testing the TypeScript"
@@ -353,11 +380,11 @@ unit: check_docker export_ca
 	@$(LOGGER) log_success "Unit tests passed"
 
 .PHONY: e2e ## Phone end-to-end test through a real BitBang URL, in a throwaway workspace (REPO= tests that one)
-e2e: check_docker check_image export_ca $(BBD)
+e2e: check_docker check_image export_ca $(GO_REMOTE)
 	@$(LOGGER) log_separator
 	@$(LOGGER) log_info "Building the Playwright test image"
 	@docker build -q -t $(E2E_IMAGE) -f "$(COMMON_MAKEFILE_DIR)e2e/Dockerfile" "$(COMMON_MAKEFILE_DIR)" >/dev/null
-	@BBD="$(BBD)" E2E_IMAGE=$(E2E_IMAGE) $(SCRIPTS_DIR)/e2e.bash $(if $(REPO_EXPANDED),$(PROJECT))
+	@GO_REMOTE="$(GO_REMOTE)" E2E_IMAGE=$(E2E_IMAGE) $(SCRIPTS_DIR)/e2e.bash $(if $(REPO_EXPANDED),$(PROJECT))
 
 # -----------------------------------------------------------------------------------------------------------
 # Lint and format targets
@@ -432,6 +459,18 @@ lint: format-check
 	@$(MAKE) check_shellcheck
 	@cd "$(COMMON_MAKEFILE_DIR)" && shellcheck -x -S warning scripts/*.bash docker/*.bash
 	@$(LOGGER) log_indent log_success "shellcheck passed"
-	@BBD_REPO=/nonexistent/bbd-lint $(COMPOSE) --env-file "$(COMMON_MAKEFILE_DIR).env.example" config -q
+	@GR_REPO=/nonexistent/go-remote-lint $(COMPOSE) --env-file "$(COMMON_MAKEFILE_DIR).env.example" config -q
 	@$(LOGGER) log_indent log_success "docker-compose.yml is valid"
 	@$(LOGGER) log_success "All checks passed"
+
+# -----------------------------------------------------------------------------------------------------------
+# Version
+#
+# VERSION is the single source. Any other file that comes to carry the version goes in bump-version.bash.
+# -----------------------------------------------------------------------------------------------------------
+
+.PHONY: bump-version ## Set VERSION (make bump-version X.Y.Z) and sync it into package.json
+bump-version:
+	@$(LOGGER) log_info "Syncing the version"
+	@"$(SCRIPTS_DIR)/bump-version.bash" $(if $(BUMP_VERSION),"$(BUMP_VERSION)")
+	@$(LOGGER) log_success "The version is $$(cat "$(COMMON_MAKEFILE_DIR)VERSION")"

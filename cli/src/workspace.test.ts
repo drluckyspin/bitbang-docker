@@ -4,33 +4,33 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compose, projectName, reservedConflict, resolveRepo, uiMode } from "./workspace.ts";
 
-test("compose reads its settings from the env file BBD_ENV_FILE picks, when it exists", () => {
-  const root = mkdtempSync(join(tmpdir(), "bbd-compose-"));
-  const saved = process.env.BBD_ENV_FILE;
+test("compose reads its settings from the env file GR_ENV_FILE picks, when it exists", () => {
+  const root = mkdtempSync(join(tmpdir(), "go-remote-compose-"));
+  const saved = process.env.GR_ENV_FILE;
   try {
-    process.env.BBD_ENV_FILE = "throwaway.env";
-    expect(compose(root, "bbd-app")).not.toContain("--env-file");
-    writeFileSync(join(root, "throwaway.env"), "BBD_UI=shell\n");
-    const args = compose(root, "bbd-app");
+    process.env.GR_ENV_FILE = "throwaway.env";
+    expect(compose(root, "go-remote-app")).not.toContain("--env-file");
+    writeFileSync(join(root, "throwaway.env"), "GR_UI=shell\n");
+    const args = compose(root, "go-remote-app");
     expect(args.slice(args.indexOf("--env-file"), args.indexOf("--env-file") + 2)).toEqual(["--env-file", join(root, "throwaway.env")]);
   } finally {
-    if (saved === undefined) delete process.env.BBD_ENV_FILE;
-    else process.env.BBD_ENV_FILE = saved;
+    if (saved === undefined) delete process.env.GR_ENV_FILE;
+    else process.env.GR_ENV_FILE = saved;
   }
 });
 
-test("uiMode reads BBD_UI as the entrypoint does, and an image without it as the shell", () => {
-  expect(uiMode(["PATH=/usr/bin", "BBD_UI=web"])).toBe("web");
-  expect(uiMode(["BBD_UI=Shell"])).toBe("shell");
+test("uiMode reads GR_UI as the entrypoint does, and an image without it as the shell", () => {
+  expect(uiMode(["PATH=/usr/bin", "GR_UI=web"])).toBe("web");
+  expect(uiMode(["GR_UI=Shell"])).toBe("shell");
   expect(uiMode(["PATH=/usr/bin"])).toBe("shell");
 });
 
 describe("projectName", () => {
   test("matches Common.make's tr pipeline", () => {
-    expect(projectName("/Users/me/src/My Repo.v2")).toBe("bbd-my-repo-v2");
-    expect(projectName("/Users/me/src/bitbang_docker")).toBe("bbd-bitbang_docker");
+    expect(projectName("/Users/me/src/My Repo.v2")).toBe("go-remote-my-repo-v2");
+    expect(projectName("/Users/me/src/my_repo")).toBe("go-remote-my_repo");
     // tr works on bytes: é is two of them
-    expect(projectName("/Users/me/src/café")).toBe("bbd-caf--");
+    expect(projectName("/Users/me/src/café")).toBe("go-remote-caf--");
   });
 });
 
@@ -39,7 +39,7 @@ describe("reservedConflict", () => {
     expect(reservedConflict("/usr/local/src/app")).toBe("/usr");
     expect(reservedConflict("/home/agent")).toBe("/home/agent");
     expect(reservedConflict("/home")).toBe("/home/agent");
-    expect(reservedConflict("/tmp")).toBe("/tmp/bbd");
+    expect(reservedConflict("/tmp")).toBe("/tmp/go-remote");
     expect(reservedConflict("/workspace/app")).toBe("/workspace");
   });
 
@@ -52,19 +52,19 @@ describe("reservedConflict", () => {
 
 describe("resolveRepo", () => {
   test("resolves symlinks and spots a repo", () => {
-    const dir = realpathSync(mkdtempSync(join(tmpdir(), "bbd-repo-")));
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "go-remote-repo-")));
     mkdirSync(join(dir, ".git"));
     expect(resolveRepo(dir)).toEqual({ path: dir, isGit: true });
   });
 
   test("refuses a worktree, whose .git points outside the mount", () => {
-    const dir = mkdtempSync(join(tmpdir(), "bbd-worktree-"));
+    const dir = mkdtempSync(join(tmpdir(), "go-remote-worktree-"));
     writeFileSync(join(dir, ".git"), "gitdir: /elsewhere/.git/worktrees/x\n");
     expect(() => resolveRepo(dir)).toThrow("worktree");
   });
 
   test("refuses what does not exist, and the home directory", () => {
-    expect(() => resolveRepo("/nonexistent/bbd")).toThrow("does not exist");
+    expect(() => resolveRepo("/nonexistent/go-remote")).toThrow("does not exist");
     expect(() => resolveRepo("~")).toThrow("Refusing to mount");
   });
 });

@@ -73,7 +73,7 @@ test("throttle sends one alert per pane and kind in the quiet window", () => {
 });
 
 test("herdrRequest speaks newline-delimited JSON", async () => {
-  const path = join(mkdtempSync(join(tmpdir(), "bbd-alerts-")), "herdr.sock");
+  const path = join(mkdtempSync(join(tmpdir(), "go-remote-alerts-")), "herdr.sock");
   const server = createServer((socket) => {
     socket.setEncoding("utf8");
     socket.on("data", (line: string) => {
@@ -91,9 +91,9 @@ test("herdrRequest speaks newline-delimited JSON", async () => {
 });
 
 test("herdrRequest fails when Herdr closes the connection without a whole answer", async () => {
-  const path = join(mkdtempSync(join(tmpdir(), "bbd-alerts-")), "herdr.sock");
+  const path = join(mkdtempSync(join(tmpdir(), "go-remote-alerts-")), "herdr.sock");
   const server = createServer((socket) => {
-    socket.on("data", () => socket.end('{"id":"bbd-alerts","result":'));
+    socket.on("data", () => socket.end('{"id":"go-remote-alerts","result":'));
   });
   await new Promise<void>((resolve) => server.listen(path, resolve));
   try {

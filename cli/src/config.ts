@@ -1,7 +1,7 @@
 /**
- * Where the bitbang-docker checkout is: it holds docker-compose.yml, .env and the scripts. In order: --root,
- * BBD_ROOT, ~/.config/bbd/config.json (written by bbd setup, which make install-cli runs), then the checkout a
- * dist/ binary sits in.
+ * Where the go-remote checkout is: it holds docker-compose.yml, .env and the scripts. In order: --root, GR_ROOT,
+ * ~/.config/go-remote/config.json (written by go-remote setup, which make install-cli runs), then the checkout a dist/
+ * binary sits in.
  */
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -9,12 +9,12 @@ import { dirname, join, resolve } from "node:path";
 import { UserError } from "./ui.ts";
 
 export function configPath(): string {
-  return join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "bbd", "config.json");
+  return join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "go-remote", "config.json");
 }
 
-/** Where bbd keeps what it is doing in the background: the session moves and their logs. */
+/** Where go-remote keeps what it is doing in the background: the session moves and their logs. */
 export function stateDir(): string {
-  return join(process.env.XDG_STATE_HOME || join(homedir(), ".local", "state"), "bbd");
+  return join(process.env.XDG_STATE_HOME || join(homedir(), ".local", "state"), "go-remote");
 }
 
 function configuredRoot(): string | undefined {
@@ -36,26 +36,26 @@ export function isCheckout(path: string): boolean {
 export function resolveRoot(flag?: string): string {
   const explicit: Array<[string, string | undefined]> = [
     ["--root", flag],
-    ["BBD_ROOT", process.env.BBD_ROOT],
+    ["GR_ROOT", process.env.GR_ROOT],
     [configPath(), configuredRoot()],
   ];
   for (const [source, candidate] of explicit) {
     if (!candidate) continue;
     if (isCheckout(candidate)) return resolve(candidate);
     throw new UserError(
-      `${candidate} (from ${source}) is not a bitbang-docker checkout`,
-      "Run make install-cli in the checkout again, or point BBD_ROOT at it.",
+      `${candidate} (from ${source}) is not a go-remote checkout`,
+      "Run make install-cli in the checkout again, or point GR_ROOT at it.",
     );
   }
   const beside = dirname(dirname(realpathSync(process.execPath)));
   if (isCheckout(beside)) return beside;
-  throw new UserError("Cannot find the bitbang-docker checkout", "Run make install-cli in it, or set BBD_ROOT to its path.");
+  throw new UserError("Cannot find the go-remote checkout", "Run make install-cli in it, or set GR_ROOT to its path.");
 }
 
 /** Records the checkout for later runs, from wherever they start. */
 export function saveRoot(root: string): { root: string; file: string } {
   const path = resolve(root);
-  if (!isCheckout(path)) throw new UserError(`${path} is not a bitbang-docker checkout`);
+  if (!isCheckout(path)) throw new UserError(`${path} is not a go-remote checkout`);
   const file = configPath();
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   writeFileSync(file, `${JSON.stringify({ root: path }, null, 2)}\n`);
