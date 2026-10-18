@@ -66,11 +66,14 @@ git clone https://github.com/drluckyspin/bitbang-docker.git go-remote && cd go-r
 make build                 # the image; bakes in a Zscaler root CA if this Mac has one
 make install-cli           # go-remote, and gr linked to it, into ~/.local/bin
 go-remote install-skill    # /go-remote for Claude Code, Codex and Cursor
-go-remote login            # sign Claude Code in once, for every workspace (codex or cursor for the others)
+go-remote login            # with Claude Code on this computer: sign it in once, for every workspace
 ```
 
 `make install-cli` builds `go-remote` in Docker, so you need nothing else. The first `go-remote start` creates `.env`
 from `.env.example`, readable by you only. Everything in it is optional.
+
+Codex and Cursor sign in inside a running workspace, and so does Claude Code when it is not on this computer. Run
+`go-remote start ~/src/my-repo` first: with no agent signed in, it offers to sign you in. See [Signing in](#signing-in).
 
 Then, in Claude Code, type `/go-remote` (`$go-remote` in Codex). When the reply ends, a QR code opens: scan it with your
 phone's camera. To start from scratch instead, with a new conversation:
@@ -174,8 +177,9 @@ The row fits a 48-column phone screen, and the laptop sees it too. `GR_KEY_BAR=f
 
 `go-remote help` lists every option, and `--json` gives machine-readable output for scripts and agents. The link is
 shown only on an interactive terminal: otherwise the QR code opens in a window. Each repo gets its own workspace, named
-`go-remote-<directory name>`, so several can run at once. A command that takes a path finds the only workspace when
-there is one, and needs the path when there are several.
+`go-remote-<directory name>`, so several can run at once. `start` and `sessions` default to the current directory. `qr`,
+`pull`, `attach`, `logs` and `stop` find the only workspace when there is one, and need the path when there are several.
+`login` signs in inside the named workspace, or any running one, since they share their sign-ins.
 
 The make targets wrap the same commands, for use from the checkout. `make help` lists them all:
 
@@ -237,10 +241,11 @@ key, and mix them per agent.
 - **Claude Code:** `go-remote login` runs `claude setup-token` on the laptop. You sign in in the browser as usual, and
   `go-remote` saves the long-lived token in `.env` as `CLAUDE_CODE_OAUTH_TOKEN`, without showing it. Every workspace
   then starts signed in, and `go-remote` offers to restart the running ones so they get it. To use a token you already
-  have, put it in `.env` yourself. Without Claude Code on the laptop, it signs in inside the container instead.
-- **Codex:** `go-remote login codex` runs `codex login --device-auth` in the container, on your terminal: enter the code
-  it shows on the page it names.
-- **Cursor:** `go-remote login cursor` signs the Cursor Agent CLI in inside the container, or set `CURSOR_API_KEY`.
+  have, put it in `.env` yourself. Without Claude Code on the laptop, it signs in inside a running workspace instead.
+- **Codex:** with a workspace running, `go-remote login codex` runs `codex login --device-auth` in it, on your terminal:
+  enter the code it shows on the page it names.
+- **Cursor:** with a workspace running, `go-remote login cursor` signs the Cursor Agent CLI in inside it. Or set
+  `CURSOR_API_KEY`.
 - **API keys:** set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. Claude Code uses `ANTHROPIC_API_KEY` ahead of a
   token, so leave it empty to use your subscription.
 
