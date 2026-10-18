@@ -245,13 +245,38 @@ export function writeBack(store: string, file: string, bytes: Uint8Array, stamp:
   if (inside === "" || inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside)) {
     throw new Error(`Refusing to write outside ${store}: ${file}`);
   }
+  const existing = refuseLinks(store, inside);
   let state: "new" | "updated" = "new";
-  if (existsSync(path)) {
+  if (existing) {
     if (Buffer.from(readFileSync(path)).equals(Buffer.from(bytes))) return "same";
     renameSync(path, `${path}.bbd-${stamp}.bak`);
     state = "updated";
   }
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-  writeFileSync(path, bytes, { mode: 0o600 });
+  writeFileSync(path, bytes, { mode: 0o600, flag: "wx" });
   return state;
+}
+
+/**
+ * The names come from the container, and a symlink under the store, even a dangling one, would carry a write
+ * outside it. So every directory on the way must be a real one, and the file a regular file or absent. Returns
+ * whether the file exists.
+ */
+function refuseLinks(store: string, inside: string): boolean {
+  const parts = inside.split(sep);
+  let path = store;
+  for (const [index, part] of parts.entries()) {
+    path = join(path, part);
+    const last = index === parts.length - 1;
+    let stat;
+    try {
+      stat = lstatSync(path);
+    } catch {
+      return false;
+    }
+    if (stat.isSymbolicLink() || (last ? !stat.isFile() : !stat.isDirectory())) {
+      throw new Error(`Refusing to write through ${path}, which is not a plain ${last ? "file" : "directory"}`);
+    }
+  }
+  return true;
 }

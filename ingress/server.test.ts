@@ -12,19 +12,22 @@ let upstream: ReturnType<typeof Bun.serve>;
 let ingress: ReturnType<typeof startIngress>;
 let base: string;
 
-/** A stand-in for herdr-web-ui: its CSP, gzip for browsers that take it, a sandboxed file view, a stream and /ws. */
+/**
+ * A stand-in for herdr-web-ui: its CSP, gzip for browsers that take it, a sandboxed file view, a stream, /ws, and
+ * /ws/bye, which speaks and hangs up the moment it connects.
+ */
 beforeAll(() => {
-  upstream = Bun.serve<{ cookie: string | null }, never>({
+  upstream = Bun.serve<{ cookie: string | null; path: string }, never>({
     hostname: "127.0.0.1",
     port: 0,
     async fetch(request, server) {
       const url = new URL(request.url);
       seen.push({ path: url.pathname + url.search, headers: request.headers, body: await request.text() });
-      if (url.pathname === "/ws") {
+      if (url.pathname === "/ws" || url.pathname === "/ws/bye") {
         if (!request.headers.get("cookie")?.includes("herdr_web_device=")) {
           return new Response("unauthorized", { status: 401 });
         }
-        return server.upgrade(request, { data: { cookie: request.headers.get("cookie") } })
+        return server.upgrade(request, { data: { cookie: request.headers.get("cookie"), path: url.pathname } })
           ? undefined
           : new Response("no upgrade", { status: 400 });
       }
@@ -59,6 +62,11 @@ beforeAll(() => {
       return Response.json({ path: url.pathname, method: request.method });
     },
     websocket: {
+      open(ws) {
+        if (ws.data.path !== "/ws/bye") return;
+        ws.send("last words");
+        ws.close(4000, "gone");
+      },
       message(ws, message) {
         ws.send(typeof message === "string" ? `echo:${message}` : message);
       },
@@ -172,6 +180,20 @@ describe("websocket", () => {
     expect(messages[0]).toBe("echo:hello");
     expect([...new Uint8Array(messages[1] as ArrayBuffer)]).toEqual([1, 2, 3]);
     expect(seen.findLast((request) => request.path === "/ws")!.headers.get("x-forwarded-host")).toBe("bitba.ng");
+  });
+
+  test("a frame and a close the upstream sends on connect reach the browser, in order", async () => {
+    const events = await new Promise<string[]>((resolve, reject) => {
+      const received: string[] = [];
+      const socket = new WebSocket(`ws://127.0.0.1:${ingress.port}/ws/bye`, { headers: bitbang } as unknown as string[]);
+      socket.addEventListener("message", (event) => received.push(`message ${event.data}`));
+      socket.addEventListener("close", (event) => {
+        received.push(`close ${event.code} ${event.reason}`);
+        resolve(received);
+      });
+      socket.addEventListener("error", () => reject(new Error("socket error")));
+    });
+    expect(events).toEqual(["message last words", "close 4000 gone"]);
   });
 
   test("a refused upstream handshake refuses the browser's", async () => {

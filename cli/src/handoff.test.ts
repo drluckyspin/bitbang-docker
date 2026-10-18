@@ -1,6 +1,19 @@
+import { CryptoHasher } from "bun";
 import { expect, test } from "bun:test";
-import { type ContainerFile, groupSessions, linkTarget, parseDefaultAgent, pullable, tabLabel } from "./handoff.ts";
+import { compareCopy, type ContainerFile, groupSessions, linkTarget, parseDefaultAgent, pullable, tabLabel } from "./handoff.ts";
 import { claudeProjectDir } from "./sessions.ts";
+
+test("compareCopy: a container copy the laptop's extends is older; a longer or different one has diverged", () => {
+  const bytes = (text: string) => new TextEncoder().encode(text);
+  const stat = (text: string) => ({ size: bytes(text).length, sha256: new CryptoHasher("sha256").update(text).digest("hex") });
+  const laptop = bytes("turn 1\nturn 2\n");
+  expect(compareCopy(laptop, undefined)).toBe("missing");
+  expect(compareCopy(laptop, stat("turn 1\nturn 2\n"))).toBe("same");
+  expect(compareCopy(laptop, stat("turn 1\n"))).toBe("older");
+  expect(compareCopy(laptop, stat("turn 1\nturn 2\nturn 3 on the phone\n"))).toBe("diverged");
+  expect(compareCopy(laptop, stat("turn 1\nturn X\n"))).toBe("diverged");
+  expect(compareCopy(laptop, stat(""))).toBe("older");
+});
 
 const REPO = "/Users/me/src/app";
 const ID = "0b6f7a4e-3c1d-4e8f-9a2b-1c3d5e7f9a0b";

@@ -8,7 +8,7 @@ import { spawn } from "node:child_process";
 import { closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { stateDir } from "./config.ts";
-import { copyIn, prompt, startAgent } from "./handoff.ts";
+import { checkCopyIn, copyIn, prompt, startAgent } from "./handoff.ts";
 import { keepAwake } from "./host.ts";
 import { showLink } from "./present.ts";
 import { capture } from "./proc.ts";
@@ -238,11 +238,14 @@ export async function finishMove(plan: MovePlan): Promise<void> {
   try {
     await waitForTurn(plan);
     ui.info("The turn has ended");
-    await endLaptopCopy(plan.agent);
     const workspace = (await listWorkspaces()).find((candidate) => candidate.project === plan.project && candidate.state === "running");
     if (!workspace) throw new UserError(`${plan.project} is not running`);
-    const session = findHostSession(plan.ref);
-    if (!session) throw new UserError(`the session's transcript is gone from this computer`);
+    const ended = findHostSession(plan.ref);
+    if (!ended) throw new UserError(`the session's transcript is gone from this computer`);
+    await checkCopyIn(workspace, ended, hostStores());
+    await endLaptopCopy(plan.agent);
+    // The agent may write a last line as it exits, so the files are listed again.
+    const session = findHostSession(plan.ref) ?? ended;
     await copyIn(workspace, session, hostStores());
     const started = await startAgent(workspace, plan.ref.agent, session.cwd ?? plan.repo, resumeArgs(plan.ref, false));
     if (!started.ready) ui.warn(`${name} was started in the ${started.tab} tab but is not ready for input yet`);

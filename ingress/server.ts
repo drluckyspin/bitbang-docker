@@ -19,8 +19,11 @@ import {
 
 interface Bridge {
   upstream: WebSocket;
-  /** messages from the browser that arrive before the upstream socket opens */
-  pending: Array<string | Uint8Array>;
+  /** the browser's socket, once Bun has opened it */
+  downstream?: ServerWebSocket<Bridge>;
+  /** what the upstream sent before then, and how it closed, if it did */
+  early: Array<string | Uint8Array>;
+  closed?: { code: number; reason: string };
 }
 
 export interface IngressOptions {
@@ -91,6 +94,25 @@ function connectUpstream(request: Request, upstream: string): Promise<WebSocket>
   });
 }
 
+/**
+ * Relays the upstream socket from the moment it opens. Bun opens the browser's socket later, so anything the
+ * upstream sends or closes with in between is held, then replayed in order.
+ */
+function relayUpstream(bridge: Bridge): void {
+  const { upstream } = bridge;
+  upstream.addEventListener("message", (event) => {
+    const data = typeof event.data === "string" ? event.data : new Uint8Array(event.data as ArrayBuffer);
+    if (bridge.downstream) bridge.downstream.send(data);
+    else bridge.early.push(data);
+  });
+  const close = (code: number, reason: string) => {
+    if (bridge.downstream) bridge.downstream.close(code, reason);
+    else bridge.closed ??= { code, reason };
+  };
+  upstream.addEventListener("close", (event) => close(sendableCloseCode(event.code), event.reason));
+  upstream.addEventListener("error", () => close(1011, ""));
+}
+
 export function startIngress(options: IngressOptions) {
   const compat = options.compatScript ?? "";
 
@@ -116,7 +138,8 @@ export function startIngress(options: IngressOptions) {
         } catch {
           return new Response("upstream refused the websocket\n", { status: 502 });
         }
-        const bridge: Bridge = { upstream, pending: [] };
+        const bridge: Bridge = { upstream, early: [] };
+        relayUpstream(bridge);
         if (server.upgrade(request, { data: bridge })) return undefined;
         upstream.close(1011);
         return new Response("websocket upgrade failed\n", { status: 400 });
@@ -135,19 +158,14 @@ export function startIngress(options: IngressOptions) {
       maxPayloadLength: 64 * 1024 * 1024,
       idleTimeout: 0,
       open(ws: ServerWebSocket<Bridge>) {
-        const { upstream } = ws.data;
-        upstream.addEventListener("message", (event) => {
-          const data = event.data;
-          ws.send(typeof data === "string" ? data : new Uint8Array(data as ArrayBuffer));
-        });
-        upstream.addEventListener("close", (event) => ws.close(sendableCloseCode(event.code), event.reason));
-        upstream.addEventListener("error", () => ws.close(1011));
-        for (const message of ws.data.pending.splice(0)) upstream.send(message);
+        const bridge = ws.data;
+        for (const data of bridge.early.splice(0)) ws.send(data);
+        bridge.downstream = ws;
+        if (bridge.closed) ws.close(bridge.closed.code, bridge.closed.reason);
       },
       message(ws: ServerWebSocket<Bridge>, message: string | Buffer) {
         const data = typeof message === "string" ? message : new Uint8Array(message);
         if (ws.data.upstream.readyState === WebSocket.OPEN) ws.data.upstream.send(data);
-        else ws.data.pending.push(data);
       },
       close(ws: ServerWebSocket<Bridge>, code: number, reason: string) {
         const { upstream } = ws.data;
