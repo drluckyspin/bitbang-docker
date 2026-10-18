@@ -130,8 +130,9 @@ devices, list the paired devices and revoke them.
 
 **Chat and Terminal.** A new workspace has two tabs: Repo Shell, a shell in the repo, and one for its default agent.
 Chat and Terminal, at the top, are two views of the tab you are on, so on an agent's tab Terminal shows the agent's own
-screen. The laptop sees the same tabs with `go-remote attach`. The terminal view has a row of keys above the phone
-keyboard (Esc, Tab, ^C, Ctrl, Alt, Shift, Enter and the arrows), which Herdr's settings let you change.
+screen. herdr-web-ui's chat reads Claude Code and Codex sessions; Cursor's tab shows its live terminal instead. The
+laptop sees the same tabs with `go-remote attach`. The terminal view has a row of keys above the phone keyboard (Esc,
+Tab, ^C, Ctrl, Alt, Shift, Enter and the arrows), which Herdr's settings let you change.
 
 **A new workspace, a new conversation.** A workspace started again after `go-remote stop` opens fresh tabs; the last
 one's transcripts stay, for `go-remote pull` and `--resume`. A restarted container (`docker restart`) keeps its tabs.
@@ -159,21 +160,21 @@ The row fits a 48-column phone screen, and the laptop sees it too. `GR_KEY_BAR=f
 
 ## Commands
 
-| `go-remote` command                    | What it does                                                                         |
-| -------------------------------------- | ------------------------------------------------------------------------------------ |
-| `start [path]`                         | Start the workspace for a repo (default: the current directory) and show its QR code |
-| `start --agent claude\|codex\|cursor`  | Also start that agent in a new tab, on a new conversation, and open its chat         |
-| `start --resume <agent:id>`            | Move a session from this computer into the workspace, and open its chat              |
-| `qr [path]`                            | Show a fresh QR code, with a new pairing code                                        |
-| `login [claude\|codex\|cursor] [path]` | Sign an agent in, once for every workspace; Claude Code's token goes in `.env`       |
-| `list`                                 | List workspaces, their health, and the agents running in each                        |
-| `sessions [path]`                      | List the Claude Code and Codex sessions on this computer that ran in the repo        |
-| `pull [path] [agent:id]`               | Copy the container's sessions back to this computer                                  |
-| `attach [path]`                        | Open the Herdr UI in this terminal (`--shell` for the tmux session)                  |
-| `logs [path]`                          | Show the container log, with the URL taken out                                       |
-| `stop [path]`                          | Stop a workspace (`--all` stops every one); logins stay in the home volume           |
-| `doctor`                               | Check Docker, the image and its pins, `.env`, and the agent CLIs on this computer    |
-| `install-skill`                        | Install the `/go-remote` skill for Claude Code, Codex and Cursor                     |
+| `go-remote` command                    | What it does                                                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `start [path]`                         | Start the workspace for a repo (default: the current directory) and show its QR code                         |
+| `start --agent claude\|codex\|cursor`  | Also start that agent in a new tab, on a new conversation, and open it (Cursor's terminal; the others' chat) |
+| `start --resume <agent:id>`            | Move a session from this computer into the workspace, and open its chat                                      |
+| `qr [path]`                            | Show a fresh QR code, with a new pairing code                                                                |
+| `login [claude\|codex\|cursor] [path]` | Sign an agent in, once for every workspace; Claude Code's token goes in `.env`                               |
+| `list`                                 | List workspaces, their health, and the agents running in each                                                |
+| `sessions [path]`                      | List the Claude Code and Codex sessions on this computer that ran in the repo                                |
+| `pull [path] [agent:id]`               | Copy the container's sessions back to this computer                                                          |
+| `attach [path]`                        | Open the Herdr UI in this terminal (`--shell` for the tmux session)                                          |
+| `logs [path]`                          | Show the container log, with the URL taken out                                                               |
+| `stop [path]`                          | Stop a workspace (`--all` stops every one); logins stay in the home volume                                   |
+| `doctor`                               | Check Docker, the image and its pins, `.env`, and the agent CLIs on this computer                            |
+| `install-skill`                        | Install the `/go-remote` skill for Claude Code, Codex and Cursor                                             |
 
 `go-remote help` lists every option, and `--json` gives machine-readable output for scripts and agents. The link is
 shown only on an interactive terminal: otherwise the QR code opens in a window. Each repo gets its own workspace, named
