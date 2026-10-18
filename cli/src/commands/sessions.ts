@@ -1,5 +1,5 @@
 /** bbd sessions and bbd pull: agent sessions on the laptop, and bringing the container's back. */
-import { containerFiles, fetchFile, groupSessions, hostSha256, openAnywhere } from "../handoff.ts";
+import { containerFiles, fetchFile, groupSessions, hostCopy, openAnywhere, pullState } from "../handoff.ts";
 import { AGENT_NAMES, hostSessions, hostStores, parseSessionRef, writeBack } from "../sessions.ts";
 import { shellQuote, ui, UserError } from "../ui.ts";
 import { checkDocker, findWorkspace, requireRunning, resolveRepo } from "../workspace.ts";
@@ -72,10 +72,15 @@ export async function pull(options: { path?: string; ref?: string; json: boolean
       results.push({ ref, state: "busy", cwd: group.cwd });
       continue;
     }
+    const states = group.files.map((file) => ({ file, state: pullState(hostCopy(stores[group.agent], file.file), file) }));
+    const pending = states.filter((entry) => entry.state === "copy").map((entry) => entry.file);
+    if (pending.length === 0) {
+      results.push({ ref, state: states.some((entry) => entry.state === "ahead") ? "ahead" : "same", cwd: group.cwd });
+      continue;
+    }
     let changed = 0;
     let isNew = false;
-    for (const file of group.files) {
-      if (hostSha256(stores[group.agent], file.file) === file.sha256) continue;
+    for (const file of pending) {
       const written = writeBack(stores[group.agent], file.file, await fetchFile(workspace, group.agent, file.file), stamp);
       if (written !== "same") changed++;
       if (written === "new" && file === group.files[0]) isNew = true;
@@ -97,6 +102,9 @@ export async function pull(options: { path?: string; ref?: string; json: boolean
         break;
       case "same":
         ui.dim(`${ref} is the same on both sides`);
+        break;
+      case "ahead":
+        ui.dim(`${ref} went on here after the container's copy, so this computer's is kept`);
         break;
       default:
         ui.success(`${ref} ${result.state === "new" ? "copied to" : "updated on"} the laptop. Continue with: ${continueCommand(agent, id, String(result.cwd))}`);
