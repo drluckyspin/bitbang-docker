@@ -59,10 +59,10 @@ export async function doctor(options: { json: boolean; root?: string }): Promise
     add("docker", "fail", error instanceof UserError ? `${error.message}. ${error.hint ?? ""}`.trim() : String(error));
   }
 
-  for (const agent of ["claude", "codex"] as AgentKind[]) {
+  for (const agent of ["claude", "codex", "cursor"] as AgentKind[]) {
     const laptop = await hostVersion(agent);
     const container = labels?.[PIN_LABELS[agent]];
-    if (!laptop) add(AGENT_NAMES[agent], "ok", "not installed on this computer (only needed to hand sessions over)");
+    if (!laptop) add(AGENT_NAMES[agent], "ok", "not installed on this computer (sign in inside the container)");
     else if (skewWarning(agent, laptop, container)) add(AGENT_NAMES[agent], "warn", `${laptop} here, ${container} in the image`);
     else add(AGENT_NAMES[agent], "ok", laptop);
   }

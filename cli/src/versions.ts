@@ -5,11 +5,13 @@ import { AGENT_NAMES, type AgentKind } from "./sessions.ts";
 export const PIN_LABELS: Record<AgentKind, string> = {
   claude: "bitbang-docker.version.claude-code",
   codex: "bitbang-docker.version.codex",
+  cursor: "bitbang-docker.version.cursor-agent",
 };
 
 /** `2.1.286 (Claude Code)` and `codex-cli 0.161.0` both give the dotted version; undefined if not installed. */
 export async function hostVersion(agent: AgentKind): Promise<string | undefined> {
-  const result = await capture([agent, "--version"]);
+  const command = agent === "cursor" ? "cursor-agent" : agent;
+  const result = await capture([command, "--version"]);
   if (result.code !== 0) return undefined;
   return /\d+\.\d+\.\d+(?:[-+][\w.]+)?/.exec(result.stdout)?.[0];
 }

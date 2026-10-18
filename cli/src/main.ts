@@ -20,17 +20,18 @@ Usage: bbd <command> [options]
 
 Commands:
   start [path]            Start (or reuse) the workspace for a repo and show its QR code
-      --agent claude|codex    Start an agent in a new tab, on a new conversation
+      --agent claude|codex|cursor
+                              Start an agent in a new tab, on a new conversation
       --resume <agent:id>     Move a session from this computer there (bbd sessions lists them). Run from
                               inside that session, by /go-remote, it moves once the turn ends: the session
                               here closes and the QR code opens in a window
       --fork                  Continue a copy of it, so the laptop's can carry on too
       --brief <file>          Give the agent a handoff brief (copied to .bbd/handoff.md in the repo)
       --open chat|terminal    What the phone opens (default: chat with an agent, else the terminal)
-  login [claude|codex] [path]
-                          Sign Claude Code (default) or Codex in, once, for every workspace. Claude Code
-                          signs in here, with claude setup-token, and bbd keeps the token in .env; Codex
-                          (or Claude Code when it is not installed here) signs in inside the container
+  login [claude|codex|cursor] [path]
+                          Sign Claude Code (default), Codex or Cursor in, once, for every workspace. Claude Code
+                          signs in here, with claude setup-token, and bbd keeps the token in .env; Codex, Cursor
+                          (or Claude Code when it is not installed here) sign in inside the container
   qr [path]               Show a fresh QR code for a workspace (--open, --pane <id>)
   list                    List workspaces, their health and their agents
   sessions [path]         List Claude Code and Codex sessions on this computer that ran in a repo
@@ -110,7 +111,7 @@ async function main(argv: string[]): Promise<number> {
       const result = await start({
         path: atMostOnePath(positionals),
         root: values.root,
-        agent: oneOf<AgentKind>("agent", values.agent, ["claude", "codex"]),
+        agent: oneOf<AgentKind>("agent", values.agent, ["claude", "codex", "cursor"]),
         resume: values.resume,
         fork: values.fork === true,
         brief: values.brief,
@@ -139,7 +140,7 @@ async function main(argv: string[]): Promise<number> {
     case "login": {
       const { values, positionals } = parse(rest, ROOT_OPTION);
       if (values.help) break;
-      const agent = positionals.find((value): value is AgentKind => value === "claude" || value === "codex");
+      const agent = positionals.find((value): value is AgentKind => value === "claude" || value === "codex" || value === "cursor");
       await login({ path: atMostOnePath(positionals.filter((value) => value !== agent)), agent, root: values.root });
       return 0;
     }

@@ -12,7 +12,15 @@ import { copyIn, prompt, startAgent } from "./handoff.ts";
 import { keepAwake } from "./host.ts";
 import { showLink } from "./present.ts";
 import { capture } from "./proc.ts";
-import { AGENT_NAMES, type AgentKind, findHostSession, hostStores, resumeArgs, type Session, type SessionRef } from "./sessions.ts";
+import {
+  AGENT_NAMES,
+  type SessionAgentKind,
+  findHostSession,
+  hostStores,
+  resumeArgs,
+  type Session,
+  type SessionRef,
+} from "./sessions.ts";
 import { ui, UserError } from "./ui.ts";
 import { listWorkspaces, waitForListener } from "./workspace.ts";
 
@@ -43,7 +51,7 @@ export interface AgentProcess {
 }
 
 /** Whether a session's last turn is over, from the end of its transcript. */
-export function turnEnded(agent: AgentKind, lines: string[]): boolean {
+export function turnEnded(agent: SessionAgentKind, lines: string[]): boolean {
   let message = -1;
   let end = -1;
   let finalReply = false;
@@ -97,7 +105,7 @@ export function inTurn(session: Session, recentMs: number): boolean {
   return !turnEnded(session.agent, tailLines(transcriptPath(session)));
 }
 
-export function isAgentCommand(agent: AgentKind, args: string): boolean {
+export function isAgentCommand(agent: SessionAgentKind, args: string): boolean {
   return args
     .trim()
     .split(/\s+/)
@@ -121,7 +129,7 @@ export function parseProcessTable(text: string): Map<number, ProcessRow> {
 }
 
 /** The nearest process above `pid` that is the agent itself. */
-export function agentAbove(rows: Map<number, ProcessRow>, pid: number, agent: AgentKind): AgentProcess | undefined {
+export function agentAbove(rows: Map<number, ProcessRow>, pid: number, agent: SessionAgentKind): AgentProcess | undefined {
   for (let current = rows.get(pid)?.ppid, depth = 0; current && current > 1 && depth < 32; depth++) {
     const row = rows.get(current);
     if (!row) return undefined;
@@ -138,7 +146,7 @@ async function processTable(): Promise<Map<number, ProcessRow>> {
 }
 
 /** The agent this bbd runs under, when an agent ran it. */
-export async function callingAgent(agent: AgentKind): Promise<AgentProcess | undefined> {
+export async function callingAgent(agent: SessionAgentKind): Promise<AgentProcess | undefined> {
   return agentAbove(await processTable(), process.pid, agent);
 }
 
