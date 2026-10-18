@@ -99,6 +99,11 @@ test("parseDefaultAgent keeps only the states, agents and pane ids it knows", ()
     pane: "w1:p2",
   });
   expect(parseDefaultAgent('{"state":"waiting","configured":"auto","agent":null,"pane":null}')).toEqual({ state: "waiting" });
+  expect(parseDefaultAgent('{"state":"running","configured":"cursor","agent":"cursor","pane":"w1:p3"}')).toEqual({
+    state: "running",
+    agent: "cursor",
+    pane: "w1:p3",
+  });
   expect(parseDefaultAgent('{"state":"done","agent":"hermes","pane":"w1:p2 --x"}')).toEqual({ state: "off" });
   expect(parseDefaultAgent("null")).toEqual({ state: "off" });
   expect(parseDefaultAgent("")).toEqual({ state: "off" });
@@ -116,4 +121,5 @@ test("agent tabs are labelled for people, while the agent keeps its name", () =>
   expect(tabLabel("claude", "claude")).toBe("Claude");
   expect(tabLabel("claude", "claude-2")).toBe("Claude 2");
   expect(tabLabel("codex", "codex-3")).toBe("Codex 3");
+  expect(tabLabel("cursor", "cursor")).toBe("Cursor");
 });

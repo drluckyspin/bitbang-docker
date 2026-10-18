@@ -45,6 +45,9 @@ ARG CODEX_VERSION=0.163.0
 ARG HERDR_VERSION=0.9.5
 ARG HERDR_SHA256_AMD64=14d9e8bc8b4a9e0118d77c32266f76d461f09b40342eb23752960bd89f59929d
 ARG HERDR_SHA256_ARM64=17d7536f2da50859523680ef279dffcac8e4a235f4e46fe8da6c2ec44141897c
+ARG CURSOR_AGENT_VERSION=2026.10.16-e3cb207
+ARG CURSOR_AGENT_SHA256_AMD64=3aa3f48cd7a3909a98c9b3f2a4085f0c021088bf826690b22c61f424c843e552
+ARG CURSOR_AGENT_SHA256_ARM64=4cf077f150eb8d1e270bf1dea69700184c39a4847fe192d523f5bb34d4b62597
 ARG BUN_VERSION
 ARG HERDR_WEB_UI_VERSION
 ARG TARGETARCH
@@ -107,6 +110,23 @@ RUN set -eux; \
   install -m 0755 /tmp/herdr /usr/local/bin/herdr; \
   rm -f /tmp/herdr
 
+# The official Cursor Agent CLI release is a platform archive. Verify its pinned digest before unpacking it;
+# Herdr invokes it as `cursor-agent` for `herdr agent start --kind cursor`.
+RUN set -eux; \
+  case "${TARGETARCH}" in \
+  amd64) arch=x64; sha256="${CURSOR_AGENT_SHA256_AMD64}" ;; \
+  arm64) arch=arm64; sha256="${CURSOR_AGENT_SHA256_ARM64}" ;; \
+  *) echo "Cursor Agent has no Linux build for ${TARGETARCH}" >&2; exit 1 ;; \
+  esac; \
+  curl -fsSL -o /tmp/cursor-agent.tar.gz \
+    "https://downloads.cursor.com/lab/${CURSOR_AGENT_VERSION}/linux/${arch}/agent-cli-package.tar.gz"; \
+  echo "${sha256}  /tmp/cursor-agent.tar.gz" | sha256sum -c -; \
+  tar -xzf /tmp/cursor-agent.tar.gz -C /opt; \
+  mv /opt/dist-package /opt/cursor-agent; \
+  ln -s /opt/cursor-agent/cursor-agent /usr/local/bin/cursor-agent; \
+  ln -s cursor-agent /usr/local/bin/agent; \
+  rm -f /tmp/cursor-agent.tar.gz
+
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=web-ui /opt/herdr-web-ui /opt/herdr-web-ui
 
@@ -138,6 +158,7 @@ LABEL bitbang-docker.version.bitbang="${BITBANG_VERSION}" \
       bitbang-docker.version.bun="${BUN_VERSION}" \
       bitbang-docker.version.claude-code="${CLAUDE_CODE_VERSION}" \
       bitbang-docker.version.codex="${CODEX_VERSION}" \
+      bitbang-docker.version.cursor-agent="${CURSOR_AGENT_VERSION}" \
       bitbang-docker.version.herdr="${HERDR_VERSION}" \
       bitbang-docker.version.herdr-web-ui="${HERDR_WEB_UI_VERSION}"
 

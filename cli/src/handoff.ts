@@ -8,7 +8,17 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { View } from "./link.ts";
 import { capture, outputBytes } from "./proc.ts";
-import { AGENT_NAMES, type AgentKind, claudeProjectDir, CONTAINER_STORES, isSessionId, type Session, type Stores, within } from "./sessions.ts";
+import {
+  AGENT_NAMES,
+  type AgentKind,
+  claudeProjectDir,
+  CONTAINER_STORES,
+  isSessionId,
+  type Session,
+  type SessionAgentKind,
+  type Stores,
+  within,
+} from "./sessions.ts";
 import { hasControl, UserError } from "./ui.ts";
 import { exec, herdr, listWorkspaces, type Workspace } from "./workspace.ts";
 
@@ -116,7 +126,7 @@ export function parseDefaultAgent(text: string): DefaultAgent {
   }
   if (typeof parsed !== "object" || parsed === null) return { state: "off" };
   const state = DEFAULT_AGENT_STATES.find((one) => one === parsed.state) ?? "off";
-  const agent = parsed.agent === "claude" || parsed.agent === "codex" ? parsed.agent : undefined;
+  const agent = parsed.agent === "claude" || parsed.agent === "codex" || parsed.agent === "cursor" ? parsed.agent : undefined;
   const pane = typeof parsed.pane === "string" && /^[\w:-]+$/.test(parsed.pane) ? parsed.pane : undefined;
   return { state, ...(agent ? { agent } : {}), ...(pane ? { pane } : {}) };
 }
@@ -193,7 +203,24 @@ export async function startAgent(
     "--focus",
   ]);
   const pane = tab.root_pane.pane_id;
-  const command = ["docker", "exec", workspace.id, "herdr", "agent", "start", name, "--kind", agent, "--pane", pane, "--timeout", "90000", "--", ...args];
+  const command = [
+    "docker",
+    "exec",
+    workspace.id,
+    "herdr",
+    "agent",
+    "start",
+    name,
+    "--kind",
+    agent,
+    "--pane",
+    pane,
+    "--timeout",
+    "90000",
+    "--",
+    ...(agent === "cursor" ? ["--disable-auto-update"] : []),
+    ...args,
+  ];
   // a new tab's shell may not have reached its prompt yet
   const deadline = Date.now() + 15_000;
   let started = await capture(command);
@@ -231,7 +258,7 @@ export async function openAnywhere(): Promise<(id: string) => string | undefined
 }
 
 export interface ContainerFile {
-  agent: AgentKind;
+  agent: SessionAgentKind;
   /** relative to the agent's folder */
   file: string;
   sha256: string;
@@ -285,7 +312,7 @@ export async function containerFiles(workspace: Workspace): Promise<ContainerFil
  * Whether bbd pull may write a path the container listed onto the laptop: a plain relative path in the agent's
  * session folders for this repo. An agent in the container can name files so that the listing says anything.
  */
-export function pullable(agent: AgentKind, file: string, repo: string): boolean {
+export function pullable(agent: SessionAgentKind, file: string, repo: string): boolean {
   const parts = file.split("/");
   if (hasControl(file) || parts.some((part) => part === "" || part === "." || part === "..")) return false;
   if (agent === "codex") return parts[0] === "sessions" && parts.length >= 2 && /^rollout-.+\.jsonl(\.zst)?$/.test(parts.at(-1) ?? "");
@@ -302,9 +329,16 @@ function namesSession(file: ContainerFile, id: string): boolean {
   return name.endsWith(`-${id}.jsonl`) || name.endsWith(`-${id}.jsonl.zst`);
 }
 
+export interface ContainerSession {
+  agent: SessionAgentKind;
+  id: string;
+  cwd: string;
+  files: ContainerFile[];
+}
+
 /** Container sessions for this repo, each with every file that belongs to it. */
-export function groupSessions(files: ContainerFile[], repo: string): Array<{ agent: AgentKind; id: string; cwd: string; files: ContainerFile[] }> {
-  const sessions = new Map<string, { agent: AgentKind; id: string; cwd: string; files: ContainerFile[] }>();
+export function groupSessions(files: ContainerFile[], repo: string): ContainerSession[] {
+  const sessions = new Map<string, ContainerSession>();
   for (const file of files) {
     const { id, cwd } = file;
     if (!id || !cwd || !isSessionId(id) || hasControl(cwd) || !within(cwd, repo)) continue;
@@ -336,7 +370,7 @@ export function hostCopy(store: string, file: string): Uint8Array | undefined {
   return existsSync(path) ? new Uint8Array(readFileSync(path)) : undefined;
 }
 
-export async function fetchFile(workspace: Workspace, agent: AgentKind, file: string): Promise<Uint8Array> {
+export async function fetchFile(workspace: Workspace, agent: SessionAgentKind, file: string): Promise<Uint8Array> {
   return outputBytes(["docker", "exec", workspace.id, "cat", `${CONTAINER_STORES[agent]}/${file}`]);
 }
 

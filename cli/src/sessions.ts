@@ -10,12 +10,15 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { printable, UserError } from "./ui.ts";
 
-export type AgentKind = "claude" | "codex";
+/** An agent available in the container. Cursor sessions cannot yet be moved between the laptop and container. */
+export type AgentKind = "claude" | "codex" | "cursor";
+/** An agent whose transcript format BBD knows how to copy, resume and pull. */
+export type SessionAgentKind = Exclude<AgentKind, "cursor">;
 
-export const AGENT_NAMES: Record<AgentKind, string> = { claude: "Claude Code", codex: "Codex" };
+export const AGENT_NAMES: Record<AgentKind, string> = { claude: "Claude Code", codex: "Codex", cursor: "Cursor" };
 
 export interface SessionRef {
-  agent: AgentKind;
+  agent: SessionAgentKind;
   id: string;
 }
 
@@ -58,7 +61,7 @@ export function parseSessionRef(text: string): SessionRef {
   if (!match || !id || !SESSION_ID.test(id)) {
     throw new UserError(`Not a session: ${text}`, "Use claude:<session id> or codex:<session id>; bbd sessions lists them.");
   }
-  return { agent: match[1] as AgentKind, id: id.toLowerCase() };
+  return { agent: match[1] as SessionAgentKind, id: id.toLowerCase() };
 }
 
 /** Claude Code's folder name for a directory: every character that is not a letter or digit becomes a dash. */

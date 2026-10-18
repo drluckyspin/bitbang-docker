@@ -1,5 +1,5 @@
 /**
- * bbd login: signs Claude Code or Codex in, once, for every workspace. Claude Code signs in on this computer
+ * bbd login: signs Claude Code, Codex or Cursor in, once, for every workspace. Claude Code signs in on this computer
  * with claude setup-token, whose long-lived token goes into .env: every workspace then starts signed in.
  * Codex, and Claude Code where it is not installed here, sign in inside a running container instead; the home
  * volume keeps that login for every workspace, and each one's default agent then starts on its own.
@@ -25,7 +25,7 @@ export async function signIn(workspace: Workspace, agent: AgentKind): Promise<bo
   ui.info(
     agent === "claude"
       ? "Signing in to Claude Code in the container: open the link below, sign in, then paste the code the page shows here."
-      : "Signing in to Codex in the container: open the link below on any device and enter the code shown here.",
+      : `Signing in to ${AGENT_NAMES[agent]} in the container: follow the prompts below on any device.`,
   );
   if ((await attach(workspace, ["bitbang-docker-agent", "login", agent])) !== 0) return false;
   ui.success(`${AGENT_NAMES[agent]} is signed in, for every workspace`);

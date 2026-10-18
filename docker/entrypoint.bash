@@ -182,8 +182,8 @@ fresh_session() {
 start_herdr() {
   local agent tab
 
-  mkdir -p "${HOME}/.claude" "${HOME}/.codex"
-  for agent in claude codex; do
+  mkdir -p "${HOME}/.claude" "${HOME}/.codex" "${HOME}/.cursor" "${HOME}/.config/cursor"
+  for agent in claude codex cursor; do
     herdr integration install "$agent" >/dev/null 2>&1 || log_warning "Could not install Herdr's ${agent} integration"
   done
   bitbang-docker-agent prepare

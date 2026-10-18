@@ -35,7 +35,7 @@ export GIT_AUTHOR_NAME="Smoke Test" GIT_AUTHOR_EMAIL="smoke@example.invalid"
 export GIT_COMMITTER_NAME="Smoke Test" GIT_COMMITTER_EMAIL="smoke@example.invalid"
 
 # Canaries: keys exported on the host must never reach the container.
-export ANTHROPIC_API_KEY=bbd-smoke-canary OPENAI_API_KEY=bbd-smoke-canary GH_TOKEN=bbd-smoke-canary
+export ANTHROPIC_API_KEY=bbd-smoke-canary OPENAI_API_KEY=bbd-smoke-canary CURSOR_API_KEY=bbd-smoke-canary GH_TOKEN=bbd-smoke-canary
 
 compose() {
   docker compose --project-directory "$ROOT_DIR" -f "$ROOT_DIR/docker-compose.yml" \
@@ -135,19 +135,20 @@ hardening_checks() {
 toolchain_checks() {
   local tool label version command
   log_info "Toolchain"
-  for tool in "bitbang version" "claude --version" "codex --version" "herdr --version" "bun --version" \
+  for tool in "bitbang version" "claude --version" "codex --version" "cursor-agent --version" "herdr --version" "bun --version" \
     "gh --version" "git --version" "node --version" "npm --version" "python3 --version" "uv --version" \
     "tmux -V" "rg --version" "jq --version" "make --version"; do
     check "$tool" "$tool"
   done
 
-  for label in bitbang bun claude-code codex herdr herdr-web-ui; do
+  for label in bitbang bun claude-code codex cursor-agent herdr herdr-web-ui; do
     version="$(docker image inspect "$IMAGE" --format "{{index .Config.Labels \"bitbang-docker.version.${label}\"}}")"
     case "$label" in
       bitbang) command="bitbang version" ;;
       bun) command="bun --version" ;;
       claude-code) command="claude --version" ;;
       codex) command="codex --version" ;;
+      cursor-agent) command="cursor-agent --version" ;;
       herdr) command="herdr --version" ;;
       herdr-web-ui) command="jq -r .version /opt/herdr-web-ui/package.json" ;;
     esac
@@ -192,8 +193,8 @@ web_checks() {
      sed -n "/^\[analytics\]/,/^\[/p" /etc/codex/config.toml | grep -qx "enabled = false"'
   check "The repo's shell tab is named Repo Shell" \
     'herdr tab list | jq -e '\''any(.result.tabs[]; .label == "Repo Shell")'\'''
-  check "Herdr learns Claude and Codex session IDs" \
-    'jq -e .hooks.SessionStart ~/.claude/settings.json | grep -q herdr && grep -q herdr ~/.codex/hooks.json'
+  check "Herdr learns Claude Code, Codex and Cursor session IDs" \
+    'jq -e .hooks.SessionStart ~/.claude/settings.json | grep -q herdr && grep -q herdr ~/.codex/hooks.json && grep -q herdr ~/.cursor/hooks.json'
   check "The repo's pane runs bash, which takes the web UI's bracketed paste" \
     'pane="$(herdr pane list | jq -r --arg repo "$BBD_REPO" '\''first(.result.panes[] | select(.cwd == $repo)) | .pane_id'\'')" &&
      pid="$(herdr pane process-info --pane "$pane" | jq -r .result.process_info.shell_pid)" &&
@@ -207,6 +208,9 @@ web_checks() {
     'bitbang-docker-agent status | jq -e '\''.state == "waiting"'\'' &&
      pane="$(herdr pane list | jq -r --arg repo "$BBD_REPO" '\''first(.result.panes[] | select(.cwd == $repo)) | .pane_id'\'')" &&
      herdr pane read "$pane" | grep -qF "make login"'
+  check "Cursor waits for a sign-in when selected as the default agent" \
+    'BBD_DEFAULT_AGENT=cursor bitbang-docker-agent prepare &&
+     bitbang-docker-agent status | jq -e '\''.state == "waiting" and .agent == "cursor"'\'''
   check "The ingress lets only a same-origin page frame the app, and keeps its policy in the page" \
     'curl -fsS -D /tmp/smoke-headers -o /tmp/smoke-page.html http://127.0.0.1:7300/ &&
      tr -d "\r" </tmp/smoke-headers | grep -qix "content-security-policy: frame-ancestors '\''self'\''" &&

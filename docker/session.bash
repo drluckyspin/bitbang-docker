@@ -13,7 +13,7 @@ set -euo pipefail
 
 # compose passes unset .env values as empty strings, and an empty ANTHROPIC_API_KEY would override a
 # subscription login.
-for var in ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN OPENAI_API_KEY GH_TOKEN \
+for var in ANTHROPIC_API_KEY CLAUDE_CODE_OAUTH_TOKEN OPENAI_API_KEY CURSOR_API_KEY GH_TOKEN \
   GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL; do
   if [ -z "${!var:-}" ]; then
     unset "$var"
