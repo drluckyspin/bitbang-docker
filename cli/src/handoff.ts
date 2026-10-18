@@ -164,7 +164,9 @@ export async function prompt(workspace: Workspace, agent: string, text: string):
 
 /** Session ids the container is still using: an agent Herdr tracks, or a process naming the id. */
 export async function openSessions(workspace: Workspace): Promise<(id: string) => boolean> {
-  const values = (await agents(workspace)).map((info) => info.agent_session?.value ?? "").filter(Boolean);
+  // The shell mode runs no Herdr; the process list still catches agents started in its tmux session.
+  const tracked = workspace.ui === "web" ? await agents(workspace) : [];
+  const values = tracked.map((info) => info.agent_session?.value ?? "").filter(Boolean);
   const processes = (await capture(["docker", "exec", workspace.id, "ps", "-eo", "args="])).stdout;
   return (id) => values.some((value) => value.includes(id)) || processes.includes(id);
 }
