@@ -1,0 +1,9 @@
+# Used instead of the root .dockerignore when building cli/Dockerfile. An allowlist, so .env never reaches it.
+*
+!package.json
+!bun.lock
+!tsconfig.json
+!certs/
+!skills/go-remote/SKILL.md
+!ingress/
+!cli/src/

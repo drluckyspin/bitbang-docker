@@ -1,7 +1,9 @@
 # -----------------------------------------------------------------------------------------------------------
 # Common Makefile — BitBang Docker
 # -----------------------------------------------------------------------------------------------------------
-# A hardened container around one local git repo, with a tmux shell in it served over BitBang.
+# A hardened container around one local git repo, served over BitBang: Herdr's web UI for agent chat and a
+# terminal (BBD_UI=web), or BitBang's own terminal on a tmux session (BBD_UI=shell). The bbd CLI in cli/ does
+# the work; the run, url, attach and logs targets wrap it, building it first when needed.
 #
 # By convention (Code Red):
 #  - targets that are called by the user
@@ -30,8 +32,19 @@ CHECKENV_SCRIPT := $(COMMON_MAKEFILE_DIR)scripts/checkenv.bash
 SCRIPTS_DIR := $(COMMON_MAKEFILE_DIR)scripts
 
 IMAGE := bitbang-docker:latest
+E2E_IMAGE := bitbang-docker-e2e:latest
 HOME_VOLUME := $(or $(BBD_HOME_VOLUME),bitbang-docker-home)
 QR ?= true
+BIN_DIR ?= $(HOME)/.local/bin
+
+# bbd for this host, built in Docker by `make cli` into dist/, and rebuilt when its sources change
+BBD_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
+BBD_ARCH := $(if $(filter arm64 aarch64,$(shell uname -m)),arm64,x64)
+BBD := $(COMMON_MAKEFILE_DIR)dist/bbd-$(BBD_OS)-$(BBD_ARCH)
+BBD_SOURCES := $(shell find "$(COMMON_MAKEFILE_DIR)cli/src" "$(COMMON_MAKEFILE_DIR)ingress" -name '*.ts' 2>/dev/null) \
+	$(addprefix $(COMMON_MAKEFILE_DIR),package.json bun.lock cli/Dockerfile skills/go-remote/SKILL.md)
+BBD_RUN := BBD_ROOT="$(COMMON_MAKEFILE_DIR)" "$(BBD)"
+BBD_QR_FLAG := $(if $(filter false False FALSE no 0,$(QR)),--no-qr)
 
 DOCKER_COMPOSE := docker compose
 COMPOSE := $(DOCKER_COMPOSE) --project-directory "$(COMMON_MAKEFILE_DIR)" -f "$(COMMON_MAKEFILE_DIR)docker-compose.yml"
@@ -86,9 +99,6 @@ else
 PROJECT = $(if $(filter 1,$(words $(WORKSPACE_PROJECTS))),$(WORKSPACE_PROJECTS))
 endif
 
-CONTAINER_ID = $(shell docker ps -aq --filter label=com.docker.compose.project=$(PROJECT) \
-	--filter label=com.docker.compose.service=workspace 2>/dev/null | head -n 1)
-
 # -----------------------------------------------------------------------------------------------------------
 # Help (default target)
 #
@@ -96,8 +106,9 @@ CONTAINER_ID = $(shell docker ps -aq --filter label=com.docker.compose.project=$
 # starts with '##'.
 # -----------------------------------------------------------------------------------------------------------
 
-.PHONY: help build check run run-detached url attach ping logs down clean clean-home test lint format format-check
-.PHONY: check_docker check_env check_env_perms check_repo check_project_repo check_image require_project export_ca
+.PHONY: help build cli install-cli check run run-detached url login attach ping logs down clean clean-home
+.PHONY: test unit e2e lint format format-check
+.PHONY: check_docker check_env check_env_perms check_image require_repo export_ca
 .PHONY: check_dprint check_shfmt check_mbake check_shellcheck check_formatters
 
 .PHONY: help ## Show this help message
@@ -112,6 +123,7 @@ help:
 	@echo ""
 	@$(LOGGER) log_info "Quick start"
 	@$(LOGGER) log_dim "make build && make run REPO=~/src/my-repo"
+	@$(LOGGER) log_dim "make install-cli && bbd start ~/src/my-repo   # the CLI, for agent handoff and more"
 
 # -----------------------------------------------------------------------------------------------------------
 # Check environment and tools targets
@@ -150,34 +162,11 @@ check_env_perms:
 		*) $(LOGGER) log_warning ".env is readable by other users (mode $$perms). Fix with: chmod 600 .env" ;; \
 	esac
 
-# Check REPO is a single, mountable repository
-check_repo:
+# REPO defaults to the current directory, so this catches an explicit REPO= only; bbd checks it is a single,
+# mountable repository
+require_repo:
 	@if [ -z "$(REPO_EXPANDED)" ]; then \
 		$(LOGGER) log_error "Pass the repo to mount, e.g. make run REPO=~/src/my-repo"; \
-		exit 1; \
-	fi
-	@if [ -z "$(REPO_PATH)" ]; then \
-		$(LOGGER) log_error "REPO is not a directory: $(REPO)"; \
-		exit 1; \
-	fi
-	@if [ "$(REPO_PATH)" = "/" ] || [ "$(REPO_PATH)" = "$$(cd "$$HOME" && pwd -P)" ]; then \
-		$(LOGGER) log_error "Refusing to mount $(REPO_PATH); point REPO at a single repository."; \
-		exit 1; \
-	fi
-	@if [ -f "$(REPO_PATH)/.git" ]; then \
-		$(LOGGER) log_error "$(REPO_PATH) is a git worktree or submodule. Its .git points outside the mount, so mount the main checkout instead."; \
-		exit 1; \
-	fi
-	@if [ ! -d "$(REPO_PATH)/.git" ]; then \
-		$(LOGGER) log_warning "$(REPO_PATH) is not a git repository; mounting it anyway."; \
-	fi
-
-# The project name uses the repo basename. Refuse to address a same-named repo's workspace: every target that
-# receives REPO runs this check before it uses PROJECT.
-check_project_repo:
-	@existing=$$(docker ps -a --filter label=com.docker.compose.project=$(PROJECT) --format '{{.Label "bitbang-docker.repo"}}' | head -n 1); \
-	if [ -n "$(REPO_EXPANDED)" ] && [ -n "$$existing" ] && [ "$$existing" != "$(REPO_PATH)" ]; then \
-		$(LOGGER) log_error "$(PROJECT) already serves $$existing. Stop it first: make down REPO=$$existing"; \
 		exit 1; \
 	fi
 
@@ -187,22 +176,6 @@ check_image:
 		$(LOGGER) log_error "Image $(IMAGE) not found. Build it with: make build"; \
 		exit 1; \
 	fi
-
-# Resolve PROJECT, or explain why it cannot be resolved
-require_project: check_docker check_project_repo
-	@if [ -z "$(PROJECT)" ]; then \
-		if [ -z "$(WORKSPACE_PROJECTS)" ]; then \
-			$(LOGGER) log_error "No workspace exists. Start one with: make run REPO=~/src/my-repo"; \
-		else \
-			$(LOGGER) log_error "Several workspaces exist; choose one with REPO=/path/to/repo (see make ping)."; \
-		fi; \
-		exit 1; \
-	fi
-	@if [ -z "$(CONTAINER_ID)" ]; then \
-		$(LOGGER) log_error "No workspace for $(PROJECT). Start one with: make run REPO=$(or $(REPO_PATH),$(REPO))"; \
-		exit 1; \
-	fi
-
 .PHONY: check ## Verify Docker, .env and its permissions
 check:
 	@$(LOGGER) log_separator
@@ -231,42 +204,70 @@ build: check_docker export_ca
 		"$(COMMON_MAKEFILE_DIR)"
 	@$(LOGGER) log_success "Built $(IMAGE)"
 
+.PHONY: cli ## Build bbd for macOS and Linux into dist/ after its unit tests, in Docker
+cli: check_docker export_ca
+	@$(LOGGER) log_separator
+	@$(LOGGER) log_info "Building bbd into dist/"
+	@docker build --target dist --output "type=local,dest=$(COMMON_MAKEFILE_DIR)dist" \
+		-f "$(COMMON_MAKEFILE_DIR)cli/Dockerfile" "$(COMMON_MAKEFILE_DIR)"
+	@touch "$(COMMON_MAKEFILE_DIR)"dist/bbd-*
+	@$(LOGGER) log_success "Built $$(cd "$(COMMON_MAKEFILE_DIR)dist" && ls bbd-* | tr '\n' ' ')"
+
+$(BBD): $(BBD_SOURCES)
+	@$(MAKE) cli
+
+.PHONY: install-cli ## Install bbd into BIN_DIR (default ~/.local/bin), set to use this checkout
+install-cli: $(BBD)
+	@mkdir -p "$(BIN_DIR)"
+	@install -m 0755 "$(BBD)" "$(BIN_DIR)/bbd"
+	@if [ "$(UNAME_S)" = Darwin ] && ! codesign --verify "$(BIN_DIR)/bbd" >/dev/null 2>&1; then \
+		codesign --force --sign - "$(BIN_DIR)/bbd"; \
+	fi
+	@"$(BIN_DIR)/bbd" setup --root "$(COMMON_MAKEFILE_DIR)"
+	@$(LOGGER) log_success "Installed $$("$(BIN_DIR)/bbd" --version) as $(BIN_DIR)/bbd"
+	@case ":$$PATH:" in \
+		*":$(BIN_DIR):"*) ;; \
+		*) $(LOGGER) log_warning "$(BIN_DIR) is not on PATH; add it in your shell profile" ;; \
+	esac
+	@$(LOGGER) log_info_dim "Next: bbd install-skill adds /go-remote to Claude Code, Codex and Cursor"
+
+.PHONY: install-skill ## Install the /go-remote skill for Claude Code, Codex and Cursor
+install-skill: $(BBD)
+	@$(BBD_RUN) install-skill
+
 # -----------------------------------------------------------------------------------------------------------
 # Run targets
 # -----------------------------------------------------------------------------------------------------------
 
-.PHONY: run-detached ## Start a workspace for REPO and print its QR code and URL (QR=false prints the URL only)
-run-detached: check check_repo check_project_repo check_image
+.PHONY: run-detached ## Start a workspace for REPO and show its QR code (QR=false prints the link only)
+run-detached: require_repo $(BBD)
 	@$(LOGGER) log_separator
-	@$(LOGGER) log_info "Starting $(PROJECT) for $(REPO_PATH)"
-	@BBD_REPO="$(REPO_PATH)" \
-	GIT_AUTHOR_NAME="$$(git -C "$(REPO_PATH)" config user.name 2>/dev/null)" \
-	GIT_AUTHOR_EMAIL="$$(git -C "$(REPO_PATH)" config user.email 2>/dev/null)" \
-	GIT_COMMITTER_NAME="$$(git -C "$(REPO_PATH)" config user.name 2>/dev/null)" \
-	GIT_COMMITTER_EMAIL="$$(git -C "$(REPO_PATH)" config user.email 2>/dev/null)" \
-	$(COMPOSE) -p $(PROJECT) up -d
-	@QR=$(QR) $(SCRIPTS_DIR)/bitbang-url.bash $(PROJECT)
-	@$(LOGGER) log_info_dim "Local shell: make attach REPO=$(REPO_PATH)   Stop: make down REPO=$(REPO_PATH)"
+	@$(BBD_RUN) start "$(REPO_EXPANDED)" $(BBD_QR_FLAG)
+	@$(LOGGER) log_info_dim "Here: make attach REPO=$(REPO)   New QR code: make url REPO=$(REPO)   Stop: make down REPO=$(REPO)"
 
-.PHONY: run ## Start a workspace for REPO, print its QR code, then follow its logs until Ctrl+C stops it
+.PHONY: run ## Start a workspace for REPO, show its QR code, then follow its logs until Ctrl+C stops it
 run: run-detached
 	@$(LOGGER) log_separator
 	@$(LOGGER) log_info_dim "Following logs. Ctrl+C stops the workspace (make run-detached leaves it running)."
 	@trap '$(MAKE) down REPO="$(REPO_PATH)"' EXIT; \
 	trap 'exit 130' INT TERM; \
-	docker logs -f --tail 0 "$(CONTAINER_ID)"
+	$(BBD_RUN) logs "$(REPO_EXPANDED)" --tail 0
 
-.PHONY: url ## Print the QR code and URL of a workspace (QR=false prints the URL only)
-url: require_project
-	@QR=$(QR) $(SCRIPTS_DIR)/bitbang-url.bash $(PROJECT)
+.PHONY: url ## Show a fresh QR code and pairing link for a workspace (QR=false prints the link only)
+url: $(BBD)
+	@$(BBD_RUN) qr $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)") $(BBD_QR_FLAG)
 
-.PHONY: attach ## Open the workspace's tmux session in this terminal
-attach: require_project
-	@docker exec -it "$(CONTAINER_ID)" bitbang-docker-session
+.PHONY: login ## Sign Claude Code (or AGENT=codex) in, once for every workspace
+login: $(BBD)
+	@$(BBD_RUN) login $(filter claude codex,$(AGENT)) $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
 
-.PHONY: logs ## Follow a workspace's logs (they include its URL)
-logs: require_project
-	@docker logs -f "$(CONTAINER_ID)"
+.PHONY: attach ## Open the workspace's Herdr terminal UI (or tmux session, in the shell mode) here
+attach: $(BBD)
+	@$(BBD_RUN) attach $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
+
+.PHONY: logs ## Follow a workspace's logs, with its URL taken out
+logs: $(BBD)
+	@$(BBD_RUN) logs $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
 
 .PHONY: ping ## List workspaces with their repo and BitBang listener health
 ping: check_docker
@@ -307,14 +308,15 @@ down: check_docker check_project_repo
 # Clean targets
 # -----------------------------------------------------------------------------------------------------------
 
-.PHONY: clean ## Stop every workspace; remove the image, exported CAs and .env backups (keeps logins)
+.PHONY: clean ## Stop every workspace; remove the images, dist/, exported CAs and .env backups (keeps logins)
 clean: check_docker
 	@$(LOGGER) log_separator
 	@$(LOGGER) log_info "Cleaning $(PROJECT_NAME) resources"
 	@$(MAKE) down REPO=
-	@$(LOGGER) log_indent log_dim "Removing image $(IMAGE)..."
-	@docker image rm $(IMAGE) >/dev/null 2>&1 || true
-	@$(LOGGER) log_indent log_dim "Removing exported CAs and .env backup files..."
+	@$(LOGGER) log_indent log_dim "Removing images $(IMAGE) and $(E2E_IMAGE)..."
+	@docker image rm $(IMAGE) $(E2E_IMAGE) >/dev/null 2>&1 || true
+	@$(LOGGER) log_indent log_dim "Removing dist/, exported CAs and .env backup files..."
+	@rm -rf "$(COMMON_MAKEFILE_DIR)dist"
 	@rm -f "$(COMMON_MAKEFILE_DIR)"certs/*.crt "$(COMMON_MAKEFILE_DIR).env.bak" "$(COMMON_MAKEFILE_DIR).env.new"
 	@$(LOGGER) log_success "Clean complete. Logins and shell history stay in the $(HOME_VOLUME) volume (make clean-home removes them)."
 
@@ -341,6 +343,21 @@ clean-home: check_docker
 .PHONY: test ## Smoke-test the image in a throwaway container (needs make build; never touches .env)
 test: check_docker check_image
 	@USER_UID=$(USER_UID) USER_GID=$(USER_GID) $(SCRIPTS_DIR)/smoke-test.bash
+
+.PHONY: unit ## Type-check and unit-test bbd and bbd-ingress, in Docker
+unit: check_docker export_ca
+	@$(LOGGER) log_separator
+	@$(LOGGER) log_info "Type-checking and unit-testing the TypeScript"
+	@docker build --target test --no-cache-filter test \
+		-f "$(COMMON_MAKEFILE_DIR)cli/Dockerfile" "$(COMMON_MAKEFILE_DIR)"
+	@$(LOGGER) log_success "Unit tests passed"
+
+.PHONY: e2e ## Phone end-to-end test through a real BitBang URL, in a throwaway workspace (REPO= tests that one)
+e2e: check_docker check_image export_ca $(BBD)
+	@$(LOGGER) log_separator
+	@$(LOGGER) log_info "Building the Playwright test image"
+	@docker build -q -t $(E2E_IMAGE) -f "$(COMMON_MAKEFILE_DIR)e2e/Dockerfile" "$(COMMON_MAKEFILE_DIR)" >/dev/null
+	@BBD="$(BBD)" E2E_IMAGE=$(E2E_IMAGE) $(SCRIPTS_DIR)/e2e.bash $(if $(REPO_EXPANDED),$(PROJECT))
 
 # -----------------------------------------------------------------------------------------------------------
 # Lint and format targets
@@ -415,6 +432,6 @@ lint: format-check
 	@$(MAKE) check_shellcheck
 	@cd "$(COMMON_MAKEFILE_DIR)" && shellcheck -x -S warning scripts/*.bash docker/*.bash
 	@$(LOGGER) log_indent log_success "shellcheck passed"
-	@BBD_REPO=/tmp $(COMPOSE) --env-file "$(COMMON_MAKEFILE_DIR).env.example" config -q
+	@BBD_REPO=/nonexistent/bbd-lint $(COMPOSE) --env-file "$(COMMON_MAKEFILE_DIR).env.example" config -q
 	@$(LOGGER) log_indent log_success "docker-compose.yml is valid"
 	@$(LOGGER) log_success "All checks passed"
