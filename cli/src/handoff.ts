@@ -262,6 +262,7 @@ export interface ContainerFile {
   /** relative to the agent's folder */
   file: string;
   sha256: string;
+  size: number;
   modified: number;
   /** set on transcripts: the session's id and directory */
   id?: string;
@@ -275,7 +276,7 @@ export interface ContainerFile {
 const LIST_SCRIPT = String.raw`
 set -u
 repo="$1" prefix="$2"
-emit() { printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$(sha256sum "$3" | cut -d' ' -f1)" "$(stat -c %Y "$3")" "$4" "$5"; }
+emit() { printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$1" "$2" "$(sha256sum "$3" | cut -d' ' -f1)" "$(stat -c %s "$3")" "$(stat -c %Y "$3")" "$4" "$5"; }
 cd /home/agent/.claude 2>/dev/null && for dir in projects/"$prefix" projects/"$prefix"-*; do
   [ -d "$dir" ] || continue
   find "$dir" -type f ! -name '*.bak' | while read -r file; do
@@ -300,9 +301,9 @@ export async function containerFiles(workspace: Workspace): Promise<ContainerFil
   const listing = await exec(workspace, ["sh", "-c", LIST_SCRIPT, "sh", workspace.repo, claudeProjectDir(workspace.repo)]);
   const files: ContainerFile[] = [];
   for (const line of listing.split("\n")) {
-    const [agent, file, sha256, modified, id, cwd] = line.split("\t");
+    const [agent, file, sha256, size, modified, id, cwd] = line.split("\t");
     if ((agent !== "claude" && agent !== "codex") || !file || !sha256) continue;
-    files.push({ agent, file, sha256, modified: Number(modified) * 1000, id: id || undefined, cwd: cwd || undefined });
+    files.push({ agent, file, sha256, size: Number(size), modified: Number(modified) * 1000, id: id || undefined, cwd: cwd || undefined });
   }
   return files;
 }
@@ -354,10 +355,19 @@ export function groupSessions(files: ContainerFile[], repo: string): ContainerSe
   return [...sessions.values()];
 }
 
-export function hostSha256(store: string, file: string): string | undefined {
+/**
+ * What bbd pull does with one container file. The laptop's copy is kept when it is the same, or when the
+ * container's is an older prefix of it: the session went on here after the last pull.
+ */
+export function pullState(laptop: Uint8Array | undefined, container: { size: number; sha256: string }): "copy" | "same" | "ahead" {
+  if (!laptop) return "copy";
+  const state = compareCopy(laptop, container);
+  return state === "same" ? "same" : state === "older" ? "ahead" : "copy";
+}
+
+export function hostCopy(store: string, file: string): Uint8Array | undefined {
   const path = join(store, file);
-  if (!existsSync(path)) return undefined;
-  return new CryptoHasher("sha256").update(readFileSync(path)).digest("hex");
+  return existsSync(path) ? new Uint8Array(readFileSync(path)) : undefined;
 }
 
 export async function fetchFile(workspace: Workspace, agent: SessionAgentKind, file: string): Promise<Uint8Array> {

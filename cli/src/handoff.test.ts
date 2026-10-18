@@ -1,6 +1,6 @@
 import { CryptoHasher } from "bun";
 import { expect, test } from "bun:test";
-import { compareCopy, type ContainerFile, groupSessions, linkTarget, parseDefaultAgent, pullable, tabLabel } from "./handoff.ts";
+import { compareCopy, type ContainerFile, groupSessions, linkTarget, parseDefaultAgent, pullable, pullState, tabLabel } from "./handoff.ts";
 import { claudeProjectDir } from "./sessions.ts";
 
 test("compareCopy: a container copy the laptop's extends is older; a longer or different one has diverged", () => {
@@ -15,13 +15,24 @@ test("compareCopy: a container copy the laptop's extends is older; a longer or d
   expect(compareCopy(laptop, stat(""))).toBe("older");
 });
 
+test("pullState: a second pull after carrying on here keeps this computer's newer copy", () => {
+  const bytes = (text: string) => new TextEncoder().encode(text);
+  const stat = (text: string) => ({ size: bytes(text).length, sha256: new CryptoHasher("sha256").update(text).digest("hex") });
+  const pulled = "turn 1\nturn 2 on the phone\n";
+  expect(pullState(undefined, stat(pulled))).toBe("copy");
+  expect(pullState(bytes(pulled), stat(pulled))).toBe("same");
+  expect(pullState(bytes(`${pulled}turn 3 here\n`), stat(pulled))).toBe("ahead");
+  expect(pullState(bytes("turn 1\n"), stat(pulled))).toBe("copy");
+  expect(pullState(bytes("turn 1\nturn 2 here\n"), stat(pulled))).toBe("copy");
+});
+
 const REPO = "/Users/me/src/app";
 const ID = "0b6f7a4e-3c1d-4e8f-9a2b-1c3d5e7f9a0b";
 const CODEX_A = "0199a213-81c0-7800-8aa1-bbab2a035a53";
 const CODEX_B = "0199a213-81c0-7800-8aa1-bbab2a035a54";
 
 function file(agent: "claude" | "codex", path: string, extra: Partial<ContainerFile> = {}): ContainerFile {
-  return { agent, file: path, sha256: "x", modified: 0, ...extra };
+  return { agent, file: path, sha256: "x", size: 0, modified: 0, ...extra };
 }
 
 function rollout(id: string): string {
