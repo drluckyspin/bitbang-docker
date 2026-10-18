@@ -16,7 +16,11 @@ set -euo pipefail
 source "$(dirname "$0")/log.bash"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SEMVER='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+# Semantic Versioning 2.0.0: no leading zeroes in numbers, and no empty identifiers.
+NUMBER='(0|[1-9][0-9]*)'
+PRERELEASE_ID="(${NUMBER}|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+BUILD_ID='[0-9A-Za-z-]+'
+SEMVER="^${NUMBER}\\.${NUMBER}\\.${NUMBER}(-${PRERELEASE_ID}(\\.${PRERELEASE_ID})*)?(\\+${BUILD_ID}(\\.${BUILD_ID})*)?\$"
 
 main() {
   if (($# > 1)); then
@@ -38,20 +42,26 @@ main() {
     exit 1
   fi
 
+  # VERSION goes last, so a manifest that is refused leaves every file as it was.
+  check_json_version "${ROOT}/package.json"
+  set_json_version "${ROOT}/package.json" "$version"
   printf '%s\n' "$version" >"${ROOT}/VERSION"
   log_indent log_success "Wrote ${version} to VERSION"
-  set_json_version "${ROOT}/package.json" "$version"
 }
 
 # Fails rather than guess when the file does not have exactly one top-level "version" line.
-set_json_version() {
-  local file="$1" version="$2" name count tmp
-  name="${file#"${ROOT}"/}"
+check_json_version() {
+  local file="$1" count
   count="$(grep -cE '^  "version": "[^"]*",?$' "$file" || true)"
   if [ "$count" != 1 ]; then
-    log_error "Expected one top-level \"version\" line in ${name}, found ${count}"
+    log_error "Expected one top-level \"version\" line in ${file#"${ROOT}"/}, found ${count}"
     exit 1
   fi
+}
+
+set_json_version() {
+  local file="$1" version="$2" name tmp
+  name="${file#"${ROOT}"/}"
   tmp="$(mktemp)"
   sed -E "s/^(  \"version\": \")[^\"]*(\",?)$/\1${version}\2/" "$file" >"$tmp"
   cat "$tmp" >"$file"
