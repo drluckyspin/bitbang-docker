@@ -1,5 +1,5 @@
 /**
- * bbd start: brings up the workspace for a repo, optionally hands it an agent session from the laptop, and
+ * go-remote start: brings up the workspace for a repo, optionally hands it an agent session from the laptop, and
  * shows the phone the way in.
  */
 import { copyFileSync, mkdirSync, realpathSync } from "node:fs";
@@ -50,7 +50,7 @@ export interface StartOptions extends LinkOptions {
 
 /** A transcript written to this recently may still be open on the laptop. */
 const LIVE_MS = 60_000;
-const BRIEF = ".bbd/handoff.md";
+const BRIEF = ".go-remote/handoff.md";
 
 async function uncommitted(repo: string): Promise<number> {
   const status = await capture(["git", "-C", repo, "status", "--porcelain"]);
@@ -59,12 +59,12 @@ async function uncommitted(repo: string): Promise<number> {
 
 /**
  * The session to hand over, after the checks that keep it to one writer. `moving` is a session still in the
- * turn that runs bbd: its own agent asked for the move, and the move waits for that turn to end.
+ * turn that runs go-remote: its own agent asked for the move, and the move waits for that turn to end.
  */
 async function sessionToHand(ref: SessionRef, repo: string, fork: boolean): Promise<{ session: Session; moving: boolean }> {
   const session = findHostSession(ref);
   if (!session) {
-    throw new UserError(`No ${AGENT_NAMES[ref.agent]} session ${ref.id} on this computer`, `bbd sessions ${repo} lists them.`);
+    throw new UserError(`No ${AGENT_NAMES[ref.agent]} session ${ref.id} on this computer`, `go-remote sessions ${repo} lists them.`);
   }
   if (!session.cwd || !within(session.cwd, repo)) {
     throw new UserError(
@@ -109,11 +109,11 @@ async function offerSignIn(
   return undefined;
 }
 
-/** With `handingOff`, the container starts no default agent: bbd starts the one asked for. */
+/** With `handingOff`, the container starts no default agent: go-remote starts the one asked for. */
 async function bringUp(root: string, repo: string, project: string, handingOff: boolean): Promise<Workspace> {
   const existing = (await listWorkspaces()).find((workspace) => workspace.project === project);
   if (existing && existing.repo !== repo) {
-    throw new UserError(`${project} already serves ${existing.repo}`, `Stop it first: bbd stop ${existing.repo}`);
+    throw new UserError(`${project} already serves ${existing.repo}`, `Stop it first: go-remote stop ${existing.repo}`);
   }
   if (existing?.state === "running") {
     ui.infoDim(`${project} is already running`);
@@ -123,10 +123,10 @@ async function bringUp(root: string, repo: string, project: string, handingOff: 
   return composeUp(root, repo, project, { handingOff });
 }
 
-/** Writes the handoff brief into the repo, where the container sees it (.bbd/ is excluded from git there). */
+/** Writes the handoff brief into the repo, where the container sees it (.go-remote/ is excluded from git there). */
 function placeBrief(repo: string, brief: string): void {
   const target = join(repo, BRIEF);
-  mkdirSync(join(repo, ".bbd"), { recursive: true });
+  mkdirSync(join(repo, ".go-remote"), { recursive: true });
   let same = false;
   try {
     same = realpathSync(brief) === realpathSync(target);
@@ -178,13 +178,13 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
       if (moving) {
         throw new UserError(
           `${AGENT_NAMES[agent]} cannot work in the container yet: ${ready.reason}`,
-          "The session stays here. Sign the container in with bbd login, in a terminal, then move it again.",
+          "The session stays here. Sign the container in with go-remote login, in a terminal, then move it again.",
         );
       }
       ui.warn(`${AGENT_NAMES[agent]} cannot work in the container yet: ${ready.reason}.`);
       const signedIn = await offerSignIn(root, workspace, agent, options, true);
       if (signedIn) workspace = signedIn;
-      else ui.dim(`It opens signed out; sign it in with: bbd login ${agent}`);
+      else ui.dim(`It opens signed out; sign it in with: go-remote login ${agent}`);
     }
     if (options.brief) placeBrief(repo, options.brief);
     if (moving && ref && session) {
@@ -227,7 +227,7 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
         workspace = signedIn;
         current = await settledDefaultAgent(workspace, { signedIn: true });
       }
-      if (current.state === "waiting") ui.dim("Sign in once with make login (or bbd login); the agent then starts on its own.");
+      if (current.state === "waiting") ui.dim("Sign in once with make login (or go-remote login); the agent then starts on its own.");
     }
     if (current.state === "running" && current.agent) {
       ui.success(`${AGENT_NAMES[current.agent]} is ready in its own tab; the link opens its chat`);

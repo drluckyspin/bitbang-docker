@@ -26,7 +26,7 @@ describe("withEnvValue", () => {
 });
 
 describe("envHas and setEnvValue", () => {
-  const dir = mkdtempSync(join(tmpdir(), "bbd-env-"));
+  const dir = mkdtempSync(join(tmpdir(), "go-remote-env-"));
 
   test("tells a value from an empty one", () => {
     const file = join(dir, "has");

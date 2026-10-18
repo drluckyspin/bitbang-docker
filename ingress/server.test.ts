@@ -89,7 +89,7 @@ describe("pages", () => {
     expect(response.headers.get("content-security-policy")).toBe("frame-ancestors 'self'");
     expect(response.headers.has("x-frame-options")).toBe(false);
     expect(html).toContain("<head><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'self'; script-src 'self'\">");
-    expect(html).toContain("<script src=\"/__bbd/compat.js\"></script>");
+    expect(html).toContain("<script src=\"/__go-remote/compat.js\"></script>");
   });
 
   test("a gzipped page is decoded before it is rewritten", async () => {
@@ -98,7 +98,7 @@ describe("pages", () => {
       decompress: false,
     });
     expect(response.headers.has("content-encoding")).toBe(false);
-    expect(await response.text()).toContain("/__bbd/compat.js");
+    expect(await response.text()).toContain("/__go-remote/compat.js");
   });
 
   test("a sandboxed file preview keeps its policy", async () => {
@@ -109,10 +109,10 @@ describe("pages", () => {
 
   test("the compat script and health check are served by the ingress itself", async () => {
     const before = seen.length;
-    const compat = await fetch(`${base}/__bbd/compat.js`);
+    const compat = await fetch(`${base}/__go-remote/compat.js`);
     expect(compat.headers.get("content-type")).toContain("text/javascript");
     expect(await compat.text()).toBe("/* compat */");
-    expect(await (await fetch(`${base}/__bbd/health`)).text()).toBe("ok\n");
+    expect(await (await fetch(`${base}/__go-remote/health`)).text()).toBe("ok\n");
     expect(seen.length).toBe(before);
   });
 });

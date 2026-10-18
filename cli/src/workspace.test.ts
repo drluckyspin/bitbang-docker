@@ -12,10 +12,10 @@ test("uiMode reads GR_UI as the entrypoint does, and an image without it as the 
 
 describe("projectName", () => {
   test("matches Common.make's tr pipeline", () => {
-    expect(projectName("/Users/me/src/My Repo.v2")).toBe("bbd-my-repo-v2");
-    expect(projectName("/Users/me/src/my_repo")).toBe("bbd-my_repo");
+    expect(projectName("/Users/me/src/My Repo.v2")).toBe("go-remote-my-repo-v2");
+    expect(projectName("/Users/me/src/my_repo")).toBe("go-remote-my_repo");
     // tr works on bytes: é is two of them
-    expect(projectName("/Users/me/src/café")).toBe("bbd-caf--");
+    expect(projectName("/Users/me/src/café")).toBe("go-remote-caf--");
   });
 });
 
@@ -24,7 +24,7 @@ describe("reservedConflict", () => {
     expect(reservedConflict("/usr/local/src/app")).toBe("/usr");
     expect(reservedConflict("/home/agent")).toBe("/home/agent");
     expect(reservedConflict("/home")).toBe("/home/agent");
-    expect(reservedConflict("/tmp")).toBe("/tmp/bbd");
+    expect(reservedConflict("/tmp")).toBe("/tmp/go-remote");
     expect(reservedConflict("/workspace/app")).toBe("/workspace");
   });
 
@@ -37,19 +37,19 @@ describe("reservedConflict", () => {
 
 describe("resolveRepo", () => {
   test("resolves symlinks and spots a repo", () => {
-    const dir = realpathSync(mkdtempSync(join(tmpdir(), "bbd-repo-")));
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "go-remote-repo-")));
     mkdirSync(join(dir, ".git"));
     expect(resolveRepo(dir)).toEqual({ path: dir, isGit: true });
   });
 
   test("refuses a worktree, whose .git points outside the mount", () => {
-    const dir = mkdtempSync(join(tmpdir(), "bbd-worktree-"));
+    const dir = mkdtempSync(join(tmpdir(), "go-remote-worktree-"));
     writeFileSync(join(dir, ".git"), "gitdir: /elsewhere/.git/worktrees/x\n");
     expect(() => resolveRepo(dir)).toThrow("worktree");
   });
 
   test("refuses what does not exist, and the home directory", () => {
-    expect(() => resolveRepo("/nonexistent/bbd")).toThrow("does not exist");
+    expect(() => resolveRepo("/nonexistent/go-remote")).toThrow("does not exist");
     expect(() => resolveRepo("~")).toThrow("Refusing to mount");
   });
 });

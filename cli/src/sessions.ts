@@ -1,6 +1,6 @@
 /**
- * Agent sessions on the laptop and in a workspace: finding them, copying them in (bbd start --resume) and back
- * out (bbd pull). The repo has the same path on both sides, so transcripts need no rewriting: Claude Code keys
+ * Agent sessions on the laptop and in a workspace: finding them, copying them in (go-remote start --resume) and back
+ * out (go-remote pull). The repo has the same path on both sides, so transcripts need no rewriting: Claude Code keys
  * its project folder on the directory a session ran in, and Codex records that directory in the rollout.
  *
  * Files keep their path relative to the agent's own folder (~/.claude, ~/.codex) on both sides.
@@ -12,7 +12,7 @@ import { printable, UserError } from "./ui.ts";
 
 /** An agent available in the container. Cursor sessions cannot yet be moved between the laptop and container. */
 export type AgentKind = "claude" | "codex" | "cursor";
-/** An agent whose transcript format BBD knows how to copy, resume and pull. */
+/** An agent whose transcript format GO_REMOTE knows how to copy, resume and pull. */
 export type SessionAgentKind = Exclude<AgentKind, "cursor">;
 
 export const AGENT_NAMES: Record<AgentKind, string> = { claude: "Claude Code", codex: "Codex", cursor: "Cursor" };
@@ -59,7 +59,7 @@ export function parseSessionRef(text: string): SessionRef {
   const match = /^(claude|codex):(.+)$/.exec(text.trim());
   const id = match?.[2];
   if (!match || !id || !SESSION_ID.test(id)) {
-    throw new UserError(`Not a session: ${text}`, "Use claude:<session id> or codex:<session id>; bbd sessions lists them.");
+    throw new UserError(`Not a session: ${text}`, "Use claude:<session id> or codex:<session id>; go-remote sessions lists them.");
   }
   return { agent: match[1] as SessionAgentKind, id: id.toLowerCase() };
 }
@@ -248,7 +248,7 @@ export function writeBack(store: string, file: string, bytes: Uint8Array, stamp:
   let state: "new" | "updated" = "new";
   if (existsSync(path)) {
     if (Buffer.from(readFileSync(path)).equals(Buffer.from(bytes))) return "same";
-    renameSync(path, `${path}.bbd-${stamp}.bak`);
+    renameSync(path, `${path}.go-remote-${stamp}.bak`);
     state = "updated";
   }
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });

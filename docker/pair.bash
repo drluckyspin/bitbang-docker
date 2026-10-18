@@ -13,7 +13,7 @@
 
 set -euo pipefail
 
-TOKEN_FILE=/tmp/bbd/web-token
+TOKEN_FILE=/tmp/go-remote/web-token
 WEB_UI="http://127.0.0.1:${GR_WEB_PORT:-7317}"
 
 if [ ! -s "$TOKEN_FILE" ]; then
@@ -22,7 +22,7 @@ if [ ! -s "$TOKEN_FILE" ]; then
 fi
 
 # The token goes in a header file, never on a command line where ps would show it.
-header_file="$(mktemp /tmp/bbd/pair-headers.XXXXXX)"
+header_file="$(mktemp /tmp/go-remote/pair-headers.XXXXXX)"
 trap 'rm -f "$header_file"' EXIT
 printf 'Authorization: Bearer %s\n' "$(cat "$TOKEN_FILE")" >"$header_file"
 

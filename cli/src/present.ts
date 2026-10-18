@@ -1,6 +1,6 @@
 /**
  * Handing the link to the person holding the phone, and to nobody else. On an interactive terminal it is shown
- * there; otherwise (an agent ran bbd, or stdout is a pipe) it never reaches stdout or stderr, and the QR code
+ * there; otherwise (an agent ran go-remote, or stdout is a pipe) it never reaches stdout or stderr, and the QR code
  * opens in a window on this computer instead.
  */
 import { openImage } from "./host.ts";
@@ -44,7 +44,7 @@ export async function showLink(
 ): Promise<Shown> {
   let qr: Shown["qr"] = "none";
   if (!interactive(options) && !options.window) {
-    ui.warn("The link was not shown: there is no terminal or window to show it in. Run bbd qr in a terminal.");
+    ui.warn("The link was not shown: there is no terminal or window to show it in. Run go-remote qr in a terminal.");
     return { qr };
   }
 
@@ -69,10 +69,10 @@ export async function showLink(
   const pin = (await capture(["docker", "exec", workspace.id, "sh", "-c", '[ -n "$BITBANG_PIN" ]'])).code === 0;
   if (qr === "window") ui.info("The QR code is open in a window on this computer. Scan it with your phone's camera.");
   if (qr === "none" && !interactive(options)) {
-    ui.warn("The link was not shown: there is no terminal or window to show it in. Run bbd qr in a terminal.");
+    ui.warn("The link was not shown: there is no terminal or window to show it in. Run go-remote qr in a terminal.");
   }
   if (workspace.ui === "web" && (interactive(options) || qr === "window")) {
-    ui.dim("It connects and pairs one phone in a single scan. The pairing code expires in 10 minutes; bbd qr makes a new one.");
+    ui.dim("It connects and pairs one phone in a single scan. The pairing code expires in 10 minutes; go-remote qr makes a new one.");
   }
   if (pin) ui.dim("BitBang asks for the PIN from .env before connecting.");
   if (interactive(options)) ui.warn("The link opens this workspace. Share it like a password.");

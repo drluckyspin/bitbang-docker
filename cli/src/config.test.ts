@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 function checkout(): string {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), "bbd-checkout-")));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "go-remote-checkout-")));
   mkdirSync(join(dir, "scripts"));
   writeFileSync(join(dir, "docker-compose.yml"), "");
   writeFileSync(join(dir, "scripts", "checkenv.bash"), "");
@@ -23,7 +23,7 @@ function checkout(): string {
 
 test("the recorded checkout is found from anywhere, and --root and GR_ROOT come first", () => {
   delete process.env.GR_ROOT;
-  process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "bbd-config-"));
+  process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "go-remote-config-"));
   const recorded = checkout();
   expect(saveRoot(`${recorded}/`).root).toBe(recorded);
   expect(resolveRoot()).toBe(recorded);
@@ -35,7 +35,7 @@ test("the recorded checkout is found from anywhere, and --root and GR_ROOT come 
 });
 
 test("a named checkout that is not one fails, instead of falling through to another", () => {
-  process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "bbd-config-"));
+  process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "go-remote-config-"));
   saveRoot(checkout());
   process.env.GR_ROOT = tmpdir();
   expect(() => resolveRoot()).toThrow("(from GR_ROOT) is not a go-remote checkout");

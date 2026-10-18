@@ -1,6 +1,6 @@
 // A stand-in for the Anthropic Messages API, so the e2e check can drive the real Claude Code without a
 // login: the workspace's ANTHROPIC_BASE_URL points here, inside the container. Every request is answered
-// with one text reply. A message carrying a bbd-e2e marker is answered with `<marker>-reply`, which only
+// with one text reply. A message carrying a go-remote-e2e marker is answered with `<marker>-reply`, which only
 // the agent's turn can hold, so the check can tell the reply from the echo of what it typed.
 //
 // Usage: bun mock-anthropic.ts [port]   (default 8099; listens on loopback only)
@@ -18,7 +18,7 @@ function lastUserText(body: { messages?: Message[] }): string {
 }
 
 function reply(body: { messages?: Message[] }): string {
-  const marker = lastUserText(body).match(/bbd-e2e-[0-9]+/)?.[0];
+  const marker = lastUserText(body).match(/go-remote-e2e-[0-9]+/)?.[0];
   return marker ? `${marker}-reply` : "ok";
 }
 

@@ -18,7 +18,7 @@ function detached(command: string, args: string[]): void {
 export async function openImage(png: Uint8Array, name: string): Promise<boolean> {
   const opener = process.platform === "darwin" ? "open" : "xdg-open";
   if ((await capture(["sh", "-c", `command -v ${opener}`])).code !== 0) return false;
-  const dir = mkdtempSync(join(tmpdir(), "bbd-qr-"));
+  const dir = mkdtempSync(join(tmpdir(), "go-remote-qr-"));
   chmodSync(dir, 0o700);
   const file = join(dir, `${name}.png`);
   writeFileSync(file, png, { mode: 0o600 });

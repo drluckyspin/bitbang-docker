@@ -1,4 +1,4 @@
-/** bbd sessions and bbd pull: agent sessions on the laptop, and bringing the container's back. */
+/** go-remote sessions and go-remote pull: agent sessions on the laptop, and bringing the container's back. */
 import { containerFiles, fetchFile, groupSessions, hostSha256, openSessions } from "../handoff.ts";
 import { AGENT_NAMES, hostSessions, hostStores, parseSessionRef, writeBack } from "../sessions.ts";
 import { shellQuote, ui, UserError } from "../ui.ts";
@@ -39,7 +39,7 @@ export async function sessions(options: { path?: string; json: boolean }): Promi
     const where = session.cwd && session.cwd !== repo ? `  (in ${session.cwd.slice(repo.length + 1)})` : "";
     process.stdout.write(`${session.agent}:${session.id}  ${ago(session.modified).padEnd(12)}  ${session.title ?? ""}${where}\n`);
   }
-  ui.dim(`Hand one to a workspace with: bbd start ${repo} --resume <agent:id> (add --fork to keep the laptop's going too)`);
+  ui.dim(`Hand one to a workspace with: go-remote start ${repo} --resume <agent:id> (add --fork to keep the laptop's going too)`);
   return undefined;
 }
 
@@ -89,7 +89,7 @@ export async function pull(options: { path?: string; ref?: string; json: boolean
     const [agent, id] = ref.split(":") as ["claude" | "codex", string];
     switch (result.state) {
       case "open":
-        ui.warn(`${ref} is still open in the container; quit it there, then run bbd pull again`);
+        ui.warn(`${ref} is still open in the container; quit it there, then run go-remote pull again`);
         break;
       case "busy":
         ui.warn(`${ref} is still being written to; try again in a moment`);

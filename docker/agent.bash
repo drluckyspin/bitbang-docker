@@ -5,9 +5,9 @@
 #
 # Description: The web mode's default agent. Answers Claude Code's and Codex's first-run questions for the
 #              mounted repo, starts the default agent (GR_DEFAULT_AGENT) in its own Herdr tab as soon as
-#              one is signed in, and keeps its state in /tmp/bbd/agent.json for bbd and the shell's hint.
+#              one is signed in, and keeps its state in /tmp/go-remote/agent.json for go-remote and the shell's hint.
 #              An agent opened before anyone signed in sits at its sign-in screen; once the sign-in happens
-#              elsewhere (bbd login), it is restarted in its tab.
+#              elsewhere (go-remote login), it is restarted in its tab.
 #
 # Usage: go-remote-agent prepare         Answer the first-run questions and record the starting state
 #        go-remote-agent watch           Start the default agent once it is signed in (the entrypoint)
@@ -24,7 +24,7 @@ set -euo pipefail
 source /usr/local/lib/go-remote/log.bash
 
 REPO="${GR_REPO:-/workspace}"
-RUNTIME_DIR=/tmp/bbd
+RUNTIME_DIR=/tmp/go-remote
 STATE_FILE="${RUNTIME_DIR}/agent.json"
 LOCK_FILE="${HOME}/.config/go-remote/agent-config.lock"
 POLL_SECONDS="${GR_AGENT_POLL_SECONDS:-3}"
@@ -344,7 +344,7 @@ watch() {
 
     if [ -z "$warned" ]; then
       write_state waiting "$(awaited)"
-      log_warning "No agent is signed in yet. Sign in once with make login (or bbd login); the default agent then starts on its own."
+      log_warning "No agent is signed in yet. Sign in once with make login (or go-remote login); the default agent then starts on its own."
       warned=1
     fi
     sleep "$POLL_SECONDS"
@@ -364,7 +364,7 @@ hint() {
   cat <<'EOF'
 No agent is signed in yet. Sign in once and
 it opens in its own tab, ready to chat:
-  On your Mac:  make login  (or bbd login)
+  On your Mac:  make login  (or go-remote login)
   Or here:      claude auth login
                 codex login --device-auth
                 cursor-agent login

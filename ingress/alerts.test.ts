@@ -73,7 +73,7 @@ test("throttle sends one alert per pane and kind in the quiet window", () => {
 });
 
 test("herdrRequest speaks newline-delimited JSON", async () => {
-  const path = join(mkdtempSync(join(tmpdir(), "bbd-alerts-")), "herdr.sock");
+  const path = join(mkdtempSync(join(tmpdir(), "go-remote-alerts-")), "herdr.sock");
   const server = createServer((socket) => {
     socket.setEncoding("utf8");
     socket.on("data", (line: string) => {

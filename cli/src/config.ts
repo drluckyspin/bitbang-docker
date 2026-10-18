@@ -1,7 +1,7 @@
 /**
- * Where the go-remote checkout is: it holds docker-compose.yml, .env and the scripts. In order: --root,
- * GR_ROOT, ~/.config/bbd/config.json (written by bbd setup, which make install-cli runs), then the checkout a
- * dist/ binary sits in.
+ * Where the go-remote checkout is: it holds docker-compose.yml, .env and the scripts. In order: --root, GR_ROOT,
+ * ~/.config/go-remote/config.json (written by go-remote setup, which make install-cli runs), then the checkout a dist/
+ * binary sits in.
  */
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -9,12 +9,12 @@ import { dirname, join, resolve } from "node:path";
 import { UserError } from "./ui.ts";
 
 export function configPath(): string {
-  return join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "bbd", "config.json");
+  return join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "go-remote", "config.json");
 }
 
-/** Where bbd keeps what it is doing in the background: the session moves and their logs. */
+/** Where go-remote keeps what it is doing in the background: the session moves and their logs. */
 export function stateDir(): string {
-  return join(process.env.XDG_STATE_HOME || join(homedir(), ".local", "state"), "bbd");
+  return join(process.env.XDG_STATE_HOME || join(homedir(), ".local", "state"), "go-remote");
 }
 
 function configuredRoot(): string | undefined {

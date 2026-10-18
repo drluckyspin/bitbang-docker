@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { installSkill, publishedSource, skillPaths, skillState } from "./skill.ts";
 
 function home(): string {
-  return mkdtempSync(join(tmpdir(), "bbd-skill-"));
+  return mkdtempSync(join(tmpdir(), "go-remote-skill-"));
 }
 
 function oldSkill(dir: string, text: string): { dir: string; link: string } {

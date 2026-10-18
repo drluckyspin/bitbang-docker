@@ -50,8 +50,8 @@ export async function agentReady(workspace: Workspace, agent: AgentKind): Promis
   const result = await capture(["docker", "exec", workspace.id, "go-remote-agent", "ready", agent]);
   if (result.code === 0) return { ok: true };
   if (result.code === 3) return { ok: false, reason: "it is not signed in yet" };
-  if (result.code === 127) return { ok: false, reason: "the image is older than bbd; rebuild it with make build" };
-  return { ok: false, reason: "bbd could not check its sign-in" };
+  if (result.code === 127) return { ok: false, reason: "the image is older than go-remote; rebuild it with make build" };
+  return { ok: false, reason: "go-remote could not check its sign-in" };
 }
 
 /** The web mode's default agent, as the container's go-remote-agent watch records it. */
@@ -246,7 +246,7 @@ export async function containerFiles(workspace: Workspace): Promise<ContainerFil
 }
 
 /**
- * Whether bbd pull may write a path the container listed onto the laptop: a plain relative path in the agent's
+ * Whether go-remote pull may write a path the container listed onto the laptop: a plain relative path in the agent's
  * session folders for this repo. An agent in the container can name files so that the listing says anything.
  */
 export function pullable(agent: SessionAgentKind, file: string, repo: string): boolean {

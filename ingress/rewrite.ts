@@ -1,5 +1,5 @@
 /**
- * The pure half of bbd-ingress: what changes between BitBang's HTTP proxy and herdr-web-ui, and why.
+ * The pure half of go-remote-ingress: what changes between BitBang's HTTP proxy and herdr-web-ui, and why.
  *
  * BitBang shows the device's page in a same-origin iframe on bitba.ng, and its service worker prepends an inline
  * bootstrap script to every HTML page. herdr-web-ui forbids both (`frame-ancestors 'none'`, `script-src 'self'`).
@@ -7,8 +7,8 @@
  * the app loads, and only `frame-ancestors 'self'` stays a header, because browsers ignore it in a meta tag.
  */
 
-export const COMPAT_PATH = "/__bbd/compat.js";
-export const HEALTH_PATH = "/__bbd/health";
+export const COMPAT_PATH = "/__go-remote/compat.js";
+export const HEALTH_PATH = "/__go-remote/health";
 
 /** RFC 9110 hop-by-hop headers, plus the ones a proxy must recompute for the body it actually sends. */
 const HOP_BY_HOP = [

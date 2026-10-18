@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-/** bbd: start go-remote workspaces, hand agent sessions to them, and open them on a phone. */
+/** go-remote: start hardened workspaces, hand agent sessions to them, and open them on a phone. */
 import { parseArgs, type ParseArgsConfig } from "node:util";
 import pkg from "../../package.json" with { type: "json" };
 import { doctor } from "./commands/doctor.ts";
@@ -14,23 +14,23 @@ import { finishMove, type MovePlan } from "./move.ts";
 import type { AgentKind } from "./sessions.ts";
 import { ui, UserError } from "./ui.ts";
 
-const HELP = `bbd: hardened go-remote workspaces for your repos, on your phone over BitBang
+const HELP = `go-remote: hardened coding-agent workspaces for your repos, on your phone over BitBang
 
-Usage: bbd <command> [options]
+Usage: go-remote <command> [options]   (gr for short)
 
 Commands:
   start [path]            Start (or reuse) the workspace for a repo and show its QR code
       --agent claude|codex|cursor
                               Start an agent in a new tab, on a new conversation
-      --resume <agent:id>     Move a session from this computer there (bbd sessions lists them). Run from
+      --resume <agent:id>     Move a session from this computer there (go-remote sessions lists them). Run from
                               inside that session, by /go-remote, it moves once the turn ends: the session
                               here closes and the QR code opens in a window
       --fork                  Continue a copy of it, so the laptop's can carry on too
-      --brief <file>          Give the agent a handoff brief (copied to .bbd/handoff.md in the repo)
+      --brief <file>          Give the agent a handoff brief (copied to .go-remote/handoff.md in the repo)
       --open chat|terminal    What the phone opens (default: chat with an agent, else the terminal)
   login [claude|codex|cursor] [path]
                           Sign Claude Code (default), Codex or Cursor in, once, for every workspace. Claude Code
-                          signs in here, with claude setup-token, and bbd keeps the token in .env; Codex, Cursor
+                          signs in here, with claude setup-token, and go-remote keeps the token in .env; Codex, Cursor
                           (or Claude Code when it is not installed here) sign in inside the container
   qr [path]               Show a fresh QR code for a workspace (--open, --pane <id>)
   list                    List workspaces, their health and their agents
@@ -66,7 +66,7 @@ function parse<O extends NonNullable<ParseArgsConfig["options"]>>(args: string[]
   try {
     return parseArgs({ args, options: { ...options, help: { type: "boolean", short: "h" } }, allowPositionals: true, strict: true });
   } catch (error) {
-    throw new UserError(error instanceof Error ? error.message : String(error), "bbd help lists the options.");
+    throw new UserError(error instanceof Error ? error.message : String(error), "go-remote help lists the options.");
   }
 }
 
@@ -95,7 +95,7 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     case "version":
     case "--version":
-      process.stdout.write(`bbd ${pkg.version}\n`);
+      process.stdout.write(`go-remote ${pkg.version}\n`);
       return 0;
     case "start": {
       const { values, positionals } = parse(rest, {
@@ -145,7 +145,7 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     }
     case "__move": {
-      // the background half of a move that bbd start began (see move.ts); not for people
+      // the background half of a move that go-remote start began (see move.ts); not for people
       await finishMove(JSON.parse(rest[0] ?? "{}") as MovePlan);
       return process.exitCode === 1 ? 1 : 0;
     }
@@ -208,21 +208,21 @@ async function main(argv: string[]): Promise<number> {
     case "setup": {
       const { values } = parse(rest, ROOT_OPTION);
       if (values.help) break;
-      if (!values.root) throw new UserError("bbd setup needs --root <dir>, the go-remote checkout");
+      if (!values.root) throw new UserError("go-remote setup needs --root <dir>, the go-remote checkout");
       const saved = saveRoot(values.root);
       ui.success(`Recorded ${saved.root} in ${saved.file}`);
       return 0;
     }
     default:
-      throw new UserError(`Unknown command: ${command}`, "bbd help lists the commands.");
+      throw new UserError(`Unknown command: ${command}`, "go-remote help lists the commands.");
   }
   process.stdout.write(HELP);
   return 0;
 }
 
 /**
- * A compiled bbd is the Bun runtime, which on macOS uploads a report of its own crashes unless DO_NOT_TRACK is
- * in the environment it starts with. Without it, bbd runs itself again with it set, passing on the terminal,
+ * A compiled go-remote is the Bun runtime, which on macOS uploads a report of its own crashes unless DO_NOT_TRACK is
+ * in the environment it starts with. Without it, go-remote runs itself again with it set, passing on the terminal,
  * the exit code, and any signal sent to this process alone.
  */
 async function rerunUntracked(): Promise<number | undefined> {

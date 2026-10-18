@@ -1,4 +1,4 @@
-# One hardened workspace container per repo. `make` and `bbd` set the project name (bbd-<repo>), GR_REPO,
+# One hardened workspace container per repo. `make` and `go-remote` set the project name (go-remote-<repo>), GR_REPO,
 # USER_UID/GID and the git identity; everything else is interpolated from .env.
 services:
   workspace:
@@ -21,7 +21,7 @@ services:
     restart: "no"
     labels:
       go-remote.repo: ${GR_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
-      # Which .env the container was given, so bbd login restarts only the workspaces its token is for
+      # Which .env the container was given, so go-remote login restarts only the workspaces its token is for
       go-remote.env-file: ${GR_ENV_FILE:-.env}
     healthcheck:
       test: ["CMD-SHELL", "[ \"$$(cat /tmp/bitbang/health 2>/dev/null)\" = ok ]"]
@@ -47,7 +47,7 @@ services:
     env_file:
       - path: ${GR_ENV_FILE:-.env}
         required: false
-    # Non-secret settings, which make, bbd and the smoke test may override from the shell.
+    # Non-secret settings, which make, go-remote and the smoke test may override from the shell.
     environment:
       GR_REPO: ${GR_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
       # One Herdr session per workspace: they share the home volume, and must not share a server.
@@ -63,7 +63,7 @@ services:
 
 volumes:
   # Shared by every workspace. External, so compose neither ties it to whichever project created it (and warns
-  # all the others) nor deletes it on down -v. bbd creates it before starting; make clean-home deletes it.
+  # all the others) nor deletes it on down -v. go-remote creates it before starting; make clean-home deletes it.
   home:
     name: ${GR_HOME_VOLUME:-go-remote-home}
     external: true

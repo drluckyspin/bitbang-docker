@@ -1,5 +1,5 @@
 /**
- * bbd-alerts: posts to ntfy when an agent in this workspace needs you, or finishes a turn, so the phone hears
+ * go-remote-alerts: posts to ntfy when an agent in this workspace needs you, or finishes a turn, so the phone hears
  * about it with the BitBang tab closed. herdr-web-ui's own Web Push cannot work inside BitBang's frame.
  *
  * An alert names the agent and the repo, never transcript text: the ntfy server may be a public one. The topic is
@@ -102,7 +102,7 @@ export function herdrRequest<T>(socketPath: string, method: string, params: obje
     let buffer = "";
     socket.setEncoding("utf8");
     socket.setTimeout(10_000, () => socket.destroy(new Error(`${method} timed out`)));
-    socket.on("connect", () => socket.write(`${JSON.stringify({ id: "bbd-alerts", method, params })}\n`));
+    socket.on("connect", () => socket.write(`${JSON.stringify({ id: "go-remote-alerts", method, params })}\n`));
     socket.on("data", (chunk: string) => {
       buffer += chunk;
       const end = buffer.indexOf("\n");
@@ -130,7 +130,7 @@ async function publish(alert: Alert, server: string, topic: string, token: strin
 }
 
 function log(message: string): void {
-  console.error(`${new Date().toISOString()} bbd-alerts: ${message}`);
+  console.error(`${new Date().toISOString()} go-remote-alerts: ${message}`);
 }
 
 async function main(): Promise<void> {

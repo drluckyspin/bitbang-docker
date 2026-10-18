@@ -136,7 +136,7 @@ RUN set -eux; \
   userdel -r node; \
   getent group "${USER_GID}" >/dev/null || groupadd -g "${USER_GID}" agent; \
   useradd -l -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash agent; \
-  ln -s /tmp/bbd/workspace /workspace
+  ln -s /tmp/go-remote/workspace /workspace
 
 COPY third_party/ /usr/local/share/doc/go-remote/third_party/
 COPY scripts/log.bash /usr/local/lib/go-remote/log.bash
@@ -153,7 +153,7 @@ COPY docker/agent.bash /usr/local/bin/go-remote-agent
 COPY docker/bashrc /usr/local/share/go-remote/bashrc
 RUN printf '\n. /usr/local/share/go-remote/bashrc\n' >>/etc/bash.bashrc
 
-# Read by bbd doctor and the session handoff, which warn when the laptop's agent CLIs differ.
+# Read by go-remote doctor and the session handoff, which warn when the laptop's agent CLIs differ.
 LABEL go-remote.version.bitbang="${BITBANG_VERSION}" \
       go-remote.version.bun="${BUN_VERSION}" \
       go-remote.version.claude-code="${CLAUDE_CODE_VERSION}" \

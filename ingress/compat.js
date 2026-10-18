@@ -1,4 +1,4 @@
-// bbd compat: loaded by bbd-ingress at the top of herdr-web-ui's page, inside BitBang's iframe on bitba.ng.
+// go-remote compat: loaded by go-remote-ingress at the top of herdr-web-ui's page, inside BitBang's iframe on bitba.ng.
 (() => {
   "use strict";
 
@@ -47,11 +47,11 @@
   const nativeOpen = xhr.open;
   const nativeSend = xhr.send;
   xhr.open = function open(method, url, ...rest) {
-    this.__bbdMutating = MUTATING.test(String(method)) && sameOrigin(String(url));
+    this.__goRemoteMutating = MUTATING.test(String(method)) && sameOrigin(String(url));
     return nativeOpen.call(this, method, url, ...rest);
   };
   xhr.send = function send(body) {
-    if (this.__bbdMutating) {
+    if (this.__goRemoteMutating) {
       try {
         this.setRequestHeader("x-herdr-machine", "1");
       } catch {

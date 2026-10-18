@@ -8,7 +8,7 @@
 #              the URL is stable for the life of the container (watchdog restarts keep it) and gone once
 #              the container stops.
 #
-#              GR_UI=web (default):  herdr server -> herdr-web-ui :7317 -> bbd-ingress :7300 -> BitBang proxy
+#              GR_UI=web (default):  herdr server -> herdr-web-ui :7317 -> go-remote-ingress :7300 -> BitBang proxy
 #              GR_UI=shell:          BitBang's own terminal, pinned to the tmux session
 # -----------------------------------------------------------------------------------------------------------
 
@@ -19,7 +19,7 @@ set -euo pipefail
 source /usr/local/lib/go-remote/log.bash
 
 REPO="${GR_REPO:-}"
-RUNTIME_DIR=/tmp/bbd
+RUNTIME_DIR=/tmp/go-remote
 BITBANG_HOME=/tmp/bitbang
 ICE_SERVERS_FILE=/etc/go-remote/ice-servers.json
 SESSION_COMMAND=go-remote-session
@@ -69,7 +69,7 @@ check_workspace() {
 # Function: configure_git
 # Description: Global git config lives in the home volume, never in the mounted repo. SSH remotes are
 #              rewritten to HTTPS because the container holds no SSH keys; GH_TOKEN authenticates HTTPS.
-#              Files the web UI and bbd keep in the repo (pasted images, handoff briefs) are excluded
+#              Files the web UI and go-remote keep in the repo (pasted images, handoff briefs) are excluded
 #              locally, in .git/info/exclude, so they never show up as changes.
 # -----------------------------------------------------------------------------------------------------------
 configure_git() {
@@ -96,7 +96,7 @@ configure_git_locked() {
 
   if [ -d "${REPO}/.git" ]; then
     mkdir -p "${REPO}/.git/info"
-    for pattern in /.herdr-web-ui/ /.bbd/; do
+    for pattern in /.herdr-web-ui/ /.go-remote/; do
       if ! grep -qxF "$pattern" "$exclude" 2>/dev/null; then
         echo "$pattern" >>"$exclude"
       fi
@@ -154,14 +154,14 @@ wait_for() {
 
 # -----------------------------------------------------------------------------------------------------------
 # Function: fresh_session
-# Description: A new container starts a new Herdr session, so bbd start opens a new conversation: the
+# Description: A new container starts a new Herdr session, so go-remote start opens a new conversation: the
 #              tabs and agents of the last container are not brought back. Their transcripts stay, for
-#              bbd pull and --resume. A restarted container keeps its session; its hostname, the
+#              go-remote pull and --resume. A restarted container keeps its session; its hostname, the
 #              container ID, tells the two apart.
 # -----------------------------------------------------------------------------------------------------------
 fresh_session() {
   local dir="${HOME}/.config/herdr/sessions/${HERDR_SESSION:-default}"
-  local marker="${dir}/bbd-container"
+  local marker="${dir}/go-remote-container"
 
   if [ "$(cat "$marker" 2>/dev/null)" != "$HOSTNAME" ]; then
     rm -rf "${dir}/session.json" "${dir}/session-history.json" "${dir}/session-snapshots"
@@ -207,7 +207,7 @@ start_herdr() {
 # Function: start_default_agent
 # Description: In the background, start the default agent (GR_DEFAULT_AGENT) in its own Herdr tab once
 #              one is signed in, so the phone's Chat has an agent to talk to and the sign-in needs no restart.
-#              Its state is in /tmp/bbd/agent.json (go-remote-agent status).
+#              Its state is in /tmp/go-remote/agent.json (go-remote-agent status).
 # -----------------------------------------------------------------------------------------------------------
 start_default_agent() {
   go-remote-agent watch &
@@ -239,12 +239,12 @@ start_web_ui() {
     bun server/index.ts
   wait_for "herdr-web-ui" curl -fsS "http://127.0.0.1:${WEB_PORT}/api/health"
 
-  start_service bbd-ingress env \
+  start_service go-remote-ingress env \
     GR_INGRESS_PORT="$INGRESS_PORT" \
     GR_INGRESS_UPSTREAM="127.0.0.1:${WEB_PORT}" \
     bun "$INGRESS_SCRIPT"
-  wait_for "bbd-ingress" curl -fsS "http://127.0.0.1:${INGRESS_PORT}/__bbd/health"
-  log_success "herdr-web-ui is running behind bbd-ingress"
+  wait_for "go-remote-ingress" curl -fsS "http://127.0.0.1:${INGRESS_PORT}/__go-remote/health"
+  log_success "herdr-web-ui is running behind go-remote-ingress"
 }
 
 # -----------------------------------------------------------------------------------------------------------
@@ -255,7 +255,7 @@ start_alerts() {
   if [ -z "${GR_NTFY_TOPIC:-}" ]; then
     return
   fi
-  start_service bbd-alerts env GR_REPO_NAME="$(basename "$REPO")" HERDR_SOCKET="$HERDR_SOCKET" bun "$ALERTS_SCRIPT"
+  start_service go-remote-alerts env GR_REPO_NAME="$(basename "$REPO")" HERDR_SOCKET="$HERDR_SOCKET" bun "$ALERTS_SCRIPT"
   log_info "Agent alerts go to ntfy topic on ${GR_NTFY_SERVER:-https://ntfy.sh}"
 }
 
@@ -345,7 +345,7 @@ probe_listener() {
     return 1
   fi
   if [ "$(ui_mode)" = web ] && ! curl -fsS -o /dev/null "http://127.0.0.1:${INGRESS_PORT}/api/health"; then
-    log_warning "Watchdog probe: herdr-web-ui is not answering through bbd-ingress"
+    log_warning "Watchdog probe: herdr-web-ui is not answering through go-remote-ingress"
     return 1
   fi
   return 0

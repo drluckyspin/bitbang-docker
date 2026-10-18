@@ -1,7 +1,7 @@
 /**
- * bbd-ingress: the adapter between BitBang's HTTP proxy and herdr-web-ui, both on loopback.
+ * go-remote-ingress: the adapter between BitBang's HTTP proxy and herdr-web-ui, both on loopback.
  *
- *   bitbang serve -proxy-client-ip proxy 127.0.0.1:7300  ->  bbd-ingress :7300  ->  herdr-web-ui :7317
+ *   bitbang serve -proxy-client-ip proxy 127.0.0.1:7300  ->  go-remote-ingress :7300  ->  herdr-web-ui :7317
  *
  * See rewrite.ts for what changes and why. Request URLs are never logged: a scanned QR code brings the one-time
  * pairing code in the query string.
@@ -32,7 +32,7 @@ export interface IngressOptions {
 }
 
 function log(message: string): void {
-  console.error(`${new Date().toISOString()} bbd-ingress: ${message}`);
+  console.error(`${new Date().toISOString()} go-remote-ingress: ${message}`);
 }
 
 async function upstreamBody(response: Response): Promise<string> {

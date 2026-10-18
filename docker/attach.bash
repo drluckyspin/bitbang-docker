@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Script Name: attach.bash
 #
-# Description: What `make attach` and `bbd attach` open: the Herdr TUI on the same panes the phone sees
+# Description: What `make attach` and `go-remote attach` open: the Herdr TUI on the same panes the phone sees
 #              (GR_UI=web), or the shared tmux session (GR_UI=shell).
 #
 # Usage: go-remote-attach

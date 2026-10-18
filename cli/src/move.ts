@@ -1,7 +1,7 @@
 /**
- * Moving an agent session into its workspace from inside the session. An agent that runs bbd start --resume
+ * Moving an agent session into its workspace from inside the session. An agent that runs go-remote start --resume
  * on its own session is still in the turn that ran it, so the session is copied once that turn has ended, by
- * a helper bbd leaves running in the background. The helper ends the laptop's copy first, so the session
+ * a helper go-remote leaves running in the background. The helper ends the laptop's copy first, so the session
  * never has two writers, then resumes it in the container and opens the QR code in a window.
  */
 import { spawn } from "node:child_process";
@@ -99,7 +99,7 @@ function transcriptPath(session: Pick<Session, "agent" | "transcript">): string 
   return join(hostStores()[session.agent], session.transcript);
 }
 
-/** A session still in the turn that is running bbd: its transcript changed just now and the turn is not over. */
+/** A session still in the turn that is running go-remote: its transcript changed just now and the turn is not over. */
 export function inTurn(session: Session, recentMs: number): boolean {
   if (Date.now() - session.modified >= recentMs) return false;
   return !turnEnded(session.agent, tailLines(transcriptPath(session)));
@@ -145,7 +145,7 @@ async function processTable(): Promise<Map<number, ProcessRow>> {
   return parseProcessTable((await capture(["ps", "-A", "-o", "pid=,ppid=,tty=,args="])).stdout);
 }
 
-/** The agent this bbd runs under, when an agent ran it. */
+/** The agent this go-remote runs under, when an agent ran it. */
 export async function callingAgent(agent: SessionAgentKind): Promise<AgentProcess | undefined> {
   return agentAbove(await processTable(), process.pid, agent);
 }
@@ -176,7 +176,7 @@ export function movePending(ref: SessionRef): boolean {
   }
 }
 
-/** The command line that runs this bbd again, compiled or from source. */
+/** The command line that runs this go-remote again, compiled or from source. */
 function self(args: string[]): string[] {
   return Bun.main.startsWith("/$bunfs/") ? [process.execPath, ...args] : [process.execPath, Bun.main, ...args];
 }
@@ -254,13 +254,13 @@ export async function finishMove(plan: MovePlan): Promise<void> {
     tell(
       plan.agent,
       shown.qr === "window"
-        ? `bbd: this session now runs in ${plan.project}. Scan the QR code in the window to carry on from your phone; bbd pull brings it back here.`
-        : `bbd: this session now runs in ${plan.project}. bbd qr ${plan.repo} shows the QR code; bbd pull brings the session back here.`,
+        ? `go-remote: this session now runs in ${plan.project}. Scan the QR code in the window to carry on from your phone; go-remote pull brings it back here.`
+        : `go-remote: this session now runs in ${plan.project}. go-remote qr ${plan.repo} shows the QR code; go-remote pull brings the session back here.`,
     );
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     ui.error(`The move failed: ${reason}`);
-    tell(plan.agent, `bbd could not move the session: ${reason}. It is unchanged on this computer: ${resume}`);
+    tell(plan.agent, `go-remote could not move the session: ${reason}. It is unchanged on this computer: ${resume}`);
     process.exitCode = 1;
   } finally {
     try {

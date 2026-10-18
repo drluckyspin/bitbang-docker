@@ -1,6 +1,6 @@
 /**
- * bbd login: signs Claude Code, Codex or Cursor in, once, for every workspace. Claude Code signs in on this computer
- * with claude setup-token, whose long-lived token goes into .env: every workspace then starts signed in.
+ * go-remote login: signs Claude Code, Codex or Cursor in, once, for every workspace. Claude Code signs in on this
+ * computer with claude setup-token, whose long-lived token goes into .env: every workspace then starts signed in.
  * Codex, and Claude Code where it is not installed here, sign in inside a running container instead; the home
  * volume keeps that login for every workspace, and each one's default agent then starts on its own.
  */
@@ -21,7 +21,7 @@ export function hostClaude(): string | undefined {
 
 /** Runs the agent's own sign-in in the container, on this terminal. */
 export async function signIn(workspace: Workspace, agent: AgentKind): Promise<boolean> {
-  if (process.stdin.isTTY !== true) throw new UserError("Signing in needs an interactive terminal", `Run bbd login ${agent} in one.`);
+  if (process.stdin.isTTY !== true) throw new UserError("Signing in needs an interactive terminal", `Run go-remote login ${agent} in one.`);
   ui.info(
     agent === "claude"
       ? "Signing in to Claude Code in the container: open the link below, sign in, then paste the code the page shows here."
@@ -37,12 +37,12 @@ export async function saveClaudeToken(root: string): Promise<boolean> {
   const claude = hostClaude();
   if (!claude) return false;
   if (process.stdin.isTTY !== true || process.stdout.isTTY !== true) {
-    throw new UserError("Signing in needs an interactive terminal", "Run bbd login in one.");
+    throw new UserError("Signing in needs an interactive terminal", "Run go-remote login in one.");
   }
   const env = envFile(root);
   if (env === join(root, ".env.example")) throw new UserError("GR_ENV_FILE points at the template, which holds no keys");
   await checkEnv(root);
-  ui.info("Signing in to Claude Code on this computer, with claude setup-token. bbd keeps the token it makes in .env, for every workspace, and does not show it.");
+  ui.info("Signing in to Claude Code on this computer, with claude setup-token. go-remote keeps the token it makes in .env, for every workspace, and does not show it.");
   const token = await setupToken(claude);
   if (!token) {
     ui.warn("Claude Code made no token.");
@@ -63,7 +63,7 @@ async function restartRunning(root: string): Promise<void> {
     (workspace) => workspace.state === "running" && resolve(root, workspace.envFile ?? ".env") === env,
   );
   if (running.length === 0) {
-    ui.dim("Start a workspace with bbd start (or make run-detached); it starts signed in.");
+    ui.dim("Start a workspace with go-remote start (or make run-detached); it starts signed in.");
     return;
   }
   const one = running.length === 1;
@@ -71,7 +71,7 @@ async function restartRunning(root: string): Promise<void> {
     `${running.map((workspace) => workspace.project).join(", ")} started without the token. A restart gives ${one ? "it" : "them"} the token; ${one ? "its link changes" : "their links change"}, and what runs in ${one ? "it" : "them"} stops.`,
   );
   if (!(await confirm(`Restart ${one ? "it" : "them"} now?`, true))) {
-    ui.dim("A workspace gets the token when it next starts: bbd stop, then bbd start.");
+    ui.dim("A workspace gets the token when it next starts: go-remote stop, then go-remote start.");
     return;
   }
   for (const workspace of running) {
@@ -79,7 +79,7 @@ async function restartRunning(root: string): Promise<void> {
     await composeUp(root, workspace.repo, workspace.project, { recreate: true });
   }
   if (one && running[0]) await start({ path: running[0].repo, root, fork: false, json: false, qr: true, window: true });
-  else ui.dim("bbd qr <repo> shows each one's new QR code.");
+  else ui.dim("go-remote qr <repo> shows each one's new QR code.");
 }
 
 /** The default agent of the named workspace, else of a running one, when it is a web workspace. */
@@ -95,7 +95,7 @@ async function preferred(path?: string): Promise<AgentKind | undefined> {
 async function target(path?: string): Promise<Workspace> {
   if (path !== undefined) return findWorkspace(path);
   const running = (await listWorkspaces()).find((workspace) => workspace.state === "running");
-  if (!running) throw new UserError("No workspace is running", "Start one with: bbd start /path/to/repo");
+  if (!running) throw new UserError("No workspace is running", "Start one with: go-remote start /path/to/repo");
   return running;
 }
 
@@ -104,7 +104,7 @@ export async function login(options: { path?: string; agent?: AgentKind; root?: 
   const agent = options.agent ?? (await preferred(options.path)) ?? "claude";
   if (agent === "claude" && hostClaude()) {
     const root = resolveRoot(options.root);
-    if (!(await saveClaudeToken(root))) throw new UserError("Claude Code is not signed in", "Try again with: bbd login");
+    if (!(await saveClaudeToken(root))) throw new UserError("Claude Code is not signed in", "Try again with: go-remote login");
     await restartRunning(root);
     return;
   }
@@ -112,7 +112,7 @@ export async function login(options: { path?: string; agent?: AgentKind; root?: 
   requireRunning(workspace);
   if (agent === "claude") ui.dim("Claude Code is not installed on this computer, so it signs in inside the container.");
   if (!(await signIn(workspace, agent))) {
-    throw new UserError(`${AGENT_NAMES[agent]} is not signed in`, `Try again with: bbd login ${agent}`);
+    throw new UserError(`${AGENT_NAMES[agent]} is not signed in`, `Try again with: go-remote login ${agent}`);
   }
   if (workspace.ui !== "web") return;
   const current = await settledDefaultAgent(workspace, { signedIn: true, timeoutMs: 60_000 });

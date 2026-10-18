@@ -42,7 +42,7 @@ function codexRollout(id: string, cwd: string, prompt: string): string {
 
 /** A laptop with one Claude session in the repo, one in a sibling that shares its folder prefix, and two Codex rollouts. */
 function fixture(): Stores {
-  const root = mkdtempSync(join(tmpdir(), "bbd-stores-"));
+  const root = mkdtempSync(join(tmpdir(), "go-remote-stores-"));
   const stores = { claude: join(root, ".claude"), codex: join(root, ".codex") };
   const project = join(stores.claude, "projects", claudeProjectDir(`${REPO}/sub`));
   mkdirSync(join(project, CLAUDE_ID, "subagents"), { recursive: true });
@@ -132,19 +132,19 @@ test("resumeArgs continues the session, or a copy of it", () => {
 });
 
 test("writeBack keeps a differing laptop copy beside the new one", () => {
-  const store = mkdtempSync(join(tmpdir(), "bbd-back-"));
+  const store = mkdtempSync(join(tmpdir(), "go-remote-back-"));
   const file = join("projects", "dir", `${CLAUDE_ID}.jsonl`);
   const bytes = (text: string) => new TextEncoder().encode(text);
   expect(writeBack(store, file, bytes("one\n"), "stamp")).toBe("new");
   expect(writeBack(store, file, bytes("one\n"), "stamp")).toBe("same");
   expect(writeBack(store, file, bytes("two\n"), "stamp")).toBe("updated");
   expect(readFileSync(join(store, file), "utf8")).toBe("two\n");
-  expect(readFileSync(join(store, `${file}.bbd-stamp.bak`), "utf8")).toBe("one\n");
+  expect(readFileSync(join(store, `${file}.go-remote-stamp.bak`), "utf8")).toBe("one\n");
   expect(existsSync(join(store, "projects", "dir"))).toBe(true);
 });
 
 test("writeBack refuses a path that leaves the store", () => {
-  const store = mkdtempSync(join(tmpdir(), "bbd-back-"));
+  const store = mkdtempSync(join(tmpdir(), "go-remote-back-"));
   const bytes = new TextEncoder().encode("x\n");
   expect(() => writeBack(join(store, ".claude"), "projects/../../outside.jsonl", bytes, "stamp")).toThrow("outside");
   expect(() => writeBack(join(store, ".claude"), "..", bytes, "stamp")).toThrow("outside");
