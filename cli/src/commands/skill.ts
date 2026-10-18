@@ -6,10 +6,52 @@ import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSy
 import { homedir } from "node:os";
 import { join } from "node:path";
 import skill from "../../../skills/go-remote/SKILL.md" with { type: "text" };
-import { ui } from "../ui.ts";
+import { inherit } from "../proc.ts";
+import { confirm, ui } from "../ui.ts";
 
 export const SKILL_NAME = "go-remote";
 const OLD_NAME = "create-remote-session";
+const SKILLS_SOURCE = "drluckyspin/bitbang-docker";
+const SKILLS_SEARCH = `https://skills.sh/api/search?q=${SKILL_NAME}&owner=drluckyspin&limit=20`;
+
+/** A skills.sh result we trust to install this skill from. */
+export function publishedSource(result: unknown): string | undefined {
+  if (typeof result !== "object" || result === null || !("skills" in result) || !Array.isArray(result.skills)) return undefined;
+  for (const item of result.skills) {
+    if (typeof item !== "object" || item === null || !("name" in item) || !("source" in item)) continue;
+    if (item.name === SKILL_NAME && item.source === SKILLS_SOURCE) return item.source;
+  }
+  return undefined;
+}
+
+/** Looks for the skill's published record. A network or directory problem means the included copy remains available. */
+async function skillsShSource(): Promise<string | undefined> {
+  try {
+    const response = await fetch(SKILLS_SEARCH, { signal: AbortSignal.timeout(3_000) });
+    return response.ok ? publishedSource(await response.json()) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function installFromSkillsSh(source: string): Promise<boolean> {
+  const npx = Bun.which("npx");
+  if (!npx) {
+    ui.warn("The published /go-remote skill needs npx to install; using bbd's included copy instead.");
+    return false;
+  }
+  ui.info("Installing /go-remote from skills.sh");
+  const status = await inherit(
+    [npx, "--yes", "skills", "add", source, "--global", "--agent", "claude-code", "--agent", "codex", "--agent", "cursor", "--skill", SKILL_NAME, "--yes"],
+    { env: { DISABLE_TELEMETRY: "1", DO_NOT_TRACK: "1" } },
+  );
+  if (status === 0) {
+    ui.success("Installed /go-remote from skills.sh");
+    return true;
+  }
+  ui.warn("skills.sh could not install /go-remote; using bbd's included copy instead.");
+  return false;
+}
 
 export function skillPaths(home = homedir(), name = SKILL_NAME): { dir: string; file: string; claudeLink: string } {
   const dir = join(home, ".agents", "skills", name);
@@ -77,4 +119,16 @@ export function installSkill(home = homedir()): void {
   }
   removeOldSkill(home);
   ui.dim(`Run it as /${SKILL_NAME} in Claude Code and Cursor, or $${SKILL_NAME} in Codex.`);
+}
+
+/**
+ * Uses the skills.sh copy once it is published, but always keeps the embedded installation usable offline.
+ * The directory record is checked before asking because bbd must not download an unregistered skill.
+ */
+export async function installPreferredSkill(): Promise<void> {
+  const source = await skillsShSource();
+  if (source && (await confirm("The published /go-remote skill is available on skills.sh. Install it with the skills CLI?", true))) {
+    if (await installFromSkillsSh(source)) return;
+  }
+  installSkill();
 }

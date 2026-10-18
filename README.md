@@ -73,7 +73,7 @@ their transcripts stay, for `bbd pull` and `--resume`. A restarted container (`d
 | `bbd start --resume <id>`  | Move a session from this computer into the workspace, and open its chat          |
 | `bbd qr [path]`            | Show a fresh QR code, with a new pairing code                                    |
 | `bbd login [claude/codex]` | Sign an agent in, once for every workspace; Claude Code's token goes in `.env`   |
-| `bbd ls`                   | List workspaces, their health, and the agents running in each                    |
+| `bbd list`                 | List workspaces, their health, and the agents running in each                    |
 | `bbd sessions [path]`      | List the Claude Code and Codex sessions on this computer that ran in the repo    |
 | `bbd pull [path]`          | Copy the container's sessions back to this computer                              |
 | `bbd attach [path]`        | Open the Herdr UI in this terminal (`--shell` for the tmux session)              |
@@ -83,6 +83,10 @@ their transcripts stay, for `bbd pull` and `--resume`. A restarted container (`d
 | `bbd install-skill`        | Install the `/go-remote` skill for Claude Code, Codex and Cursor                 |
 
 `bbd help` lists every option. `--json` gives machine-readable output for scripts and agents.
+
+`bbd install-skill` checks whether the published skill is available on [skills.sh](https://skills.sh) and offers to
+install it with the official `skills` CLI. Until it is published, if the directory or network is unavailable, or if you
+decline, it installs the copy built into `bbd` instead.
 
 ## Taking an agent session to your phone
 

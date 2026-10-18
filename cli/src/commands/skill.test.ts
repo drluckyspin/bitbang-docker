@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readlinkSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { installSkill, skillPaths, skillState } from "./skill.ts";
+import { installSkill, publishedSource, skillPaths, skillState } from "./skill.ts";
 
 function home(): string {
   return mkdtempSync(join(tmpdir(), "bbd-skill-"));
@@ -19,6 +19,13 @@ function oldSkill(dir: string, text: string): { dir: string; link: string } {
 }
 
 describe("installSkill", () => {
+  test("uses only the published go-remote skill from this repository", () => {
+    expect(publishedSource({ skills: [{ name: "go-remote", source: "drluckyspin/bitbang-docker" }] })).toBe("drluckyspin/bitbang-docker");
+    expect(publishedSource({ skills: [{ name: "go-remote", source: "someone-else/go-remote" }] })).toBeUndefined();
+    expect(publishedSource({ skills: [{ name: "other-skill", source: "drluckyspin/bitbang-docker" }] })).toBeUndefined();
+    expect(publishedSource({ skills: "not a list" })).toBeUndefined();
+  });
+
   test("installs go-remote, linked for Claude Code", () => {
     const dir = home();
     expect(skillState(dir)).toBe("missing");

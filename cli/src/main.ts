@@ -6,7 +6,7 @@ import { doctor } from "./commands/doctor.ts";
 import { login } from "./commands/login.ts";
 import { saveRoot } from "./config.ts";
 import { pull, sessions } from "./commands/sessions.ts";
-import { installSkill } from "./commands/skill.ts";
+import { installPreferredSkill } from "./commands/skill.ts";
 import { start } from "./commands/start.ts";
 import { attach, logs, ls, qr, stop } from "./commands/workspaces.ts";
 import type { View } from "./link.ts";
@@ -201,7 +201,7 @@ async function main(argv: string[]): Promise<number> {
     case "install-skill": {
       const { values } = parse(rest, {});
       if (values.help) break;
-      installSkill();
+      await installPreferredSkill();
       return 0;
     }
     case "setup": {
