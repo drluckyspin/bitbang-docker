@@ -90,8 +90,9 @@ specific limit, and most would go away with a change upstream.
 - **The frame and the inline script.** herdr-web-ui sends `frame-ancestors 'none'` and `script-src 'self'`, while
   BitBang frames the page and its service worker prepends an inline bootstrap script. The ingress moves the app's policy
   into a meta tag placed after BitBang's scripts, keeps only `frame-ancestors 'self'` as a header, and drops
-  `X-Frame-Options` (`rewriteHtml()`, `downstreamResponseHeaders()`). It could go if BitBang loaded its bootstrap as an
-  external same-origin script, or if herdr-web-ui offered an embed mode.
+  `X-Frame-Options` (`rewriteHtml()`, `downstreamResponseHeaders()`). It needs both ends to change before it can go:
+  BitBang loading its bootstrap as an external same-origin script, and herdr-web-ui letting a same-origin page frame it.
+  Either change alone still leaves the phone with a blank frame.
 - **The query string.** BitBang's request shim drops the query when it strips its `/__device__/<session>` prefix, which
   would lose the pairing code and the pane. `compat.js` puts the query back from the frame's navigation entry. It could
   go if BitBang kept the query.
@@ -296,9 +297,9 @@ is a credential and must not travel through ntfy.
 The README's [security model](README.md#security-model) lists the controls and their limits. The trust boundaries behind
 them:
 
-- **The container against the host.** The repo and the home volume are the only mounts. The root filesystem is
-  read-only, every capability is dropped, the user is not root, and there is no Docker socket. The network is open: the
-  container can reach whatever the host can.
+- **The container against the host.** The repo, the home volume, and the checkout's `config/` (read-only, for TURN
+  settings) are the only mounts. The root filesystem is read-only, every capability is dropped, the user is not root,
+  and there is no Docker socket. The network is open: the container can reach whatever the host can.
 - **BitBang's servers.** The signaling server sees the listener register and phones look it up, but sessions are
   end-to-end encrypted and it cannot read or join them. The fragment, which holds the connection code and the pairing
   code, never reaches it. A TURN relay forwards only encrypted packets.

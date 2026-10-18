@@ -158,8 +158,9 @@ These hold the design together. A change that weakens one says so, and why, in i
 - **Container hardening** in `docker-compose.yml`: `read_only`, `cap_drop: [ALL]`, `no-new-privileges`, the non-root
   `agent` user, `init`, limits on processes, memory and CPUs, `/tmp` on tmpfs, and `restart: "no"`. No ports are
   published; the only way in is BitBang's outbound connection.
-- **Mounts:** the repo, at its host path, and the home volume. Nothing else. `resolveRepo()` and `RESERVED_PATHS` in
-  `cli/src/workspace.ts` refuse `/`, the home directory, system paths and git worktrees.
+- **Mounts:** the repo, at its host path; the home volume; and the checkout's `config/`, read-only at `/etc/go-remote`.
+  Nothing else. `resolveRepo()` and `RESERVED_PATHS` in `cli/src/workspace.ts` refuse `/`, the home directory, system
+  paths and git worktrees.
 - **Nothing that grants access is printed.** That covers BitBang URLs, pairing codes, OAuth tokens and `.env` contents,
   in logs, test output, pull requests and an agent's context. `redact()` in `cli/src/link.ts` strips URLs and connection
   IDs. `cli/src/present.ts` shows the link only on an interactive terminal or in a window on the laptop. The ingress
@@ -179,7 +180,8 @@ Keychain or `.env`, and never run a real sign-in. The existing tests show how. U
 (`mkdtempSync`) and pass them in where the real ones would go: a home for `installSkill()`, `Stores` for sessions,
 `XDG_CONFIG_HOME` for the config. The e2e test points `CLAUDE_CONFIG_DIR` at a temporary laptop, uses `GR_ENV_FILE` and
 `GR_HOME_VOLUME` for a throwaway env file and volume, and answers Claude Code with the stand-in Anthropic API. To try
-`make install-cli`, point both `HOME` and `BIN_DIR` at a temporary directory.
+`make install-cli`, point `HOME`, `XDG_CONFIG_HOME` and `BIN_DIR` at a temporary directory: it runs `go-remote setup`,
+which writes its config under `XDG_CONFIG_HOME` whenever that is set.
 
 ## Git and pull requests
 
