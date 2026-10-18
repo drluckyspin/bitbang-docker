@@ -113,7 +113,8 @@ Some rules hold whatever the fixes:
   policy to a meta tag would drop the sandbox (`canMoveToMeta()`). Such previews stay unframeable inside BitBang.
 - Request URLs are never logged, because a scanned link carries the pairing code in its query.
 - WebSockets are bridged with the upstream socket opened first, so a refusal answers the handshake with an error rather
-  than a socket that closes at once. Idle timeouts are off, because the app holds event streams open.
+  than a socket that closes at once. Anything the upstream sends, or a close, before Bun opens the browser's socket is
+  held and replayed in order (`relayUpstream()`). Idle timeouts are off, because the app holds event streams open.
 
 The ingress depends on herdr-web-ui details that are not a documented contract: the `x-herdr-machine` header and the
 page's markup. herdr-web-ui is pinned to a commit, and `make e2e` catches a release that breaks the ingress.
@@ -237,17 +238,26 @@ The agent that runs `/go-remote` is still in the turn that ran it, so `go-remote
 away. Instead:
 
 1. `sessionToHand()` checks that the session ran inside the repo, and sees it is mid-turn (`inTurn()`), so this is a
-   move. It refuses if a move of the same session is already waiting.
+   move. It refuses if a move of the same session is already waiting, or if no agent process runs above it
+   (`callingAgent()`): a move started from another terminal would have nothing to end, and leave two writers.
 2. `start` brings the workspace up with `GR_DEFAULT_AGENT=none`, waits for the listener, and checks the agent can work
-   in the container. If it cannot, the session stays on the laptop.
+   in the container. If it cannot, the session stays on the laptop. It also checks the container's copy of the session
+   (`checkCopyIn()`, below).
 3. `spawnMove()` starts the helper (`go-remote __move`) in its own session, so the agent's tool cannot take it down, and
    returns `"moving": true`. The agent tells you, and ends its turn.
 4. `finishMove()`, in the helper, waits until the transcript has been still for 1.5 seconds and either shows the turn
-   ended (`turnEnded()`) or the agent has gone, for up to ten minutes. It then ends the laptop's copy with `SIGTERM`,
-   but only if that process's command line is unchanged, so the session never has two writers.
+   ended (`turnEnded()`) or the agent has gone, for up to ten minutes. It checks the container's copy again, then ends
+   the laptop's copy with `SIGTERM`, but only if that process's command line is unchanged, so the session never has two
+   writers.
 5. It copies the session in (`copyIn()`, through `docker exec` as the agent user, so the files are not owned by root),
    resumes it in a new Herdr tab (`startAgent()`), gives it the brief if there is one, and opens the QR code in a
    window. A line on the terminal the agent ran in says what happened, once the agent has left it.
+
+Copying in never loses work in the container. Transcripts only grow, so `checkCopyIn()` compares each file's size and
+SHA-256 with the laptop's: a container copy that is a prefix of the laptop's is older and is replaced, and an identical
+one is left alone. A copy that is longer or different holds turns from the phone, so the move is refused until
+`go-remote pull` brings them back. So is a session still open in any running workspace, since they share the home
+volume.
 
 From a terminal, `go-remote start --resume` moves a session you have already quit; it asks first if the transcript
 changed in the last minute. `--fork` continues a copy instead. `go-remote pull` brings sessions back: it refuses while

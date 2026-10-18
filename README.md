@@ -117,7 +117,9 @@ the same path as on your laptop, so the agent finds its session, and its files, 
 
 - **One writer at a time.** A session moves, so only one side writes to it. Run from inside the session, as `/go-remote`
   runs it, `go-remote` waits for the turn that ran it to end, then closes the laptop's agent before resuming the
-  session. From a terminal, quit the session first; if its transcript changed in the last minute, `go-remote` asks.
+  session. From a terminal, quit the session first; if its transcript changed in the last minute, `go-remote` asks. A
+  move never writes over turns taken on the phone: if the container's copy has any, bring them back with
+  `go-remote pull` first.
 - **Or fork it.** `--fork` continues a copy, so the laptop's session can carry on too.
 - **Brief it.** `--brief notes.md` copies a handoff note to `.go-remote/handoff.md` in the repo, which git ignores, and
   asks the agent to read it. `/go-remote` in an agent `go-remote` cannot resume, such as Cursor, writes a brief and
