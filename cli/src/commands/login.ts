@@ -4,7 +4,7 @@
  * Codex, and Claude Code where it is not installed here, sign in inside a running container instead; the home
  * volume keeps that login for every workspace, and each one's default agent then starts on its own.
  */
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { resolveRoot } from "../config.ts";
 import { checkEnv, envFile, envHas, setEnvValue } from "../env.ts";
 import { defaultAgent, settledDefaultAgent } from "../handoff.ts";
@@ -60,7 +60,7 @@ export async function saveClaudeToken(root: string): Promise<boolean> {
 async function restartRunning(root: string): Promise<void> {
   const env = envFile(root);
   const running = (await listWorkspaces()).filter(
-    (workspace) => workspace.state === "running" && resolve(root, workspace.envFile ?? ".env") === env,
+    (workspace) => workspace.state === "running" && workspace.envFile === env,
   );
   if (running.length === 0) {
     ui.dim("Start a workspace with bbd start (or make run-detached); it starts signed in.");
