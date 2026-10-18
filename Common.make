@@ -284,9 +284,9 @@ run: run-detached
 url: $(GO_REMOTE)
 	@$(GR_RUN) qr $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)") $(GR_QR_FLAG)
 
-.PHONY: login ## Sign Claude Code (or AGENT=codex) in, once for every workspace
+.PHONY: login ## Sign Claude Code (or AGENT=codex or AGENT=cursor) in, once for every workspace
 login: $(GO_REMOTE)
-	@$(GR_RUN) login $(filter claude codex,$(AGENT)) $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
+	@$(GR_RUN) login $(filter claude codex cursor,$(AGENT)) $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
 
 .PHONY: attach ## Open the workspace's Herdr terminal UI (or tmux session, in the shell mode) here
 attach: $(GO_REMOTE)
