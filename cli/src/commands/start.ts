@@ -9,7 +9,7 @@ import { checkEnv } from "../env.ts";
 import { agentReady, checkCopyIn, copyIn, linkTarget, mainPane, prompt, requireWeb, settledDefaultAgent, startAgent } from "../handoff.ts";
 import { keepAwake, onBattery } from "../host.ts";
 import type { View } from "../link.ts";
-import { type AgentProcess, callingAgent, inTurn, movePending, spawnMove } from "../move.ts";
+import { type AgentProcess, callingAgent, inTurn, movePending, otherSession, spawnMove } from "../move.ts";
 import { interactive, type LinkOptions, showLink } from "../present.ts";
 import { capture } from "../proc.ts";
 import {
@@ -81,7 +81,7 @@ async function sessionToHand(
     if (movePending(ref)) throw new UserError("This session is already moving", "Its QR code opens once the reply that started the move ends.");
     // Only the session's own agent, running bbd from inside the turn, is a process the move can end.
     const caller = await callingAgent(ref.agent);
-    if (!caller) {
+    if (!caller || otherSession(ref)) {
       throw new UserError(
         `That ${AGENT_NAMES[ref.agent]} session is in the middle of a turn on this computer`,
         "Let the turn finish and quit it there, then run this again, or use --fork to continue a copy.",

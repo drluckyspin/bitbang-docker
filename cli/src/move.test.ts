@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { agentAbove, isAgentCommand, parseProcessTable, tailLines, turnEnded } from "./move.ts";
+import { agentAbove, isAgentCommand, otherSession, parseProcessTable, tailLines, turnEnded } from "./move.ts";
 
 function jsonl(...entries: object[]): string[] {
   return entries.map((entry) => JSON.stringify(entry));
@@ -84,5 +84,14 @@ describe("the agent bbd runs under", () => {
   test("finds none when no agent ran bbd", () => {
     expect(agentAbove(table, 100, "codex")).toBeUndefined();
     expect(agentAbove(table, 200, "claude")).toBeUndefined();
+  });
+
+  test("knows when the agent is running a different session from the one being moved", () => {
+    const ref = { agent: "claude", id: "a1" } as const;
+    expect(otherSession(ref, { CLAUDE_CODE_SESSION_ID: "b2" })).toBe("b2");
+    expect(otherSession(ref, { CLAUDE_CODE_SESSION_ID: "a1" })).toBeUndefined();
+    expect(otherSession(ref, { CODEX_THREAD_ID: "b2" })).toBeUndefined();
+    expect(otherSession({ agent: "codex", id: "c3" }, { CODEX_THREAD_ID: "d4" })).toBe("d4");
+    expect(otherSession(ref, {})).toBeUndefined();
   });
 });
