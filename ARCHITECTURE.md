@@ -263,9 +263,9 @@ volume.
 
 From a terminal, `go-remote start --resume` moves a session you have already quit; it asks first if the transcript
 changed in the last minute. `--fork` continues a copy instead. `go-remote pull` brings sessions back: it refuses while
-one is still open in the container, copies only that repo's session files, and keeps a `.bak` of any laptop copy it
-replaces. Cursor sessions cannot move yet: `SessionAgentKind` leaves Cursor out until go-remote can read its
-transcripts.
+one is still open in any running workspace (`openAnywhere()`, the same check a move makes), copies only that repo's
+session files, and keeps a `.bak` of any laptop copy it replaces. Cursor sessions cannot move yet: `SessionAgentKind`
+leaves Cursor out until go-remote can read its transcripts.
 
 ## The link and pairing
 
@@ -302,7 +302,8 @@ herdr-web-ui's one-time pairing code, the pane and the view there, so one scan c
 to ntfy, so the phone hears about it with the BitBang tab closed. herdr-web-ui's own Web Push cannot work inside
 BitBang's frame. An alert names the agent and the repo, never transcript text, because the ntfy server may be a public
 one. The topic is the secret, so it is never logged. Tapping an alert cannot open the session, because the BitBang URL
-is a credential and must not travel through ntfy.
+is a credential and must not travel through ntfy. A request to Herdr or to ntfy gives up after ten seconds, so a server
+that stalls delays the next poll rather than silencing every later alert.
 
 ## Security model
 
