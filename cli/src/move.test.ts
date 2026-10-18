@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { agentAbove, isAgentCommand, otherSession, parseProcessTable, tailLines, turnEnded } from "./move.ts";
+import { agentAbove, isAgentCommand, openHere, otherSession, parseProcessTable, tailLines, turnEnded } from "./move.ts";
 
 function jsonl(...entries: object[]): string[] {
   return entries.map((entry) => JSON.stringify(entry));
@@ -93,5 +93,16 @@ describe("the agent go-remote runs under", () => {
     expect(otherSession(ref, { CODEX_THREAD_ID: "b2" })).toBeUndefined();
     expect(otherSession({ agent: "codex", id: "c3" }, { CODEX_THREAD_ID: "d4" })).toBe("d4");
     expect(otherSession(ref, {})).toBeUndefined();
+  });
+
+  test("sees a session open here when an agent's command line names it, or go-remote runs inside it", () => {
+    const ref = { agent: "claude", id: "0b6f7a4e-3c1d-4e8f-9a2b-1c3d5e7f9a0b" } as const;
+    const rows = (args: string) => parseProcessTable(`  300     1 ttys004  ${args}`);
+    expect(openHere(rows(`/opt/homebrew/bin/claude --resume ${ref.id}`), ref, {})).toBe(true);
+    expect(openHere(rows("/opt/homebrew/bin/claude"), ref, {})).toBe(false);
+    expect(openHere(rows(`go-remote pull /repo claude:${ref.id}`), ref, {})).toBe(false);
+    expect(openHere(rows(`codex resume ${ref.id}`), ref, {})).toBe(false);
+    expect(openHere(rows("/opt/homebrew/bin/claude"), ref, { CLAUDE_CODE_SESSION_ID: ref.id })).toBe(true);
+    expect(openHere(rows(`codex resume ${ref.id}`), { agent: "codex", id: ref.id }, {})).toBe(true);
   });
 });

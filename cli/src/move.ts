@@ -159,6 +159,21 @@ export function otherSession(ref: SessionRef, env: Record<string, string | undef
   return id && id !== ref.id ? id : undefined;
 }
 
+/**
+ * Whether an agent on this computer has the session open: go-remote runs inside it, or an agent's command line
+ * names it, as the `claude --resume <id>` and `codex resume <id>` that go-remote pull suggests do. A session reopened from an
+ * agent's own picker names no id, so this cannot see it.
+ */
+export function openHere(rows: Map<number, ProcessRow>, ref: SessionRef, env: Record<string, string | undefined> = process.env): boolean {
+  if (env[SESSION_ENV[ref.agent]] === ref.id) return true;
+  return [...rows.values()].some((row) => isAgentCommand(ref.agent, row.args) && row.args.includes(ref.id));
+}
+
+export async function openOnHost(): Promise<(ref: SessionRef) => boolean> {
+  const rows = await processTable();
+  return (ref) => openHere(rows, ref);
+}
+
 function lockFile(ref: SessionRef): string {
   return join(stateDir(), `move-${ref.agent}-${ref.id}.pid`);
 }
