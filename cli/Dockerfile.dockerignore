@@ -4,6 +4,6 @@
 !bun.lock
 !tsconfig.json
 !certs/
-!skills/create-remote-session/SKILL.md
+!skills/go-remote/SKILL.md
 !ingress/
 !cli/src/

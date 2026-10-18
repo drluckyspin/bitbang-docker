@@ -42,7 +42,7 @@ BBD_OS := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 BBD_ARCH := $(if $(filter arm64 aarch64,$(shell uname -m)),arm64,x64)
 BBD := $(COMMON_MAKEFILE_DIR)dist/bbd-$(BBD_OS)-$(BBD_ARCH)
 BBD_SOURCES := $(shell find "$(COMMON_MAKEFILE_DIR)cli/src" "$(COMMON_MAKEFILE_DIR)ingress" -name '*.ts' 2>/dev/null) \
-	$(addprefix $(COMMON_MAKEFILE_DIR),package.json bun.lock cli/Dockerfile skills/create-remote-session/SKILL.md)
+	$(addprefix $(COMMON_MAKEFILE_DIR),package.json bun.lock cli/Dockerfile skills/go-remote/SKILL.md)
 BBD_RUN := BBD_ROOT="$(COMMON_MAKEFILE_DIR)" "$(BBD)"
 BBD_QR_FLAG := $(if $(filter false False FALSE no 0,$(QR)),--no-qr)
 
@@ -229,7 +229,7 @@ install-cli: $(BBD)
 		*":$(BIN_DIR):"*) ;; \
 		*) $(LOGGER) log_warning "$(BIN_DIR) is not on PATH; add it in your shell profile" ;; \
 	esac
-	@$(LOGGER) log_info_dim "Next: bbd install-skill adds /create-remote-session to Claude Code, Codex and Cursor"
+	@$(LOGGER) log_info_dim "Next: bbd install-skill adds /go-remote to Claude Code, Codex and Cursor"
 
 # -----------------------------------------------------------------------------------------------------------
 # Run targets

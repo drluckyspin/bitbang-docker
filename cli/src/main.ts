@@ -10,6 +10,7 @@ import { installSkill } from "./commands/skill.ts";
 import { start } from "./commands/start.ts";
 import { attach, logs, ls, qr, stop } from "./commands/workspaces.ts";
 import type { View } from "./link.ts";
+import { finishMove, type MovePlan } from "./move.ts";
 import type { AgentKind } from "./sessions.ts";
 import { ui, UserError } from "./ui.ts";
 
@@ -19,14 +20,17 @@ Usage: bbd <command> [options]
 
 Commands:
   start [path]            Start (or reuse) the workspace for a repo and show its QR code
-      --agent claude|codex    Start an agent in a new tab
-      --resume <agent:id>     Hand over a session from this computer (bbd sessions lists them)
+      --agent claude|codex    Start an agent in a new tab, on a new conversation
+      --resume <agent:id>     Move a session from this computer there (bbd sessions lists them). Run from
+                              inside that session, by /go-remote, it moves once the turn ends: the session
+                              here closes and the QR code opens in a window
       --fork                  Continue a copy of it, so the laptop's can carry on too
       --brief <file>          Give the agent a handoff brief (copied to .bbd/handoff.md in the repo)
       --open chat|terminal    What the phone opens (default: chat with an agent, else the terminal)
   login [claude|codex] [path]
-                          Sign Claude Code (default) or Codex in, in the container, once for every workspace;
-                          each one's default agent then starts on its own
+                          Sign Claude Code (default) or Codex in, once, for every workspace. Claude Code
+                          signs in here, with claude setup-token, and bbd keeps the token in .env; Codex
+                          (or Claude Code when it is not installed here) signs in inside the container
   qr [path]               Show a fresh QR code for a workspace (--open, --pane <id>)
   ls                      List workspaces, their health and their agents
   sessions [path]         List Claude Code and Codex sessions on this computer that ran in a repo
@@ -35,7 +39,7 @@ Commands:
   logs [path]             Show a workspace's logs with its URL taken out (--no-follow, --tail <n>)
   stop [path]             Stop a workspace (--all stops every one); logins stay in the home volume
   doctor                  Check Docker, the image, .env and the agent CLIs on this computer
-  install-skill           Install the /create-remote-session skill for Claude Code, Codex and Cursor
+  install-skill           Install the /go-remote skill for Claude Code, Codex and Cursor
   setup --root <dir>      Remember the bitbang-docker checkout (make install-cli runs this)
 
 Options:
@@ -133,11 +137,16 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     }
     case "login": {
-      const { values, positionals } = parse(rest, {});
+      const { values, positionals } = parse(rest, ROOT_OPTION);
       if (values.help) break;
       const agent = positionals.find((value): value is AgentKind => value === "claude" || value === "codex");
-      await login({ path: atMostOnePath(positionals.filter((value) => value !== agent)), agent });
+      await login({ path: atMostOnePath(positionals.filter((value) => value !== agent)), agent, root: values.root });
       return 0;
+    }
+    case "__move": {
+      // the background half of a move that bbd start began (see move.ts); not for people
+      await finishMove(JSON.parse(rest[0] ?? "{}") as MovePlan);
+      return process.exitCode === 1 ? 1 : 0;
     }
     case "ls": {
       const { values } = parse(rest, { json: { type: "boolean" } });

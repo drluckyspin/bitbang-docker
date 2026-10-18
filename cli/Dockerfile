@@ -18,7 +18,7 @@ WORKDIR /src
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 COPY tsconfig.json ./
-COPY skills/create-remote-session/SKILL.md skills/create-remote-session/
+COPY skills/go-remote/SKILL.md skills/go-remote/
 COPY ingress/ ingress/
 COPY cli/src/ cli/src/
 

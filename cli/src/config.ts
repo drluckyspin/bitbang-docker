@@ -12,6 +12,11 @@ export function configPath(): string {
   return join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "bbd", "config.json");
 }
 
+/** Where bbd keeps what it is doing in the background: the session moves and their logs. */
+export function stateDir(): string {
+  return join(process.env.XDG_STATE_HOME || join(homedir(), ".local", "state"), "bbd");
+}
+
 function configuredRoot(): string | undefined {
   try {
     const config: unknown = JSON.parse(readFileSync(configPath(), "utf8"));

@@ -9,8 +9,9 @@ import { checkEnv } from "../env.ts";
 import { agentReady, copyIn, linkTarget, mainPane, prompt, requireWeb, settledDefaultAgent, startAgent } from "../handoff.ts";
 import { keepAwake, onBattery } from "../host.ts";
 import type { View } from "../link.ts";
+import { callingAgent, inTurn, movePending, spawnMove } from "../move.ts";
 import { interactive, type LinkOptions, showLink } from "../present.ts";
-import { capture, inherit } from "../proc.ts";
+import { capture } from "../proc.ts";
 import {
   AGENT_NAMES,
   type AgentKind,
@@ -26,8 +27,7 @@ import { confirm, ui, UserError } from "../ui.ts";
 import { hostVersion, PIN_LABELS, skewWarning } from "../versions.ts";
 import {
   checkDocker,
-  compose,
-  ensureHomeVolume,
+  composeUp,
   imageLabels,
   IMAGE,
   listWorkspaces,
@@ -36,7 +36,7 @@ import {
   waitForListener,
   type Workspace,
 } from "../workspace.ts";
-import { signIn } from "./login.ts";
+import { hostClaude, saveClaudeToken, signIn } from "./login.ts";
 
 export interface StartOptions extends LinkOptions {
   path?: string;
@@ -52,17 +52,16 @@ export interface StartOptions extends LinkOptions {
 const LIVE_MS = 60_000;
 const BRIEF = ".bbd/handoff.md";
 
-async function gitConfig(repo: string, key: string): Promise<string> {
-  return (await capture(["git", "-C", repo, "config", key])).stdout.trim();
-}
-
 async function uncommitted(repo: string): Promise<number> {
   const status = await capture(["git", "-C", repo, "status", "--porcelain"]);
   return status.code === 0 ? status.stdout.split("\n").filter(Boolean).length : 0;
 }
 
-/** The session to hand over, after the checks that keep it to one writer. */
-async function sessionToHand(ref: SessionRef, repo: string, fork: boolean): Promise<Session> {
+/**
+ * The session to hand over, after the checks that keep it to one writer. `moving` is a session still in the
+ * turn that runs bbd: its own agent asked for the move, and the move waits for that turn to end.
+ */
+async function sessionToHand(ref: SessionRef, repo: string, fork: boolean): Promise<{ session: Session; moving: boolean }> {
   const session = findHostSession(ref);
   if (!session) {
     throw new UserError(`No ${AGENT_NAMES[ref.agent]} session ${ref.id} on this computer`, `bbd sessions ${repo} lists them.`);
@@ -73,21 +72,41 @@ async function sessionToHand(ref: SessionRef, repo: string, fork: boolean): Prom
       "Start the workspace for the repo it belongs to.",
     );
   }
-  if (!fork && Date.now() - session.modified < LIVE_MS) {
+  if (fork) return { session, moving: false };
+  if (inTurn(session, LIVE_MS)) {
+    if (movePending(ref)) throw new UserError("This session is already moving", "Its QR code opens once the reply that started the move ends.");
+    return { session, moving: true };
+  }
+  if (Date.now() - session.modified < LIVE_MS) {
     ui.warn(`The session changed in the last minute, so it may still be open on the laptop. Two copies writing to one ${AGENT_NAMES[ref.agent]} session interleave.`);
     if (!(await confirm("Quit it on the laptop first. Continue anyway?"))) {
       throw new UserError("Not handing over a session that may still be open", "Quit it on the laptop, or use --fork to continue a copy.");
     }
   }
-  return session;
+  return { session, moving: false };
 }
 
-/** Offers, on a terminal, to sign an agent in now; true once it is. The caller says what to do otherwise. */
-async function offerSignIn(workspace: Workspace, agent: AgentKind, options: LinkOptions): Promise<boolean> {
-  if (!interactive(options) || !(await confirm(`Sign in to ${AGENT_NAMES[agent]} now?`, true))) return false;
-  if (await signIn(workspace, agent)) return true;
+/**
+ * Offers, on a terminal, to sign an agent in now. Claude Code signs in on this computer when it is installed
+ * here, and the workspace restarts to get the token. Returns the workspace once the agent is signed in; the
+ * caller says what to do otherwise.
+ */
+async function offerSignIn(
+  root: string,
+  workspace: Workspace,
+  agent: AgentKind,
+  options: LinkOptions,
+  handingOff: boolean,
+): Promise<Workspace | undefined> {
+  if (!interactive(options) || !(await confirm(`Sign in to ${AGENT_NAMES[agent]} now?`, true))) return undefined;
+  if (agent === "claude" && hostClaude()) {
+    if (!(await saveClaudeToken(root))) return undefined;
+    ui.info(`Restarting ${workspace.project} with the token`);
+    return composeUp(root, workspace.repo, workspace.project, { handingOff, recreate: true });
+  }
+  if (await signIn(workspace, agent)) return workspace;
   ui.warn(`${AGENT_NAMES[agent]} is not signed in.`);
-  return false;
+  return undefined;
 }
 
 /** With `handingOff`, the container starts no default agent: bbd starts the one asked for. */
@@ -101,22 +120,7 @@ async function bringUp(root: string, repo: string, project: string, handingOff: 
     return existing;
   }
   ui.info(`Starting ${project} for ${repo}`);
-  const name = await gitConfig(repo, "user.name");
-  const email = await gitConfig(repo, "user.email");
-  const env = {
-    BBD_REPO: repo,
-    GIT_AUTHOR_NAME: name,
-    GIT_AUTHOR_EMAIL: email,
-    GIT_COMMITTER_NAME: name,
-    GIT_COMMITTER_EMAIL: email,
-    ...(handingOff ? { BBD_DEFAULT_AGENT: "none" } : {}),
-  };
-  await ensureHomeVolume(root, project, env);
-  const code = await inherit([...compose(root, project), "up", "-d"], { stdoutToStderr: true, env });
-  if (code !== 0) throw new UserError(`docker compose could not start ${project}`);
-  const started = (await listWorkspaces()).find((workspace) => workspace.project === project);
-  if (!started) throw new UserError(`${project} did not start`);
-  return started;
+  return composeUp(root, repo, project, { handingOff });
 }
 
 /** Writes the handoff brief into the repo, where the container sees it (.bbd/ is excluded from git there). */
@@ -141,7 +145,7 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
   }
   if (options.fork && !ref) throw new UserError("--fork needs --resume");
   const agent = ref?.agent ?? options.agent ?? (options.brief ? "claude" : undefined);
-  const session = ref ? await sessionToHand(ref, repo, options.fork) : undefined;
+  const { session, moving } = ref ? await sessionToHand(ref, repo, options.fork) : { session: undefined, moving: false };
 
   await checkDocker();
   const labels = await imageLabels();
@@ -154,18 +158,13 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
   if (!isGit) ui.warn(`${repo} is not a git repository; mounting it anyway`);
 
   const project = projectName(repo);
-  const workspace = await bringUp(root, repo, project, agent !== undefined);
-  const url = await waitForListener(workspace);
+  let workspace = await bringUp(root, repo, project, agent !== undefined);
+  await waitForListener(workspace);
   ui.success(`${project} is running; its BitBang listener is registered`);
 
   const changes = await uncommitted(repo);
   if (changes > 0) {
     ui.warn(`${repo} has ${changes} uncommitted change${changes === 1 ? "" : "s"}. The laptop and the container now share them; give each agent its own worktree to keep them apart.`);
-  }
-  const awake = await keepAwake(workspace.id);
-  if (awake === "started") ui.dim("This Mac stays awake while the workspace runs.");
-  if (awake !== "unsupported" && (await onBattery())) {
-    ui.warn("The Mac is on battery: closing the lid still puts it to sleep, which drops the phone's connection.");
   }
 
   let pane: string | undefined;
@@ -176,10 +175,32 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
     requireWeb(workspace, "Starting an agent");
     const ready = await agentReady(workspace, agent);
     if (!ready.ok) {
+      if (moving) {
+        throw new UserError(
+          `${AGENT_NAMES[agent]} cannot work in the container yet: ${ready.reason}`,
+          "The session stays here. Sign the container in with bbd login, in a terminal, then move it again.",
+        );
+      }
       ui.warn(`${AGENT_NAMES[agent]} cannot work in the container yet: ${ready.reason}.`);
-      if (!(await offerSignIn(workspace, agent, options))) ui.dim(`It opens signed out; sign it in with: bbd login ${agent}`);
+      const signedIn = await offerSignIn(root, workspace, agent, options, true);
+      if (signedIn) workspace = signedIn;
+      else ui.dim(`It opens signed out; sign it in with: bbd login ${agent}`);
     }
     if (options.brief) placeBrief(repo, options.brief);
+    if (moving && ref && session) {
+      const log = spawnMove({
+        root,
+        project,
+        repo,
+        ref,
+        transcript: session.transcript,
+        agent: await callingAgent(ref.agent),
+        ...(options.brief ? { brief: join(repo, BRIEF) } : {}),
+        window: options.window,
+      });
+      ui.success(`${project} is ready. The session moves there once this turn ends; then its QR code opens in a window.`);
+      return { project, repo, ui: workspace.ui, session: `${ref.agent}:${ref.id}`, moving: true, qr: "pending", log };
+    }
     if (session) {
       await copyIn(workspace, session, hostStores());
       ui.success(`Copied ${AGENT_NAMES[session.agent]} session ${session.id} into the container`);
@@ -201,7 +222,11 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
     if (current.state === "waiting") {
       const awaited = current.agent ?? "claude";
       ui.warn("No agent is signed in in the container yet, so the phone's Chat has none to talk to.");
-      if (await offerSignIn(workspace, awaited, options)) current = await settledDefaultAgent(workspace, { signedIn: true });
+      const signedIn = await offerSignIn(root, workspace, awaited, options, false);
+      if (signedIn) {
+        workspace = signedIn;
+        current = await settledDefaultAgent(workspace, { signedIn: true });
+      }
       if (current.state === "waiting") ui.dim("Sign in once with make login (or bbd login); the agent then starts on its own.");
     }
     if (current.state === "running" && current.agent) {
@@ -215,6 +240,13 @@ export async function start(options: StartOptions): Promise<Record<string, unkno
     defaultState = current.state;
   }
 
+  // a sign-in may have restarted the workspace, which gives it a new link
+  const url = await waitForListener(workspace);
+  const awake = await keepAwake(workspace.id);
+  if (awake === "started") ui.dim("This Mac stays awake while the workspace runs.");
+  if (awake !== "unsupported" && (await onBattery())) {
+    ui.warn("The Mac is on battery: closing the lid still puts it to sleep, which drops the phone's connection.");
+  }
   const shown = await showLink(workspace, url, { pane, view }, options);
   return {
     project,
