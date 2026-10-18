@@ -117,7 +117,9 @@ the same path as on your laptop, so the agent finds its session, and its files, 
 
 - **One writer at a time.** A session moves, so only one side writes to it. Run from inside the session, as `/go-remote`
   runs it, `go-remote` waits for the turn that ran it to end, then closes the laptop's agent before resuming the
-  session. From a terminal, quit the session first; if its transcript changed in the last minute, `go-remote` asks.
+  session. From a terminal, quit the session first; if its transcript changed in the last minute, `go-remote` asks. A
+  move never writes over turns taken on the phone: if the container's copy has any, bring them back with
+  `go-remote pull` first.
 - **Or fork it.** `--fork` continues a copy, so the laptop's session can carry on too.
 - **Brief it.** `--brief notes.md` copies a handoff note to `.go-remote/handoff.md` in the repo, which git ignores, and
   asks the agent to read it. `/go-remote` in an agent `go-remote` cannot resume, such as Cursor, writes a brief and
@@ -246,18 +248,18 @@ The image is read-only. To add tools, install them into your home directory, for
 
 The container is built to limit what a shell, or an agent running in it, can reach on your machine.
 
-| Control               | Setting                                                                                                                         |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Mounted files         | Only the repo (read-write, at its own path) and the home volume; `go-remote` refuses `/`, `~` and system paths                  |
-| User                  | Non-root `agent`, matching your uid on Linux                                                                                    |
-| Linux capabilities    | All dropped, with `no-new-privileges`                                                                                           |
-| Root filesystem       | Read-only; `/tmp` is a `nosuid`, `nodev` tmpfs                                                                                  |
-| Docker socket         | Not mounted                                                                                                                     |
-| Published ports       | None; BitBang connects outbound only, and everything inside listens on loopback                                                 |
-| Resource limits       | 1024 processes, plus the memory and CPU limits from `.env`                                                                      |
-| Secrets               | Only those in `.env`; host shell variables are not passed through                                                               |
-| Web UI access         | A paired device, or a random access token that never leaves the container                                                       |
-| Updates and telemetry | Off in Herdr, herdr-web-ui, Claude Code, Codex, Bun and `go-remote`; every component is pinned, and `make test` checks the pins |
+| Control               | Setting                                                                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Mounted files         | Only the repo (read-write, at its own path), the home volume, and `config/` (read-only); `go-remote` refuses `/`, `~` and system paths |
+| User                  | Non-root `agent`, matching your uid on Linux                                                                                           |
+| Linux capabilities    | All dropped, with `no-new-privileges`                                                                                                  |
+| Root filesystem       | Read-only; `/tmp` is a `nosuid`, `nodev` tmpfs                                                                                         |
+| Docker socket         | Not mounted                                                                                                                            |
+| Published ports       | None; BitBang connects outbound only, and everything inside listens on loopback                                                        |
+| Resource limits       | 1024 processes, plus the memory and CPU limits from `.env`                                                                             |
+| Secrets               | Only those in `.env`; host shell variables are not passed through                                                                      |
+| Web UI access         | A paired device, or a random access token that never leaves the container                                                              |
+| Updates and telemetry | Off in Herdr, herdr-web-ui, Claude Code, Codex, Bun and `go-remote`; every component is pinned, and `make test` checks the pins        |
 
 Know these limits before you rely on it:
 
@@ -355,11 +357,14 @@ the cause.
 
 ## Development
 
+[ARCHITECTURE.md](ARCHITECTURE.md) explains how the pieces fit together, and [AGENTS.md](AGENTS.md) covers the
+conventions, the recipes for common changes, and which tests a change needs.
+
 ```bash
 make lint      # dprint formatting check, shellcheck, docker-compose.yml validation
 make format    # apply dprint, shfmt and mbake formatting
 make unit      # type-check and unit-test go-remote and go-remote-ingress, in Docker
-make test      # 66-check smoke test of both modes in a throwaway container (needs make build)
+make test      # smoke test of both modes in a throwaway container (needs make build)
 make e2e       # Playwright phone test through a real BitBang URL: chat with Claude Code, then a moved session
 make cli       # go-remote for macOS and Linux, arm64 and x64, into dist/
 ```
