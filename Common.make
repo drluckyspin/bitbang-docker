@@ -253,7 +253,7 @@ run: run-detached
 url: $(BBD)
 	@$(BBD_RUN) qr $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)") $(BBD_QR_FLAG)
 
-.PHONY: login ## Sign Claude Code (or AGENT=codex) in, in the container, once for every workspace
+.PHONY: login ## Sign Claude Code (or AGENT=codex) in, once for every workspace
 login: $(BBD)
 	@$(BBD_RUN) login $(filter claude codex,$(AGENT)) $(if $(REPO_EXPANDED),"$(REPO_EXPANDED)")
 
