@@ -355,11 +355,14 @@ the cause.
 
 ## Development
 
+[ARCHITECTURE.md](ARCHITECTURE.md) explains how the pieces fit together, and [AGENTS.md](AGENTS.md) covers the
+conventions, the recipes for common changes, and which tests a change needs.
+
 ```bash
 make lint      # dprint formatting check, shellcheck, docker-compose.yml validation
 make format    # apply dprint, shfmt and mbake formatting
 make unit      # type-check and unit-test go-remote and go-remote-ingress, in Docker
-make test      # 66-check smoke test of both modes in a throwaway container (needs make build)
+make test      # smoke test of both modes in a throwaway container (needs make build)
 make e2e       # Playwright phone test through a real BitBang URL: chat with Claude Code, then a moved session
 make cli       # go-remote for macOS and Linux, arm64 and x64, into dist/
 ```
