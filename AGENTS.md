@@ -61,6 +61,21 @@ The smoke test and the e2e test each create their own repo, env file and home vo
 after themselves. They print no BitBang URL or pairing code. Their checks reach BitBang's servers, so a check can fail
 once on a network hiccup; run it again before chasing it, and say so in the pull request if it happened.
 
+### On a real phone
+
+`make e2e` drives a phone browser through a real BitBang URL, but not a real phone. After a change on that path, check
+these by hand, and say in the pull request which ones you did:
+
+1. `make run REPO=~/src/my-repo`, then scan the QR code with the camera: the terminal opens, already paired.
+2. Type a command, and the output appears. Try Esc, Tab and Ctrl-C from the key row.
+3. Lock the phone for a minute and unlock it: the page reconnects.
+4. Reload the page: it stays paired. Scan a code that is more than ten minutes old: only the pairing screen appears.
+5. `go-remote start ~/src/my-repo --agent claude`: the chat view opens on the phone, and a message reaches the agent.
+6. With `GR_NTFY_TOPIC` set, an agent that finishes sends an alert.
+7. With `GR_UI=shell`: BitBang's terminal opens on the tmux session, with the key bar.
+8. `/go-remote` in a Claude Code session on the laptop: when its reply ends, the session closes and a QR code opens.
+   Scan it, and the phone shows the conversation; send a message, and it carries on.
+
 ## Conventions
 
 ### Names
@@ -113,7 +128,7 @@ limit, a security reason. They do not narrate what the next line does.
 
 Run `make bump-version X.Y.Z`. It writes `VERSION` and copies the version into `package.json`, which the CLI compiles in
 for `go-remote --version`. Never edit either by hand. If another file starts carrying the version, add it to
-`scripts/bump-version.bash`.
+`scripts/bump-version.bash`. A release also gets its own column in the README's Pinned versions table.
 
 ### Bump a pinned component
 
@@ -124,7 +139,7 @@ for `go-remote --version`. Never edit either by hand. If another file starts car
    loop in `scripts/smoke-test.bash`.
 3. An agent CLI's label is also in `PIN_LABELS` in `cli/src/versions.ts`, which compares it with the laptop's version
    when a session moves.
-4. Update `THIRD_PARTY_NOTICES.md` if the component or its license changes.
+4. Update the README's Pinned versions table, and `THIRD_PARTY_NOTICES.md` if the component or its license changes.
 5. Run `make build` and `make test`, and `make e2e` for BitBang, Herdr, herdr-web-ui or Claude Code.
 
 ### Add an agent kind

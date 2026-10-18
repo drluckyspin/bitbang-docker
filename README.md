@@ -1,168 +1,150 @@
 # go-remote
 
-go-remote lets you leave your desk without leaving your coding agent behind. Type `/go-remote` in Claude Code or Codex.
-It waits for the agent to finish its turn, moves the conversation into a locked-down Docker container on your own
-computer, and shows a QR code. Scan it, and your phone opens the same session in a chat-and-terminal view, connected
-over [BitBang](https://github.com/richlegrand/bitbang)'s encrypted peer-to-peer link. There are no ports to open, no
-accounts to create and nothing to host. The container sees only the repo you gave it, and it can alert your phone when
-the agent needs you. Claude Code, Codex and Cursor all run inside. Everything stays on your machine, and it's open
-source.
+Leave your desk without leaving your coding agent behind. Type `/go-remote` in Claude Code or Codex, scan the QR code it
+shows, and carry on the same conversation from your phone, while the agent keeps working in a locked-down Docker
+container on your own computer.
 
-You can also start from scratch: `make run` mounts a repo and shows a QR code that opens [Herdr](https://herdr.dev)'s
-web UI for it, already paired. The container has Claude Code, Codex, the Cursor Agent CLI, `gh`, Node, Python and `uv`
-installed.
+Supported platforms: **macOS** (Apple Silicon and Intel) and **Linux** (x86_64 and arm64). Windows is not supported.
+
+Requires **Docker Desktop** on macOS, or **Docker Engine with Compose v2** on Linux, plus `make` and `git`. Claude Code,
+Codex and the Cursor Agent CLI come in the image; to move a session from your laptop, you need that agent there too.
 
 go-remote was called bitbang-docker until October 2026; its command was `bbd`, and its settings started with `BBD_`.
 
-## Quick start
+## What is BitBang?
 
-You need Docker Desktop (macOS) or Docker Engine with Compose v2 (Linux), plus `make` and `git`.
+[BitBang](https://github.com/richlegrand/bitbang) turns a machine into a URL. `bitbang serve` registers with the
+`bitba.ng` signaling server over an outbound connection and prints a link. A browser that opens it reaches the machine
+over WebRTC, peer to peer and end-to-end encrypted, through a relay when there is no direct path. There is no account,
+no client to install and no port to forward. The browser gets a shell, or a web app that the machine serves.
 
-```bash
-make build                       # build the image (bakes in a Zscaler root CA if this Mac has one)
-make run REPO=~/src/my-repo      # start, show the QR code, follow logs; Ctrl+C stops it
+## What is Herdr?
+
+[Herdr](https://herdr.dev) is "the runtime your coding agents live on": a terminal workspace that keeps agents running
+in a background server, each in its own tab, and knows which of them is working, blocked or idle.
+[herdr-web-ui](https://github.com/devswha/herdr-web-ui) is its browser and phone client: a chat view of each agent, with
+its live terminal and the repo's files beside it.
+
+## Why this project?
+
+A coding agent runs in a terminal on your laptop, and a long task tends to need you just after you walk away. The pieces
+for reaching it from a phone exist, but they do not fit together on their own, and fitting them carelessly is risky.
+BitBang hands a shell to whoever has the link. herdr-web-ui expects an ordinary reverse proxy, which BitBang is not. And
+an agent with your whole laptop in reach should not be one leaked link away from anyone.
+
+go-remote does the fitting. It runs each repo's agents in a hardened container that sees only that repo, and serves
+herdr-web-ui through BitBang with an adapter that makes the two work together. It pairs your phone with a one-time code,
+and it moves an agent's session from your laptop into the container and back. There is nothing to host, and no port to
+open.
+
+## How it works
+
+```text
+phone  <-WebRTC->  bitbang serve  ->  go-remote-ingress  ->  herdr-web-ui  ->  Herdr  ->  Claude Code, Codex, Cursor
+                   '-------------- workspace container, one per repo, no published ports ---------------'
 ```
 
-Without `REPO`, `make run` and `make run-detached` mount the directory you run them from, so
-`make -C ~/src/go-remote run` inside a repo mounts that repo.
+Each repo gets its own workspace container, with the repo mounted at the same path as on your laptop. Inside, everything
+listens on loopback only. `bitbang serve` reaches out to BitBang's signaling server, and the phone connects to it over
+WebRTC. `go-remote-ingress` adapts herdr-web-ui to BitBang's page, and Herdr runs the agents, one per tab.
 
-The first run also builds `go-remote`, the command-line tool behind the `make` targets, in Docker, so you need nothing
-else. It creates `.env` from `.env.example`, readable by you only. Everything in it is optional, so the defaults work as
-they are.
+When you type `/go-remote` in an agent on the laptop:
 
-To leave the workspace running after you close the terminal, start it with `make run-detached REPO=~/src/my-repo`
-instead. Then use these targets:
+1. The skill finds the session's ID, runs `go-remote start --resume`, and ends its turn.
+2. `go-remote` starts the repo's workspace, if it is not running, and checks the agent there is signed in.
+3. Once the turn has ended, it closes the laptop's agent, copies the session into the container, and resumes it in a new
+   Herdr tab.
+4. It opens a window with a QR code. The link in it carries a one-time pairing code, and never passes through the agent.
+5. Scan it: BitBang connects, the code pairs the phone, and herdr-web-ui opens the agent's chat, history and all.
 
-| Command                    | What it does                                                                 |
-| -------------------------- | ---------------------------------------------------------------------------- |
-| `make url`                 | Show a fresh QR code (`QR=false` prints only the link)                       |
-| `make login`               | Sign Claude Code (or `AGENT=codex`) in, once for every workspace             |
-| `make install-skill`       | Install `/go-remote` for Claude Code, Codex and Cursor                       |
-| `make attach`              | Open the workspace's Herdr UI in this terminal                               |
-| `make ping`                | List workspaces, their repos, and whether BitBang is registered              |
-| `make logs`                | Follow the container log, with the URL taken out                             |
-| `make down`                | Stop a workspace (all of them when `REPO` is not given)                      |
-| `make clean` / `make help` | Remove the images, `go-remote` binaries and exported CAs / list every target |
+[ARCHITECTURE.md](ARCHITECTURE.md) explains each piece, and why it is shaped the way it is.
 
-Each repo gets its own workspace, named `go-remote-<directory name>`, so several can run at once. When exactly one
-workspace exists, these targets find it without `REPO`. With more than one, pass `REPO=` to say which.
+## Quick start
 
-## Two modes
+Clone the repo, build the image, and install the `go-remote` command (`gr` for short) and the `/go-remote` skill:
 
-`GR_UI` in `.env` chooses what the QR code opens. It takes effect when the workspace next starts.
+```bash
+git clone https://github.com/drluckyspin/bitbang-docker.git go-remote && cd go-remote
+make build                 # the image; bakes in a Zscaler root CA if this Mac has one
+make install-cli           # go-remote, and gr linked to it, into ~/.local/bin
+go-remote install-skill    # /go-remote for Claude Code, Codex and Cursor
+go-remote login            # sign Claude Code in once, for every workspace (codex or cursor for the others)
+```
 
-| Mode            | What the phone gets                                                                                                    |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `web` (default) | [herdr-web-ui](https://github.com/devswha/herdr-web-ui): a chat view of each agent, terminal tabs and the repo's files |
-| `shell`         | BitBang's own terminal on one shared tmux session, with a tappable key bar; the URL alone gets you a shell             |
+`make install-cli` builds `go-remote` in Docker, so you need nothing else. The first `go-remote start` creates `.env`
+from `.env.example`, readable by you only. Everything in it is optional.
 
-In the web mode, the container runs a Herdr server, herdr-web-ui, and `go-remote-ingress`, a small adapter that lets the
-app run inside BitBang's page. Each agent runs in its own Herdr tab, so the laptop (`make attach`) and every paired
-phone see the same agents. A new workspace has two tabs: Repo Shell, a shell in the repo, and one for the default agent,
-named Claude or Codex; the QR code opens the agent's chat. Chat and Terminal, at the top, are two views of the tab you
-are on: on the agent's tab, Terminal shows the agent's own screen, and the shell is in Repo Shell.
-`GR_DEFAULT_AGENT=auto` picks Claude Code when it is signed in, else Codex. With neither signed in, `go-remote start`
-offers to sign you in, and the repo's terminal on the phone says how. A new workspace starts a new conversation, with
-the tabs of the last one gone; their transcripts stay, for `go-remote pull` and `--resume`. A restarted container
-(`docker restart`) keeps its tabs.
+Then, in Claude Code, type `/go-remote` (`$go-remote` in Codex). When the reply ends, a QR code opens: scan it with your
+phone's camera. To start from scratch instead, with a new conversation:
 
-## The go-remote command
+```bash
+go-remote start ~/src/my-repo                   # the workspace and its default agent, and a QR code for it
+go-remote start ~/src/my-repo --agent codex     # also start Codex in a new tab, and open its chat
+```
 
-`make install-cli` installs `go-remote` in `~/.local/bin` (set `BIN_DIR=` to change it), so you can run it from any
-repo:
+### Without installing anything
 
-| Command                          | What it does                                                                     |
-| -------------------------------- | -------------------------------------------------------------------------------- |
-| `go-remote start [path]`         | Start the workspace for a repo (default: the current directory) and show its QR  |
-| `go-remote start --agent claude` | Also start Claude Code (or `codex`) in a new tab, and open its chat on the phone |
-| `go-remote start --resume <id>`  | Move a session from this computer into the workspace, and open its chat          |
-| `go-remote qr [path]`            | Show a fresh QR code, with a new pairing code                                    |
-| `go-remote login [claude/codex]` | Sign an agent in, once for every workspace; Claude Code's token goes in `.env`   |
-| `go-remote list`                 | List workspaces, their health, and the agents running in each                    |
-| `go-remote sessions [path]`      | List the Claude Code and Codex sessions on this computer that ran in the repo    |
-| `go-remote pull [path]`          | Copy the container's sessions back to this computer                              |
-| `go-remote attach [path]`        | Open the Herdr UI in this terminal (`--shell` for the tmux session)              |
-| `go-remote logs [path]`          | Show the container log, with the URL taken out                                   |
-| `go-remote stop [path]`          | Stop a workspace (`--all` stops every one)                                       |
-| `go-remote doctor`               | Check Docker, the image, `.env` and the agent CLIs on this computer              |
-| `go-remote install-skill`        | Install the `/go-remote` skill for Claude Code, Codex and Cursor                 |
+`make run` does the same from the checkout, with no `go-remote` on your PATH:
 
-`go-remote help` lists every option. `--json` gives machine-readable output for scripts and agents.
+```bash
+make run REPO=~/src/my-repo    # start, show the QR code, follow the logs; Ctrl+C stops it
+```
 
-`make install-cli` also links `gr` to `go-remote`, as a short name. A `gr` already in that directory that isn't
-go-remote's is kept as `gr.bak`, and the install warns about any other `gr` on your PATH. It cannot see shell aliases,
-though: Oh My Zsh's git plugin, which is on by default, makes `gr` an alias for `git remote`, and an alias wins over a
-command. To use `gr` there, add `alias gr=go-remote` to `~/.zshrc` after the line that loads Oh My Zsh.
+Without `REPO`, it mounts the directory you run it from, so `make -C ~/src/go-remote run` inside a repo mounts that
+repo. `make run-detached` leaves the workspace running after you close the terminal.
 
-`go-remote install-skill` checks whether the published skill is available on [skills.sh](https://skills.sh) and offers
-to install it with the official `skills` CLI. Until it is published, if the directory or network is unavailable, or if
-you decline, it installs the copy built into `go-remote` instead.
+## Moving a session
 
-## Taking an agent session to your phone
-
-Working with Claude Code in a terminal and want to carry on away from the laptop? Type `/go-remote` (`$go-remote` in
-Codex; `go-remote install-skill` adds it). When the agent's reply ends, the session closes on the laptop and resumes in
-the workspace, history and all, and a QR code opens in a window. Scan it, and the phone opens that same conversation,
-ready for your next message. The link never passes through the agent.
-
-For a session you have already quit, the same move from a terminal:
+`/go-remote` moves the session it runs in. For one you have already quit, do the same from a terminal:
 
 ```bash
 go-remote sessions                      # find it: claude:<id> or codex:<id>
 go-remote start --resume claude:<id>    # continue it in the container, and open its chat on the phone
 ```
 
-`go-remote` copies the transcript into the container's home volume and resumes it in a new tab. The repo is mounted at
-the same path as on your laptop, so the agent finds its session, and its files, where it left them.
-
-- **One writer at a time.** A session moves, so only one side writes to it. Run from inside the session, as `/go-remote`
-  runs it, `go-remote` waits for the turn that ran it to end, then closes the laptop's agent before resuming the
-  session. From a terminal, quit the session first; if its transcript changed in the last minute, `go-remote` asks. A
-  move never writes over turns taken on the phone: if the container's copy has any, bring them back with
-  `go-remote pull` first.
+- **One writer at a time.** A session moves, so only one side writes to it. `/go-remote` waits for its turn to end, then
+  closes the laptop's agent before resuming the session in the container. From a terminal, quit the session first; if
+  its transcript changed in the last minute, `go-remote` asks.
 - **Or fork it.** `--fork` continues a copy, so the laptop's session can carry on too.
 - **Brief it.** `--brief notes.md` copies a handoff note to `.go-remote/handoff.md` in the repo, which git ignores, and
-  asks the agent to read it. `/go-remote` in an agent `go-remote` cannot resume, such as Cursor, writes a brief and
+  asks the agent to read it. `/go-remote` in an agent `go-remote` cannot resume yet, such as Cursor, writes a brief and
   starts Claude Code with it.
 - **Bring it back.** Quit the agent in the container, then run `go-remote pull`. It copies the container's sessions for
   the repo back, keeps a `.bak` of any laptop copy it replaces, and prints the command that resumes the session here. A
   session you carried on here since is left alone, and one still open here is not replaced until you quit it.
+- **Nothing is lost.** A move never writes over turns taken on the phone: if the container's copy has any, bring them
+  back with `go-remote pull` first.
 
-The container's agent must be signed in first (see [Signing in](#signing-in-to-claude-code-and-codex)); otherwise the
-session stays on the laptop and `go-remote` says so. If no QR code appears after a move, the terminal the session ran in
-says why. `go-remote` warns when the laptop's Claude Code or Codex is a different version from the one pinned in the
-image, because a newer transcript may not load in an older release. A session carries the conversation, never
-credentials.
+The container's agent must be signed in first (see [Signing in](#signing-in)); otherwise the session stays on the laptop
+and `go-remote` says so. If no QR code appears after a move, the terminal the session ran in says why. `go-remote` warns
+when the laptop's agent is a different version from the one in the image, because a newer transcript may not load in an
+older release. A session carries the conversation, never credentials.
 
-For a new conversation instead, `go-remote start` starts the workspace with its default agent signed in and no history,
-and `go-remote start --agent claude` opens another one beside it.
-
-## Using it from a phone
+## On the phone
 
 **Pairing.** Scan the QR code with the camera. BitBang connects, and the pairing code in the link pairs the phone in the
-same step. The code works once, and expires after ten minutes if nobody uses it. A paired phone stays paired when the
-page reloads. To add another device, run `make url` (or `go-remote qr`) for a new code. Herdr's settings, under Phone &
+same step. A code works once, and expires after ten minutes if nobody uses it. A paired phone stays paired when the page
+reloads. To add another device, run `go-remote qr` (or `make url`) for a new code. Herdr's settings, under Phone &
 devices, list the paired devices and revoke them.
 
-**Keys.** The terminal view has a row of keys above the phone keyboard: Esc, Tab, ^C, Ctrl, Alt, Shift, Enter and the
-arrows. Herdr's settings let you change the row.
+**Chat and Terminal.** A new workspace has two tabs: Repo Shell, a shell in the repo, and one for its default agent.
+Chat and Terminal, at the top, are two views of the tab you are on, so on an agent's tab Terminal shows the agent's own
+screen. The laptop sees the same tabs with `go-remote attach`. The terminal view has a row of keys above the phone
+keyboard (Esc, Tab, ^C, Ctrl, Alt, Shift, Enter and the arrows), which Herdr's settings let you change.
+
+**A new workspace, a new conversation.** A workspace started again after `go-remote stop` opens fresh tabs; the last
+one's transcripts stay, for `go-remote pull` and `--resume`. A restarted container (`docker restart`) keeps its tabs.
 
 **Alerts.** Set `GR_NTFY_TOPIC` and install the [ntfy](https://ntfy.sh) app to get a notification when an agent needs
 you or finishes, even with BitBang closed. Alerts name the agent and the repo, never what was said, and tapping one does
 not open the session. Anyone who knows the topic can read its alerts, so make it long and random, for example
 `openssl rand -hex 16`.
 
-**Signing in.** Long URLs and codes are hard to copy on a phone, so sign in from the laptop, once: `make login` (or
-`go-remote login`). For Claude Code it runs `claude setup-token` on the laptop and keeps the token in `.env`, so every
-workspace starts signed in, its default agent ready to chat. `go-remote` offers to restart the running ones so they get
-it. For Codex, `make login AGENT=codex` signs it in inside the container, and its default agent starts a few seconds
-later.
-
 ### The shell mode
 
-A phone keyboard has no Esc, Ctrl or arrow keys, and BitBang's browser terminal adds none. Swiping does not scroll
-either, because the terminal (xterm.js) ignores touch gestures while tmux has mouse mode on. The bottom row of the tmux
-status bar fills the gap with keys you tap:
+`GR_UI=shell` serves BitBang's own terminal instead, on one tmux session shared by every browser, and the URL alone gets
+you in. A phone keyboard has no Esc, Ctrl or arrow keys, and swiping does not scroll while tmux has mouse mode on, so
+the bottom row of the tmux status bar has keys you tap:
 
 | Key           | Sends                                                                           |
 | ------------- | ------------------------------------------------------------------------------- |
@@ -172,37 +154,104 @@ status bar fills the gap with keys you tap:
 | `↑` `↓`       | Arrow keys, for menus and command history                                       |
 | `PgUp` `PgDn` | Page through the scrollback; paging back to the bottom returns to the live view |
 
-The row sits just above the keyboard and fits a 48-column phone screen. The laptop sees it too. To hide it, set
-`GR_KEY_BAR=false` in `.env`; the workspace starts without it next time.
+The row fits a 48-column phone screen, and the laptop sees it too. `GR_KEY_BAR=false` hides it.
+
+## Commands
+
+| `go-remote` command                    | What it does                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------ |
+| `start [path]`                         | Start the workspace for a repo (default: the current directory) and show its QR code |
+| `start --agent claude\|codex\|cursor`  | Also start that agent in a new tab, on a new conversation, and open its chat         |
+| `start --resume <agent:id>`            | Move a session from this computer into the workspace, and open its chat              |
+| `qr [path]`                            | Show a fresh QR code, with a new pairing code                                        |
+| `login [claude\|codex\|cursor] [path]` | Sign an agent in, once for every workspace; Claude Code's token goes in `.env`       |
+| `list`                                 | List workspaces, their health, and the agents running in each                        |
+| `sessions [path]`                      | List the Claude Code and Codex sessions on this computer that ran in the repo        |
+| `pull [path] [agent:id]`               | Copy the container's sessions back to this computer                                  |
+| `attach [path]`                        | Open the Herdr UI in this terminal (`--shell` for the tmux session)                  |
+| `logs [path]`                          | Show the container log, with the URL taken out                                       |
+| `stop [path]`                          | Stop a workspace (`--all` stops every one); logins stay in the home volume           |
+| `doctor`                               | Check Docker, the image and its pins, `.env`, and the agent CLIs on this computer    |
+| `install-skill`                        | Install the `/go-remote` skill for Claude Code, Codex and Cursor                     |
+
+`go-remote help` lists every option, and `--json` gives machine-readable output for scripts and agents. The link is
+shown only on an interactive terminal: otherwise the QR code opens in a window. Each repo gets its own workspace, named
+`go-remote-<directory name>`, so several can run at once. A command that takes a path finds the only workspace when
+there is one, and needs the path when there are several.
+
+The make targets wrap the same commands, for use from the checkout. `make help` lists them all:
+
+| `make` target                   | What it does                                                                  |
+| ------------------------------- | ----------------------------------------------------------------------------- |
+| `run` / `run-detached`          | Start a workspace for `REPO` and show its QR code, following its logs or not  |
+| `url`                           | Show a fresh QR code (`QR=false` prints only the link)                        |
+| `login`                         | Sign Claude Code (or `AGENT=codex` or `AGENT=cursor`) in, for every workspace |
+| `attach` / `logs` / `ping`      | Open the Herdr UI here, follow the log, or list workspaces and their health   |
+| `down`                          | Stop `REPO`'s workspace, or all of them                                       |
+| `install-cli` / `install-skill` | Install `go-remote` and `gr` (`BIN_DIR=` to change where), or the skill       |
+| `clean` / `clean-home`          | Remove the images, binaries and exported CAs, or (after asking) the logins    |
+
+**`gr` and Oh My Zsh.** `make install-cli` links `gr` to `go-remote`. A `gr` already in that directory that isn't
+go-remote's is kept as `gr.bak`, and the install warns about any other `gr` on your PATH. It cannot see shell aliases,
+though: Oh My Zsh's git plugin, on by default, makes `gr` an alias for `git remote`, and an alias wins over a command.
+Add `alias gr=go-remote` to `~/.zshrc`, after the line that loads Oh My Zsh.
+
+`go-remote install-skill` offers to install the published skill from [skills.sh](https://skills.sh) with the official
+`skills` CLI, when it is available there. Otherwise, or if you decline, it installs the copy built into `go-remote`.
 
 ## Configuration
 
-All settings live in `.env`. It is gitignored and should stay mode `600`; `make check` and `go-remote doctor` warn when
-it is not.
+All settings live in `.env`, which is gitignored and should stay mode `600`; `go-remote doctor` and `make check` warn
+when it is not. Most take effect when a workspace next starts.
 
-| Variable               | Default           | Purpose                                                                     |
-| ---------------------- | ----------------- | --------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`    | `""`              | API key for Claude Code. Leave empty to sign in with a subscription instead |
-| `OPENAI_API_KEY`       | `""`              | API key for Codex. Leave empty to sign in with a subscription instead       |
-| `GH_TOKEN`             | `""`              | Fine-grained GitHub token for `git push` and `gh` (see below)               |
-| `GR_UI`                | `web`             | [What the QR code opens](#two-modes): `web` or `shell`                      |
-| `GR_DEFAULT_AGENT`     | `auto`            | Web mode: `auto`, `claude`, `codex`, or `none`                              |
-| `BITBANG_PIN`          | `""`              | PIN that BitBang asks for before connecting                                 |
-| `BITBANG_MAX_SESSIONS` | `3`               | Maximum concurrent shells across all browsers, in the shell mode            |
-| `GR_WATCHDOG_INTERVAL` | `300`             | Seconds between listener health probes; `0` turns the watchdog off          |
-| `GR_KEY_BAR`           | `true`            | `true` shows the [tmux key bar](#the-shell-mode); `false` hides it          |
-| `GR_NTFY_TOPIC`        | `""`              | ntfy topic for [agent alerts](#using-it-from-a-phone); empty turns them off |
-| `GR_NTFY_SERVER`       | `https://ntfy.sh` | The ntfy server                                                             |
-| `GR_NTFY_TOKEN`        | `""`              | Access token, for an ntfy server that requires one                          |
-| `GR_MEMORY`            | `4g`              | Container memory limit                                                      |
-| `GR_CPUS`              | `2`               | Container CPU limit                                                         |
-| `GR_RUNTIME`           | `runc`            | Container runtime; `runsc` runs it under gVisor on Linux hosts that have it |
+| Variable               | Default           | Purpose                                                                       |
+| ---------------------- | ----------------- | ----------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`    | `""`              | API key for Claude Code. Leave empty to sign in with a subscription instead   |
+| `OPENAI_API_KEY`       | `""`              | API key for Codex. Leave empty to sign in with a subscription instead         |
+| `CURSOR_API_KEY`       | `""`              | API key for the Cursor Agent CLI. Leave empty to use `go-remote login cursor` |
+| `GH_TOKEN`             | `""`              | Fine-grained GitHub token for `git push` and `gh` (see below)                 |
+| `GR_UI`                | `web`             | What the QR code opens: `web` (herdr-web-ui) or [`shell`](#the-shell-mode)    |
+| `GR_DEFAULT_AGENT`     | `auto`            | The agent a web workspace opens: `auto`, `claude`, `codex`, `cursor`, `none`  |
+| `BITBANG_PIN`          | `""`              | PIN that BitBang asks for before connecting                                   |
+| `BITBANG_MAX_SESSIONS` | `3`               | Maximum concurrent shells across all browsers, in the shell mode              |
+| `GR_WATCHDOG_INTERVAL` | `300`             | Seconds between listener health probes; `0` turns the watchdog off            |
+| `GR_KEY_BAR`           | `true`            | `true` shows the tmux key bar; `false` hides it                               |
+| `GR_NTFY_TOPIC`        | `""`              | ntfy topic for [alerts](#on-the-phone); empty turns them off                  |
+| `GR_NTFY_SERVER`       | `https://ntfy.sh` | The ntfy server                                                               |
+| `GR_NTFY_TOKEN`        | `""`              | Access token, for an ntfy server that requires one                            |
+| `GR_MEMORY`            | `4g`              | Container memory limit                                                        |
+| `GR_CPUS`              | `2`               | Container CPU limit                                                           |
+| `GR_RUNTIME`           | `runc`            | Container runtime; `runsc` runs it under gVisor on Linux hosts that have it   |
+
+`GR_DEFAULT_AGENT=auto` picks the first of Claude Code, Codex and Cursor that is signed in. With none signed in,
+`go-remote start` offers to sign you in, and the phone's Repo Shell says how.
 
 The container receives keys and tokens **only from `.env`**. Keys exported in your shell, such as an `ANTHROPIC_API_KEY`
 set in `~/.zprofile`, never reach it. Whoever gets into the workspace can read whatever the container holds, so keep
-that set small on purpose. `make test` checks that nothing else gets in.
+that set small on purpose. Commits use the `user.name` and `user.email` from the repo's git config, or from your global
+one.
 
-Commits use the `user.name` and `user.email` from the mounted repo's git config, or from your global git config.
+### Signing in
+
+Long URLs and codes are hard to copy on a phone, so sign in from the laptop, once. You can use a subscription or an API
+key, and mix them per agent.
+
+- **Claude Code:** `go-remote login` runs `claude setup-token` on the laptop. You sign in in the browser as usual, and
+  `go-remote` saves the long-lived token in `.env` as `CLAUDE_CODE_OAUTH_TOKEN`, without showing it. Every workspace
+  then starts signed in, and `go-remote` offers to restart the running ones so they get it. To use a token you already
+  have, put it in `.env` yourself. Without Claude Code on the laptop, it signs in inside the container instead.
+- **Codex:** `go-remote login codex` runs `codex login --device-auth` in the container, on your terminal: enter the code
+  it shows on the page it names.
+- **Cursor:** `go-remote login cursor` signs the Cursor Agent CLI in inside the container, or set `CURSOR_API_KEY`.
+- **API keys:** set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. Claude Code uses `ANTHROPIC_API_KEY` ahead of a
+  token, so leave it empty to use your subscription.
+
+Logins made in the container live in the `go-remote-home` volume, shared by every workspace, so you sign in once for all
+repos. The volume also keeps shell history, global git config and moved sessions. `docker compose down -v` leaves it
+alone, and `make clean-home` deletes it after asking. Each agent asks a few questions the first time it runs, and on a
+phone they get in the way, so the container answers them when a workspace starts: Claude Code's theme and onboarding,
+whether to use the API key from `.env`, trust in the mounted repo, and Codex's review of the hook that tells Herdr its
+session ID.
 
 ### GitHub access
 
@@ -214,35 +263,13 @@ The container holds no SSH keys. SSH remotes such as `git@github.com:org/repo.gi
 - **Permissions:** Contents read and write, Pull requests read and write, Metadata read
 - **Expiration:** as short as you can live with
 
-Leave `GH_TOKEN` empty and the container has no GitHub access at all. You can still commit locally and push from the
-host.
+Leave `GH_TOKEN` empty and the container has no GitHub access at all. You can still commit there, and push from the
+laptop.
 
-### Signing in to Claude Code and Codex
+### Adding tools
 
-You can authenticate either way, and mix them per tool.
-
-- **Claude Code subscription:** run `make login` (or `go-remote login`). It runs `claude setup-token` on the laptop: you
-  sign in in the browser as usual, and `go-remote` saves the long-lived token it makes in `.env` as
-  `CLAUDE_CODE_OAUTH_TOKEN`, without showing it. Every workspace then starts signed in. Running workspaces got their
-  environment when they started, so `go-remote` offers to restart them, which gives them new links. To use a token you
-  already have, put it in `.env` yourself. Without Claude Code on the laptop, `go-remote login` signs it in inside the
-  container instead (`claude auth login`: open the link, sign in, and paste the code back).
-- **Codex subscription:** run `make login AGENT=codex` (or `go-remote login codex`). It runs `codex login --device-auth`
-  in the container, on your terminal: enter the shown code on the page. The same commands also work from a workspace
-  terminal. Logins made in the container are saved in the `go-remote-home` volume and survive restarts.
-- **API key:** set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. Codex is signed in with its key when the workspace
-  starts. Claude Code uses `ANTHROPIC_API_KEY` ahead of a token, so leave it empty to use your subscription.
-
-Each agent asks a few questions the first time it runs, and on a phone they get in the way of the chat. The container
-answers them for you when a workspace starts: Claude Code's theme and onboarding, whether to use the API key from
-`.env`, both agents' trust in the mounted repo, and Codex's review of the hook that tells Herdr its session ID.
-
-That home volume is shared by every workspace, so you sign in once for all repos. It also keeps shell history, global
-git config and handed-over sessions. `go-remote` creates it outside compose, so `docker compose down -v` leaves it
-alone; `make clean-home` deletes it after asking.
-
-The image is read-only. To add tools, install them into your home directory, for example `uv tool install ruff`, or
-`npm config set prefix ~/.npm-global` followed by `npm install -g <package>`.
+The image is read-only. Install tools into your home directory instead, for example `uv tool install ruff`, or
+`npm config set prefix ~/.npm-global` followed by `npm install -g <package>`. The home volume keeps them.
 
 ## Security model
 
@@ -266,12 +293,13 @@ Know these limits before you rely on it:
 - **The link is the key.** In the shell mode, the URL grants a shell to anyone who has it. In the web mode, the URL
   alone reaches only the pairing screen, but the link in the QR code also carries a pairing code that lets one device
   in. `go-remote` shows the link only in an interactive terminal or in a window on your screen, never when its output
-  goes to a pipe or an agent, and `make logs` takes the URL out. Treat the QR code like a password: set `BITBANG_PIN`
-  for a second factor, and use `QR=false` when someone can see your screen.
+  goes to a pipe or an agent, and its logs take the URL out. Treat the QR code like a password: set `BITBANG_PIN` for a
+  second factor, and use `QR=false` when someone can see your screen.
 - **A paired device stays paired.** Pairings are kept per repo in the home volume, so they survive restarts. Revoke a
   lost phone in Herdr's settings.
 - **Each workspace gets a new URL.** It stays the same while the container runs, including watchdog restarts. A fresh
-  container (`make down` then `make run`, or a changed `.env`) gets a fresh URL, and the old one stops working.
+  container (`go-remote stop` then `go-remote start`, or a changed `.env`) gets a fresh URL, and the old one stops
+  working.
 - **Network access is open.** The container can reach the internet and anything your host can reach, including your LAN
   and services listening on the host. Only the tools you have given it credentials for can act as you.
 - **The repo is fully writable.** An agent can rewrite any file in it, including `.git` and git hooks that run the next
@@ -287,9 +315,9 @@ Know these limits before you rely on it:
 - **A move ends the laptop's agent.** `/go-remote` leaves a `go-remote` helper running in the background. Once the turn
   ends, it stops the agent process that ran it (the one the session is open in, and no other) before resuming the
   session in the container. Its log, which holds no links, is in `~/.local/state/go-remote/`.
-- **Handed-over sessions travel with the agent.** A transcript holds everything said in the session, including anything
-  you pasted into it. `go-remote start --resume` copies it into the home volume, where anyone who gets into a workspace
-  can read it.
+- **Moved sessions travel with the agent.** A transcript holds everything said in the session, including anything you
+  pasted into it. `go-remote start --resume` copies it into the home volume, where anyone who gets into a workspace can
+  read it.
 - **A pulled session brings the container's work home.** `go-remote pull` copies what the container's agent wrote into
   your laptop's sessions, and the agent you resume it with there has none of the container's limits. Read what the agent
   did before you carry on, as you would its changes to the repo. `go-remote pull` writes only session files for the
@@ -303,12 +331,12 @@ Know these limits before you rely on it:
 - **These are young projects.** BitBang, Herdr and herdr-web-ui all move fast. Read
   [BitBang's README](https://github.com/richlegrand/bitbang-cli) before you depend on it.
 
-## Connection reliability
+## Networks and reliability
 
 **Watchdog.** If the host sleeps, BitBang's connection to the signaling server can die without either side noticing, and
 browsers then report "Device not found". Every `GR_WATCHDOG_INTERVAL` seconds the container connects to its own URL, and
 in the web mode also checks that the app answers through the adapter. After two failures in a row, it restarts the
-listener with the same identity, so the URL keeps working. `make ping` shows the result of the most recent check.
+listener with the same identity, so the URL keeps working. `go-remote list` shows the result of the most recent check.
 
 **Sleep.** While a workspace runs, `go-remote` keeps the Mac awake (with `caffeinate`, until the container stops).
 Closing the lid on battery still puts it to sleep, which drops the phone's connection; `go-remote` warns when the Mac is
@@ -320,71 +348,111 @@ server: copy `config/ice-servers.example.json` to `config/ice-servers.json`, fil
 Cloudflare and Twilio all work), and restart the workspace. That file is gitignored. A file that does not parse stops
 the listener at startup instead of quietly falling back.
 
-## Corporate networks and Zscaler
-
-Zscaler inspects TLS to some hosts, including `api.anthropic.com` and `bitba.ng`. On macOS, `make build` and `make cli`
-export the `Zscaler Root CA` from the System keychain into `certs/`, and the builds trust it. Any other `*.crt` you put
-in `certs/` before building is trusted too.
-
-If BitBang still cannot connect through the proxy, temporarily turn off Zscaler Internet Security to confirm that it is
-the cause.
-
-## Checking it on a real phone
-
-`make e2e` drives a phone browser through a real BitBang URL, but not a real phone. After a change, check these by hand:
-
-1. `make run REPO=~/src/my-repo`, then scan the QR code with the camera: the terminal opens, already paired.
-2. Type a command, and the output appears. Try Esc, Tab and Ctrl-C from the key row.
-3. Lock the phone for a minute and unlock it: the page reconnects.
-4. Reload the page: it stays paired. Scan a code that is more than ten minutes old: only the pairing screen appears.
-5. `go-remote start ~/src/my-repo --agent claude`: the chat view opens on the phone, and a message reaches the agent.
-6. With `GR_NTFY_TOPIC` set, an agent that finishes sends an alert.
-7. With `GR_UI=shell`: BitBang's terminal opens on the tmux session, with the key bar.
-8. `/go-remote` in a Claude Code session on the laptop: when its reply ends, the session closes and a QR code opens.
-   Scan it, and the phone shows the conversation; send a message, and it carries on.
+**Zscaler and other TLS-inspecting proxies.** Zscaler inspects TLS to some hosts, including `api.anthropic.com` and
+`bitba.ng`. On macOS, `make build` and `make cli` export the `Zscaler Root CA` from the System keychain into `certs/`,
+and the builds trust it. Any other `*.crt` you put in `certs/` before building is trusted too. If BitBang still cannot
+connect through the proxy, temporarily turn off Zscaler Internet Security to confirm that it is the cause.
 
 ## Troubleshooting
 
 | Symptom                                             | Fix                                                                                           |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Browser says "Device not found"                     | `make ping`; restart a stopped workspace, or wait for the watchdog                            |
-| The phone shows the pairing screen                  | The code was used or expired; `make url` makes a new one                                      |
-| `make url` times out                                | Run `make logs`; a bad `config/ice-servers.json` stops the listener                           |
+| Browser says "Device not found"                     | `go-remote list`; restart a stopped workspace, or wait for the watchdog                       |
+| The phone shows the pairing screen                  | The code was used or expired; `go-remote qr` makes a new one                                  |
+| `go-remote qr` times out                            | Run `go-remote logs`; a bad `config/ice-servers.json` stops the listener                      |
 | `curl: (60)` or certificate errors in the container | Rerun `make build` so it re-exports your proxy's root CA                                      |
 | Permission denied writing to the repo on Linux      | Rebuild with `make build` as the user that owns the repo                                      |
-| `claude` uses an empty API key                      | Use `make attach` or the phone's terminal, not a bare `docker exec`                           |
+| `claude` uses an empty API key                      | Use `go-remote attach` or the phone's terminal, not a bare `docker exec`                      |
 | macOS kills `go-remote` as soon as it starts        | `codesign --force --sign - ~/.local/bin/go-remote` (`make install-cli` does this when needed) |
+
+`go-remote doctor` checks Docker, the image, `.env` and the agent CLIs on the laptop, and says what to fix.
+
+## Pinned versions
+
+Every component in the image is pinned, and checksum-verified where its project publishes one. `go-remote doctor` shows
+the versions in the image you built.
+
+| Component        | go-remote 0.1.0 | go-remote 0.2.0    |
+| ---------------- | --------------- | ------------------ |
+| BitBang          | 0.5.1           | 0.5.1              |
+| Claude Code      | 2.1.302         | 2.1.302            |
+| Codex            | 0.163.0         | 0.163.0            |
+| Cursor Agent CLI | not included    | 2026.10.16-e3cb207 |
+| Herdr            | not included    | 0.9.5              |
+| herdr-web-ui     | not included    | 0.4.11             |
+| Bun              | not included    | 1.4.2              |
+| uv               | 0.13.1          | 0.13.1             |
+| Node.js          | 24              | 24                 |
+
+## Project layout
+
+```text
+go-remote/
+├── Dockerfile               # The workspace image, with every component pinned
+├── docker-compose.yml       # The one hardened workspace service
+├── docker/                  # What runs in the container: entrypoint, agents, pairing, Herdr and tmux config
+├── ingress/                 # go-remote-ingress, between BitBang and herdr-web-ui, and go-remote-alerts
+├── cli/src/                 # The go-remote command, in Bun and TypeScript
+├── skills/go-remote/        # The /go-remote skill, built into go-remote
+├── e2e/                     # The Playwright phone test, and a stand-in Anthropic API
+├── scripts/                 # Smoke and e2e tests, CA export, version bump, and the log.bash logger
+├── config/                  # Mounted read-only at /etc/go-remote; TURN relay settings
+├── certs/                   # Extra root CAs to bake into the image
+├── Common.make              # Every make target; Makefile only includes it
+├── .env.example             # The settings, copied to .env on first use
+└── VERSION                  # The project version, changed only with make bump-version
+```
 
 ## Development
 
-[ARCHITECTURE.md](ARCHITECTURE.md) explains how the pieces fit together, and [AGENTS.md](AGENTS.md) covers the
-conventions, the recipes for common changes, and which tests a change needs.
+All commands run through `make` (see `make help`).
 
 ```bash
 make lint      # dprint formatting check, shellcheck, docker-compose.yml validation
 make format    # apply dprint, shfmt and mbake formatting
 make unit      # type-check and unit-test go-remote and go-remote-ingress, in Docker
+make cli       # go-remote for macOS and Linux, arm64 and x64, into dist/
 make test      # smoke test of both modes in a throwaway container (needs make build)
 make e2e       # Playwright phone test through a real BitBang URL: chat with Claude Code, then a moved session
-make cli       # go-remote for macOS and Linux, arm64 and x64, into dist/
+make bump-version 0.3.0    # set VERSION and sync it into package.json
 ```
 
-`make test` and `make e2e` use `.env.example` and their own home volumes, so they never read your `.env` or touch your
-logins, and they never print a URL or pairing code. `make e2e` adds a made-up Anthropic key, for a stand-in API that it
-runs inside the container: the default agent starts on its own, and the phone's chat gets its reply from the real Claude
-Code. It then moves a session in as `/go-remote` does, with stand-ins for the laptop's session store and agent, and the
-phone must see the session's earlier turns and carry the same conversation on.
+`make test` and `make e2e` use their own repo, env file and home volume, so they never read your `.env` or touch your
+logins, and they never print a URL or pairing code. [AGENTS.md](AGENTS.md) covers the conventions, the recipes for
+common changes, and which tests a change needs; [ARCHITECTURE.md](ARCHITECTURE.md) explains how the pieces fit together.
 
-| Path                 | Purpose                                                                                                         |
-| -------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `Dockerfile`         | Image with pinned, checksum-verified BitBang and Herdr, herdr-web-ui, Claude Code, Codex and tools              |
-| `docker-compose.yml` | Hardening, mounts and limits for one workspace                                                                  |
-| `docker/`            | Entrypoint (git, services, the watched listener), the session, attach, pairing and agent commands, Codex config |
-| `ingress/`           | `go-remote-ingress`, the adapter between BitBang's proxy and herdr-web-ui, and the ntfy alerts                  |
-| `cli/`               | `go-remote`, compiled in Docker by `cli/Dockerfile`                                                             |
-| `skills/`            | The `/go-remote` skill that `go-remote install-skill` installs                                                  |
-| `e2e/`               | The Playwright phone test, and the stand-in Anthropic API its chat talks to                                     |
-| `Common.make`        | All make targets; `Makefile` only includes it                                                                   |
-| `scripts/`           | CA export, the smoke, e2e and key bar tests, and the `log.bash` logger                                          |
+## See also
 
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists the software this builds on, and its licenses.
+| Project                                                 | Notes                                                       |
+| ------------------------------------------------------- | ----------------------------------------------------------- |
+| [BitBang](https://github.com/richlegrand/bitbang)       | The peer-to-peer link from the phone to the container       |
+| [Herdr](https://herdr.dev)                              | The runtime the agents run in, one tab each                 |
+| [herdr-web-ui](https://github.com/devswha/herdr-web-ui) | The chat-and-terminal view the phone opens                  |
+| [ntfy](https://ntfy.sh)                                 | Push notifications, for alerts when an agent needs you      |
+| [skills.sh](https://skills.sh)                          | The skill directory `go-remote install-skill` installs from |
+
+## Thanks to
+
+- [Rich LeGrand](https://github.com/richlegrand) for BitBang, which makes a machine reachable with no server in between
+- [Herdr](https://github.com/herdrdev/herdr) and [herdr-web-ui](https://github.com/devswha/herdr-web-ui) for agents you
+  can leave running and reach from a phone
+- [Bun](https://bun.sh), [lean-qr](https://github.com/davidje13/lean-qr) and
+  [xterm.js](https://github.com/xtermjs/xterm.js), which `go-remote` is built with
+
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists everything go-remote builds on, and its licenses.
+
+## Contributing
+
+Issues and pull requests are welcome. Read [AGENTS.md](AGENTS.md) first: it says which tests a change needs, and the
+security rules a change must keep. Run `make lint` on every change.
+
+## License
+
+MIT; see [LICENSE](LICENSE). The components in the image keep their own licenses, listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+<!-- markdownlint-disable MD013 MD033 -->
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/static/v1.svg?style=for-the-badge&label=License&message=MIT&logoColor=d9e0ee&colorA=363a4f&colorB=b7bdf8"/></a>
+</p>
+<!-- markdownlint-enable MD013 MD033 -->
