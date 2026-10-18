@@ -231,6 +231,10 @@ install-cli: $(BBD)
 	esac
 	@$(LOGGER) log_info_dim "Next: bbd install-skill adds /go-remote to Claude Code, Codex and Cursor"
 
+.PHONY: install-skill ## Install the /go-remote skill for Claude Code, Codex and Cursor
+install-skill: $(BBD)
+	@$(BBD_RUN) install-skill
+
 # -----------------------------------------------------------------------------------------------------------
 # Run targets
 # -----------------------------------------------------------------------------------------------------------

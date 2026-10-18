@@ -35,6 +35,7 @@ instead. Then use these targets:
 | -------------------------- | ---------------------------------------------------------------------- |
 | `make url`                 | Show a fresh QR code (`QR=false` prints only the link)                 |
 | `make login`               | Sign Claude Code (or `AGENT=codex`) in, once for every workspace       |
+| `make install-skill`       | Install `/go-remote` for Claude Code, Codex and Cursor                 |
 | `make attach`              | Open the workspace's Herdr UI in this terminal                         |
 | `make ping`                | List workspaces, their repos, and whether BitBang is registered        |
 | `make logs`                | Follow the container log, with the URL taken out                       |
