@@ -85,6 +85,73 @@
     // not configurable here; push still fails at registration
   }
 
+  // herdr-web-ui's About page names only itself. go-remote puts its own card first and gives the app the credit
+  // below it. Only new nodes are added (and one heading restyled in CSS), because React owns the page's own and
+  // would drop an edit on its next render. The ingress fills in the version when it serves this script.
+  const VERSION = "__GO_REMOTE_VERSION__";
+  const REPO = "https://github.com/drluckyspin/go-remote";
+
+  function aboutRow(label, detail, href, text) {
+    const row = document.createElement("div");
+    row.className = "settings-row";
+    const copy = document.createElement("div");
+    copy.className = "settings-row-text";
+    const name = document.createElement("span");
+    name.className = "settings-label";
+    name.textContent = label;
+    copy.appendChild(name);
+    if (detail) {
+      const note = document.createElement("span");
+      note.className = "settings-description";
+      note.textContent = detail;
+      copy.appendChild(note);
+    }
+    if (href) {
+      const link = document.createElement("a");
+      link.className = "settings-link";
+      link.href = href;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.textContent = text;
+      copy.appendChild(link);
+    }
+    row.appendChild(copy);
+    return row;
+  }
+
+  function decorateAbout(herdrAbout) {
+    herdrAbout.dataset.goRemote = "";
+    const first = herdrAbout.parentElement && herdrAbout.parentElement.querySelector(".settings-section");
+    if (!first) return;
+    const section = document.createElement("section");
+    section.className = "settings-section go-remote-about";
+    const title = document.createElement("h3");
+    title.textContent = "Go Remote";
+    const card = document.createElement("div");
+    card.className = "settings-card";
+    const version = /^\d/.test(VERSION) ? VERSION : "development build";
+    card.appendChild(aboutRow("Go Remote", "Your coding agent, on your phone. Version " + version + ".", REPO, "github.com/drluckyspin/go-remote"));
+    card.appendChild(
+      aboutRow(
+        "Built with",
+        "go-remote puts this page, herdr, and BitBang's encrypted peer-to-peer link together in a locked-down container. The terminal and chat view are herdr web ui by devswha, on top of herdr by herdrdev, and BitBang by Rich Legrand carries it to your phone. Thank you to all three.",
+      ),
+    );
+    section.append(title, card);
+    first.before(section);
+  }
+
+  // The app's own About card now sits below ours, so its heading says what it is.
+  const aboutStyle = document.createElement("style");
+  aboutStyle.textContent =
+    ".settings-about[data-go-remote] > h3 { font-size: 0; } .settings-about[data-go-remote] > h3::after { content: 'Built on herdr web ui'; font-size: 1rem; }";
+  (document.head || document.documentElement).appendChild(aboutStyle);
+
+  new MutationObserver(() => {
+    const herdrAbout = document.querySelector(".settings-about:not([data-go-remote])");
+    if (herdrAbout) decorateAbout(herdrAbout);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+
   // iOS zooms into a focused field whose text is under 16px, and only the parent page could stop it.
   const style = document.createElement("style");
   style.textContent = "@media (pointer: coarse) { input, textarea, select { font-size: max(16px, 1em) !important; } }";

@@ -138,6 +138,7 @@ RUN set -eux; \
   useradd -l -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash agent; \
   ln -s /tmp/go-remote/workspace /workspace
 
+COPY VERSION /usr/local/share/go-remote/VERSION
 COPY third_party/ /usr/local/share/doc/go-remote/third_party/
 COPY scripts/log.bash /usr/local/lib/go-remote/log.bash
 COPY ingress/server.ts ingress/rewrite.ts ingress/compat.js ingress/alerts.ts /opt/go-remote/ingress/

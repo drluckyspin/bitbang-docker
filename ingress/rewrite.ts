@@ -10,6 +10,14 @@
 export const COMPAT_PATH = "/__go-remote/compat.js";
 export const HEALTH_PATH = "/__go-remote/health";
 
+/** The placeholder in compat.js that stands for the project version. */
+const VERSION_PLACEHOLDER = "__GO_REMOTE_VERSION__";
+
+/** compat.js with the project version filled in. The page cannot read it itself, and its CSP forbids inline scripts. */
+export function withVersion(script: string, version: string): string {
+  return script.replaceAll(VERSION_PLACEHOLDER, version.trim().replace(/[^0-9A-Za-z.+-]/g, ""));
+}
+
 /** RFC 9110 hop-by-hop headers, plus the ones a proxy must recompute for the body it actually sends. */
 const HOP_BY_HOP = [
   "connection",

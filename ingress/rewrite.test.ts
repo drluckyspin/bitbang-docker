@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  withVersion,
   canMoveToMeta,
   COMPAT_PATH,
   downstreamResponseHeaders,
@@ -174,4 +175,15 @@ test("sendableCloseCode maps reserved codes", () => {
   expect(sendableCloseCode(1006)).toBe(1000);
   expect(sendableCloseCode(undefined)).toBe(1000);
   expect(sendableCloseCode(2000)).toBe(1011);
+});
+
+describe("withVersion", () => {
+  test("fills in the version and keeps only characters a version has", () => {
+    expect(withVersion('const V = "__GO_REMOTE_VERSION__";', "0.2.0\n")).toBe('const V = "0.2.0";');
+    expect(withVersion('"__GO_REMOTE_VERSION__"', '1.0"; alert(1)//')).toBe('"1.0alert1"');
+  });
+
+  test("an unreadable version leaves the script without one", () => {
+    expect(withVersion('"__GO_REMOTE_VERSION__"', "")).toBe('""');
+  });
 });
