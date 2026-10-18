@@ -1,6 +1,6 @@
 /** The laptop side: a local window for the QR code, and keeping a Mac awake while a workspace runs. */
 import { spawn } from "node:child_process";
-import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { capture } from "./proc.ts";
@@ -22,8 +22,11 @@ export async function openImage(png: Uint8Array, name: string): Promise<boolean>
   chmodSync(dir, 0o700);
   const file = join(dir, `${name}.png`);
   writeFileSync(file, png, { mode: 0o600 });
-  if ((await capture([opener, file])).code !== 0) return false;
   detached("sh", ["-c", `sleep ${WINDOW_FILE_LIFETIME_S}; rm -rf "$1"`, "sh", dir]);
+  if ((await capture([opener, file])).code !== 0) {
+    rmSync(dir, { recursive: true, force: true });
+    return false;
+  }
   return true;
 }
 
