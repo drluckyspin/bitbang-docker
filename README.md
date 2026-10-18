@@ -1,10 +1,11 @@
 # Go Remote
 
-Go Remote moves a Claude Code or Codex session from your laptop into a hardened Docker container on the same machine,
-and opens it on your phone. Type `/go-remote` in the agent. When its turn ends, the session resumes in the container and
-a QR code appears; scanning it opens the conversation in a chat and terminal view on the phone. The phone connects over
-an end-to-end encrypted peer-to-peer link. There is no VPN, no open port and no hosted service. The container mounts
-only the repo it was given, from where it already is on your machine.
+Go Remote lets you take your coding agent with you without moving your code to the cloud. Type `/go-remote` in Claude
+Code or Codex on your laptop, then hand off your active conversation to a secure Docker container running on the same
+machine. Scan a QR code to continue from your phone in a rich chat and terminal interface. Powered by Herdr and BitBang,
+it connects over an encrypted peer-to-peer link, without VPNs, open ports, or hosted infrastructure. Open source,
+local-first, and built for developers who don't want to stay at their desks. Go Remote's core benefits are the
+combination of local execution, container isolation, and seamless session handoff.
 
 Supported platforms: **macOS** (Apple Silicon and Intel) and **Linux** (x86_64 and arm64). Windows is not supported.
 
