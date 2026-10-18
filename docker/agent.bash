@@ -11,10 +11,10 @@
 #
 # Usage: bitbang-docker-agent prepare         Answer the first-run questions and record the starting state
 #        bitbang-docker-agent watch           Start the default agent once it is signed in (the entrypoint)
-#        bitbang-docker-agent ready <agent>   Exit 0 when claude or codex is signed in, 3 when it is not
+#        bitbang-docker-agent ready <agent>   Exit 0 when claude, codex or cursor is signed in, 3 when it is not
 #        bitbang-docker-agent status          Print the default agent's state as JSON
 #        bitbang-docker-agent hint            Say how to sign in while no agent is (interactive shells)
-#        bitbang-docker-agent login [agent]   Sign in to claude or codex (default: the one being waited for)
+#        bitbang-docker-agent login [agent]   Sign in to claude, codex or cursor (default: the one being waited for)
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail
@@ -36,15 +36,15 @@ configured() {
 # The agents BBD_DEFAULT_AGENT allows, in order of preference: none for `none` (or a typo).
 candidates() {
   case "$(configured)" in
-    auto) echo claude codex ;;
-    claude | codex) configured ;;
+    auto) echo claude codex cursor ;;
+    claude | codex | cursor) configured ;;
   esac
 }
 
 # The agent a sign-in is awaited for, when BBD_DEFAULT_AGENT names one.
 awaited() {
   case "$(configured)" in
-    claude | codex) configured ;;
+    claude | codex | cursor) configured ;;
   esac
 }
 
@@ -55,6 +55,7 @@ signed_in() {
         [ -s "${HOME}/.claude/.credentials.json" ]
       ;;
     codex) [ -s "${HOME}/.codex/auth.json" ] ;;
+    cursor) [ -n "${CURSOR_API_KEY:-}" ] || [ -s "${HOME}/.config/cursor/auth.json" ] ;;
     *) return 1 ;;
   esac
 }
@@ -172,7 +173,7 @@ initial_state() {
 }
 
 prepare() {
-  mkdir -p "$RUNTIME_DIR" "$(dirname "$LOCK_FILE")" "${HOME}/.claude" "${HOME}/.codex"
+  mkdir -p "$RUNTIME_DIR" "$(dirname "$LOCK_FILE")" "${HOME}/.claude" "${HOME}/.codex" "${HOME}/.cursor" "${HOME}/.config/cursor"
   (
     flock -x 9
     prepare_claude || log_warning "Could not pre-answer Claude Code's first-run questions"
@@ -196,14 +197,19 @@ at_sign_in() {
   case "$2" in
     claude) grep -qE 'Not logged in|Select login method|Paste code here if prompted|OAuth error|Choose the text style|Detected a custom API key' <<<"$screen" ;;
     codex) grep -qE 'Sign in with ChatGPT|Sign in with Device Code|Provide your own API key' <<<"$screen" ;;
+    # Cursor's sign-in screen wording changes between CLI releases. The watcher relies on its credential file
+    # instead, so it does not accidentally restart a signed-in Cursor session.
+    cursor) return 1 ;;
     *) return 1 ;;
   esac
 }
 
 start_in_pane() {
   local name="$1" kind="$2" pane="$3" deadline=$((SECONDS + 15)) result
+  local -a args=()
+  [ "$kind" != cursor ] || args=(--disable-auto-update)
   while true; do
-    if result="$(herdr agent start "$name" --kind "$kind" --pane "$pane" --timeout 90000 -- 2>&1)" &&
+    if result="$(herdr agent start "$name" --kind "$kind" --pane "$pane" --timeout 90000 -- "${args[@]}" 2>&1)" &&
       ! jq -e '.error' <<<"$result" >/dev/null 2>&1; then
       return 0
     fi
@@ -299,7 +305,7 @@ start_in_tab() {
 watch() {
   local warned="" name kind pane agent found_name found_kind found_pane
   if [ -z "$(candidates)" ]; then
-    [ "$(configured)" = none ] || log_warning "Ignoring BBD_DEFAULT_AGENT=${BBD_DEFAULT_AGENT}; use auto, claude, codex or none."
+    [ "$(configured)" = none ] || log_warning "Ignoring BBD_DEFAULT_AGENT=${BBD_DEFAULT_AGENT}; use auto, claude, codex, cursor or none."
     write_state off
     return 0
   fi
@@ -361,6 +367,7 @@ it opens in its own tab, ready to chat:
   On your Mac:  make login  (or bbd login)
   Or here:      claude auth login
                 codex login --device-auth
+                cursor-agent login
 EOF
 }
 
@@ -369,7 +376,7 @@ login() {
   [ -n "$agent" ] || agent="$(awaited)"
   [ -n "$agent" ] || agent=claude
   # compose passes unset .env values as empty strings
-  for var in ANTHROPIC_API_KEY OPENAI_API_KEY CLAUDE_CODE_OAUTH_TOKEN; do
+  for var in ANTHROPIC_API_KEY OPENAI_API_KEY CURSOR_API_KEY CLAUDE_CODE_OAUTH_TOKEN; do
     if [ -z "${!var:-}" ]; then
       unset "$var"
     fi
@@ -378,8 +385,9 @@ login() {
   case "$agent" in
     claude) claude auth login ;;
     codex) codex login --device-auth ;;
+    cursor) cursor-agent login ;;
     *)
-      log_error "Unknown agent ${agent}; use claude or codex"
+      log_error "Unknown agent ${agent}; use claude, codex or cursor"
       return 2
       ;;
   esac
