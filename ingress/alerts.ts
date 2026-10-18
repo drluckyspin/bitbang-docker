@@ -121,11 +121,21 @@ export function herdrRequest<T>(socketPath: string, method: string, params: obje
   });
 }
 
-async function publish(alert: Alert, server: string, topic: string, token: string | undefined): Promise<void> {
+/** The watcher waits for each publish, so a stalled ntfy server must not hold up the next poll for long. */
+export const PUBLISH_TIMEOUT_MS = 10_000;
+
+export async function publish(
+  alert: Alert,
+  server: string,
+  topic: string,
+  token: string | undefined,
+  timeoutMs = PUBLISH_TIMEOUT_MS,
+): Promise<void> {
   const response = await fetch(server.replace(/\/+$/, "") + "/", {
     method: "POST",
     headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify(ntfyMessage(alert, topic)),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!response.ok) throw new Error(`ntfy answered ${response.status}`);
 }

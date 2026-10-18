@@ -3,7 +3,7 @@ import { createServer } from "node:net";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type AgentInfo, agentLabel, alertsBetween, herdrRequest, ntfyMessage, QUIET_MS, throttle } from "./alerts.ts";
+import { type AgentInfo, agentLabel, alertsBetween, herdrRequest, ntfyMessage, publish, QUIET_MS, throttle } from "./alerts.ts";
 
 const agent = (status: AgentInfo["agent_status"], extra: Partial<AgentInfo> = {}): AgentInfo => ({
   pane_id: "w1:p1",
@@ -100,5 +100,17 @@ test("herdrRequest fails when Herdr closes the connection without a whole answer
     await expect(herdrRequest(path, "agent.list")).rejects.toThrow("closed the connection");
   } finally {
     server.close();
+  }
+});
+
+test("publish gives up on an ntfy server that never answers", async () => {
+  const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Promise<Response>(() => {}) });
+  const alert = { paneId: "p1", kind: "finished", title: "Codex finished", message: "repo: ready" } as const;
+  try {
+    const started = Date.now();
+    await expect(publish(alert, `http://127.0.0.1:${server.port}`, "topic", undefined, 200)).rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(5_000);
+  } finally {
+    server.stop(true);
   }
 });

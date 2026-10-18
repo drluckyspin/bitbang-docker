@@ -80,7 +80,7 @@ function watch(page, label) {
   page.on("response", (response) => {
     const status = response.status();
     if (status < 400) return;
-    const key = `${label} ${status} ${response.request().method()} ${new URL(response.url()).pathname.replace(/\/__device__\/[^/]+/, "")}`;
+    const key = `${label} ${status} ${response.request().method()} ${shape(response.url())}`;
     responses.set(key, (responses.get(key) ?? 0) + 1);
     if (status === 403 || status >= 500) problems.push(key);
   });

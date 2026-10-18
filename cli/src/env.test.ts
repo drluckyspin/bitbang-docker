@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { envHas, setEnvValue, withEnvValue } from "./env.ts";
@@ -44,5 +44,20 @@ describe("envHas and setEnvValue", () => {
     setEnvValue(file, "T", "v");
     expect(readFileSync(file, "utf8")).toBe('A=1\nT="v"\n');
     expect(statSync(file).mode & 0o777).toBe(0o600);
+  });
+
+  test("never writes through a file or symlink already at the staging name", () => {
+    const file = join(dir, "staged");
+    const victim = join(dir, "victim");
+    writeFileSync(file, "A=1\n");
+    writeFileSync(victim, "untouched\n");
+    symlinkSync(victim, `${file}.go-remote-new`);
+    setEnvValue(file, "T", "v");
+    expect(readFileSync(victim, "utf8")).toBe("untouched\n");
+    expect(lstatSync(file).isFile()).toBe(true);
+    expect(readFileSync(file, "utf8")).toBe('A=1\nT="v"\n');
+    writeFileSync(`${file}.go-remote-new`, "left over\n");
+    setEnvValue(file, "U", "w");
+    expect(readFileSync(file, "utf8")).toBe('A=1\nT="v"\nU="w"\n');
   });
 });
