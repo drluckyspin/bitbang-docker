@@ -150,6 +150,15 @@ export async function callingAgent(agent: SessionAgentKind): Promise<AgentProces
   return agentAbove(await processTable(), process.pid, agent);
 }
 
+/** Where each agent tells the commands it runs which session they run in. */
+const SESSION_ENV: Record<SessionAgentKind, string> = { claude: "CLAUDE_CODE_SESSION_ID", codex: "CODEX_THREAD_ID" };
+
+/** The session go-remote runs inside, when its agent says and it is not `ref`: ending that agent would end the wrong one. */
+export function otherSession(ref: SessionRef, env: Record<string, string | undefined> = process.env): string | undefined {
+  const id = env[SESSION_ENV[ref.agent]];
+  return id && id !== ref.id ? id : undefined;
+}
+
 function lockFile(ref: SessionRef): string {
   return join(stateDir(), `move-${ref.agent}-${ref.id}.pid`);
 }
