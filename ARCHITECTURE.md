@@ -264,7 +264,10 @@ volume.
 From a terminal, `go-remote start --resume` moves a session you have already quit; it asks first if the transcript
 changed in the last minute. `--fork` continues a copy instead. `go-remote pull` brings sessions back: it refuses while
 one is still open in any running workspace (`openAnywhere()`, the same check a move makes), copies only that repo's
-session files, and keeps a `.bak` of any laptop copy it replaces. Cursor sessions cannot move yet: `SessionAgentKind`
+session files, and keeps a `.bak` of any laptop copy it replaces. It is the same comparison in reverse (`pullState()`):
+a container copy that is a prefix of the laptop's means the session went on here since, so the laptop's is kept. Nor
+does it replace a session an agent on the laptop has open (`openHere()`): one whose command line names the session, as
+the resume command `pull` prints does, or the one running go-remote. Cursor sessions cannot move yet: `SessionAgentKind`
 leaves Cursor out until go-remote can read its transcripts.
 
 ## The link and pairing
