@@ -162,6 +162,10 @@ stopped working. The container stays down instead, and `go-remote start` brings 
 - **Labels** let go-remote find workspaces without any state on the host: `go-remote.repo` holds the mounted path, and
   `go-remote.env-file` the env file the container was given, so `go-remote login` restarts only the workspaces its token
   is for.
+- **One env file** per workspace, `.env` or the one `GR_ENV_FILE` names. Compose gives it to the container as its
+  `env_file`, and `compose()` in `cli/src/workspace.ts` also passes it as `--env-file`, so compose's own `${GR_*}`
+  settings, such as the mode and the home volume, come from the same file. That is how the e2e test's throwaway file
+  keeps it off the checkout's `.env`.
 - **The home volume** (`go-remote-home`) is shared by every workspace. It holds sign-ins, shell history, git config,
   agent sessions, and herdr-web-ui's pairings, which are kept per Herdr session. It is external, so
   `docker compose down -v` leaves it alone; `ensureHomeVolume()` creates it, and `make clean-home` deletes it.
