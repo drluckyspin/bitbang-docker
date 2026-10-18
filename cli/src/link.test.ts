@@ -35,4 +35,9 @@ describe("redact", () => {
     expect(out).not.toContain("123456");
     expect(out).toBe("Listening at https://bitba.ng/<redacted> and Connection request from <connection> (browser_ip=1.2.3.4)");
   });
+
+  test("removes a connection id that starts or ends with a hyphen", () => {
+    expect(redact("Connection request from -AAAAAAAAAAAAAAAAAAAAA_c765a861")).toBe("Connection request from <connection>");
+    expect(redact("from AAAAAAAAAAAAAAAAAAAAA-_c765a861, again")).toBe("from <connection>, again");
+  });
 });

@@ -2,7 +2,22 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { projectName, reservedConflict, resolveRepo, uiMode } from "./workspace.ts";
+import { compose, projectName, reservedConflict, resolveRepo, uiMode } from "./workspace.ts";
+
+test("compose reads its settings from the env file GR_ENV_FILE picks, when it exists", () => {
+  const root = mkdtempSync(join(tmpdir(), "go-remote-compose-"));
+  const saved = process.env.GR_ENV_FILE;
+  try {
+    process.env.GR_ENV_FILE = "throwaway.env";
+    expect(compose(root, "go-remote-app")).not.toContain("--env-file");
+    writeFileSync(join(root, "throwaway.env"), "GR_UI=shell\n");
+    const args = compose(root, "go-remote-app");
+    expect(args.slice(args.indexOf("--env-file"), args.indexOf("--env-file") + 2)).toEqual(["--env-file", join(root, "throwaway.env")]);
+  } finally {
+    if (saved === undefined) delete process.env.GR_ENV_FILE;
+    else process.env.GR_ENV_FILE = saved;
+  }
+});
 
 test("uiMode reads GR_UI as the entrypoint does, and an image without it as the shell", () => {
   expect(uiMode(["PATH=/usr/bin", "GR_UI=web"])).toBe("web");
