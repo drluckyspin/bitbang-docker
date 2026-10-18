@@ -2,7 +2,7 @@
 # USER_UID/GID and the git identity; everything else is interpolated from .env.
 services:
   workspace:
-    image: bitbang-docker:latest
+    image: go-remote:latest
     pull_policy: never
     init: true
     user: agent
@@ -20,9 +20,9 @@ services:
     # A restart starts a fresh tmpfs, which mints a new URL nobody has seen. Stay down instead.
     restart: "no"
     labels:
-      bitbang-docker.repo: ${GR_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
+      go-remote.repo: ${GR_REPO:?REPO is required, e.g. make run-detached REPO=~/src/my-repo}
       # Which .env the container was given, so bbd login restarts only the workspaces its token is for
-      bitbang-docker.env-file: ${GR_ENV_FILE:-.env}
+      go-remote.env-file: ${GR_ENV_FILE:-.env}
     healthcheck:
       test: ["CMD-SHELL", "[ \"$$(cat /tmp/bitbang/health 2>/dev/null)\" = ok ]"]
       interval: 30s
@@ -40,7 +40,7 @@ services:
         target: /home/agent
       - type: bind
         source: ./config
-        target: /etc/bitbang-docker
+        target: /etc/go-remote
         read_only: true
     # Secrets (API keys, GH_TOKEN, BITBANG_PIN, GR_NTFY_TOPIC) come only from this file. ${VAR} interpolation
     # would let the host shell's exported keys win over .env and leak into a remotely reachable container.
@@ -65,5 +65,5 @@ volumes:
   # Shared by every workspace. External, so compose neither ties it to whichever project created it (and warns
   # all the others) nor deletes it on down -v. bbd creates it before starting; make clean-home deletes it.
   home:
-    name: ${GR_HOME_VOLUME:-bitbang-docker-home}
+    name: ${GR_HOME_VOLUME:-go-remote-home}
     external: true

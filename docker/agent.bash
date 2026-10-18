@@ -9,24 +9,24 @@
 #              An agent opened before anyone signed in sits at its sign-in screen; once the sign-in happens
 #              elsewhere (bbd login), it is restarted in its tab.
 #
-# Usage: bitbang-docker-agent prepare         Answer the first-run questions and record the starting state
-#        bitbang-docker-agent watch           Start the default agent once it is signed in (the entrypoint)
-#        bitbang-docker-agent ready <agent>   Exit 0 when claude, codex or cursor is signed in, 3 when it is not
-#        bitbang-docker-agent status          Print the default agent's state as JSON
-#        bitbang-docker-agent hint            Say how to sign in while no agent is (interactive shells)
-#        bitbang-docker-agent login [agent]   Sign in to claude, codex or cursor (default: the one being waited for)
+# Usage: go-remote-agent prepare         Answer the first-run questions and record the starting state
+#        go-remote-agent watch           Start the default agent once it is signed in (the entrypoint)
+#        go-remote-agent ready <agent>   Exit 0 when claude, codex or cursor is signed in, 3 when it is not
+#        go-remote-agent status          Print the default agent's state as JSON
+#        go-remote-agent hint            Say how to sign in while no agent is (interactive shells)
+#        go-remote-agent login [agent]   Sign in to claude, codex or cursor (default: the one being waited for)
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail
 
 # shellcheck source=scripts/log.bash
 # shellcheck disable=SC1091
-source /usr/local/lib/bitbang-docker/log.bash
+source /usr/local/lib/go-remote/log.bash
 
 REPO="${GR_REPO:-/workspace}"
 RUNTIME_DIR=/tmp/bbd
 STATE_FILE="${RUNTIME_DIR}/agent.json"
-LOCK_FILE="${HOME}/.config/bitbang-docker/agent-config.lock"
+LOCK_FILE="${HOME}/.config/go-remote/agent-config.lock"
 POLL_SECONDS="${GR_AGENT_POLL_SECONDS:-3}"
 
 configured() {
@@ -405,7 +405,7 @@ main() {
     hint) hint ;;
     login) login "$@" ;;
     *)
-      echo "Usage: bitbang-docker-agent prepare|watch|ready <agent>|status|hint|login [agent]" >&2
+      echo "Usage: go-remote-agent prepare|watch|ready <agent>|status|hint|login [agent]" >&2
       return 2
       ;;
   esac

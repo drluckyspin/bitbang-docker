@@ -8,8 +8,8 @@ import { basename, join, resolve } from "node:path";
 import { capture, inherit, output, type RunOptions } from "./proc.ts";
 import { UserError } from "./ui.ts";
 
-export const IMAGE = "bitbang-docker:latest";
-export const REPO_LABEL = "bitbang-docker.repo";
+export const IMAGE = "go-remote:latest";
+export const REPO_LABEL = "go-remote.repo";
 
 /**
  * Container paths a repo mounted at its host path must not cover or land inside: the image's own files, the
@@ -142,7 +142,7 @@ export async function listWorkspaces(): Promise<Workspace[]> {
       state: container.State.Status,
       health: container.State.Health?.Status ?? "",
       ui: uiMode(container.Config.Env),
-      envFile: container.Config.Labels["bitbang-docker.env-file"] ?? ".env",
+      envFile: container.Config.Labels["go-remote.env-file"] ?? ".env",
     }))
     .sort((a, b) => a.project.localeCompare(b.project));
 }

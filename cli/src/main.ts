@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-/** bbd: start bitbang-docker workspaces, hand agent sessions to them, and open them on a phone. */
+/** bbd: start go-remote workspaces, hand agent sessions to them, and open them on a phone. */
 import { parseArgs, type ParseArgsConfig } from "node:util";
 import pkg from "../../package.json" with { type: "json" };
 import { doctor } from "./commands/doctor.ts";
@@ -14,7 +14,7 @@ import { finishMove, type MovePlan } from "./move.ts";
 import type { AgentKind } from "./sessions.ts";
 import { ui, UserError } from "./ui.ts";
 
-const HELP = `bbd: hardened bitbang-docker workspaces for your repos, on your phone over BitBang
+const HELP = `bbd: hardened go-remote workspaces for your repos, on your phone over BitBang
 
 Usage: bbd <command> [options]
 
@@ -41,14 +41,14 @@ Commands:
   stop [path]             Stop a workspace (--all stops every one); logins stay in the home volume
   doctor                  Check Docker, the image, .env and the agent CLIs on this computer
   install-skill           Install the /go-remote skill for Claude Code, Codex and Cursor
-  setup --root <dir>      Remember the bitbang-docker checkout (make install-cli runs this)
+  setup --root <dir>      Remember the go-remote checkout (make install-cli runs this)
 
 Options:
   --json        Machine-readable output. The link is never printed: the QR code opens in a window instead,
                 as it does whenever stdout is not a terminal
   --no-qr       Print the link without drawing the QR code
   --no-window   Never open a window for the QR code
-  --root <dir>  The bitbang-docker checkout (default: GR_ROOT, then the one make install-cli recorded)
+  --root <dir>  The go-remote checkout (default: GR_ROOT, then the one make install-cli recorded)
 
 The path defaults to the current directory for start and sessions. The other commands find the only
 workspace when there is one, and need the repo's path when there are several.
@@ -208,7 +208,7 @@ async function main(argv: string[]): Promise<number> {
     case "setup": {
       const { values } = parse(rest, ROOT_OPTION);
       if (values.help) break;
-      if (!values.root) throw new UserError("bbd setup needs --root <dir>, the bitbang-docker checkout");
+      if (!values.root) throw new UserError("bbd setup needs --root <dir>, the go-remote checkout");
       const saved = saveRoot(values.root);
       ui.success(`Recorded ${saved.root} in ${saved.file}`);
       return 0;

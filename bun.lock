@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "bitbang-docker",
+      "name": "go-remote",
       "dependencies": {
         "@xterm/headless": "6.0.0",
         "lean-qr": "2.7.4",

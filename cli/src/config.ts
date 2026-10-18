@@ -1,5 +1,5 @@
 /**
- * Where the bitbang-docker checkout is: it holds docker-compose.yml, .env and the scripts. In order: --root,
+ * Where the go-remote checkout is: it holds docker-compose.yml, .env and the scripts. In order: --root,
  * GR_ROOT, ~/.config/bbd/config.json (written by bbd setup, which make install-cli runs), then the checkout a
  * dist/ binary sits in.
  */
@@ -43,19 +43,19 @@ export function resolveRoot(flag?: string): string {
     if (!candidate) continue;
     if (isCheckout(candidate)) return resolve(candidate);
     throw new UserError(
-      `${candidate} (from ${source}) is not a bitbang-docker checkout`,
+      `${candidate} (from ${source}) is not a go-remote checkout`,
       "Run make install-cli in the checkout again, or point GR_ROOT at it.",
     );
   }
   const beside = dirname(dirname(realpathSync(process.execPath)));
   if (isCheckout(beside)) return beside;
-  throw new UserError("Cannot find the bitbang-docker checkout", "Run make install-cli in it, or set GR_ROOT to its path.");
+  throw new UserError("Cannot find the go-remote checkout", "Run make install-cli in it, or set GR_ROOT to its path.");
 }
 
 /** Records the checkout for later runs, from wherever they start. */
 export function saveRoot(root: string): { root: string; file: string } {
   const path = resolve(root);
-  if (!isCheckout(path)) throw new UserError(`${path} is not a bitbang-docker checkout`);
+  if (!isCheckout(path)) throw new UserError(`${path} is not a go-remote checkout`);
   const file = configPath();
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   writeFileSync(file, `${JSON.stringify({ root: path }, null, 2)}\n`);

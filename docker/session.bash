@@ -6,7 +6,7 @@
 # Description: Opens, or attaches to, the shared tmux session in the repo (GR_UI=shell). Both the BitBang
 #              shell and `make attach` go through here, so every shell starts from the same clean environment.
 #
-# Usage: bitbang-docker-session [extra tmux new-session flags]
+# Usage: go-remote-session [extra tmux new-session flags]
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail

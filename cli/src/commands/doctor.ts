@@ -49,8 +49,8 @@ export async function doctor(options: { json: boolean; root?: string }): Promise
     if (!labels) add("image", "fail", `${IMAGE} not built; run make build`);
     else {
       const pins = Object.entries(labels)
-        .filter(([key]) => key.startsWith("bitbang-docker.version."))
-        .map(([key, value]) => `${key.slice("bitbang-docker.version.".length)} ${value}`);
+        .filter(([key]) => key.startsWith("go-remote.version."))
+        .map(([key, value]) => `${key.slice("go-remote.version.".length)} ${value}`);
       add("image", pins.length > 0 ? "ok" : "warn", pins.length > 0 ? pins.join(", ") : "built before version labels; run make build");
     }
     const running = (await listWorkspaces()).filter((workspace) => workspace.state === "running").length;

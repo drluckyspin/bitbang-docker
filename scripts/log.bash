@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------------------------------------
 # Script Name: log.bash
 #
-# Description: Colored, formatted console logging for bitbang-docker scripts, the Makefile, and the
+# Description: Colored, formatted console logging for go-remote scripts, the Makefile, and the
 #              container entrypoint. All output goes to stderr so scripts can keep stdout for data
 #              (for example, `make url QR=false` prints only the URL).
 #
@@ -20,7 +20,7 @@
 #   log_separator      : Print a separator line across terminal width
 #   log_centered       : Print centered text
 #   log_verbose        : Log message only if VERBOSE environment variable is true
-#   log_banner         : Display the bitbang-docker ASCII art banner
+#   log_banner         : Display the go-remote ASCII art banner
 # -----------------------------------------------------------------------------------------------------------
 # Usage Example: source scripts/log.bash
 # -----------------------------------------------------------------------------------------------------------
@@ -138,23 +138,17 @@ log_verbose() {
 
 # -----------------------------------------------------------------------------------------------------------
 # Function: log_banner
-# Description: Show the bitbang-docker banner.
+# Description: Show the go-remote banner.
 # -----------------------------------------------------------------------------------------------------------
 log_banner() {
   echo -e "
-    ${WHITE}██████╗ ██╗████████╗██████╗  █████╗ ███╗   ██╗ ██████╗${RESET}
-    ${WHITE}██╔══██╗██║╚══██╔══╝██╔══██╗██╔══██╗████╗  ██║██╔════╝${RESET}
-    ${WHITE}██████╔╝██║   ██║   ██████╔╝███████║██╔██╗ ██║██║  ███╗${RESET}
-    ${WHITE}██╔══██╗██║   ██║   ██╔══██╗██╔══██║██║╚██╗██║██║   ██║${RESET}
-    ${WHITE}██████╔╝██║   ██║   ██████╔╝██║  ██║██║ ╚████║╚██████╔╝${RESET}
-    ${WHITE}╚═════╝ ╚═╝   ╚═╝   ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝${RESET}
-          ${BLUE}██████╗  ██████╗  ██████╗██╗  ██╗███████╗██████╗${RESET}
-          ${BLUE}██╔══██╗██╔═══██╗██╔════╝██║ ██╔╝██╔════╝██╔══██╗${RESET}
-          ${BLUE}██║  ██║██║   ██║██║     █████╔╝ █████╗  ██████╔╝${RESET}
-          ${BLUE}██║  ██║██║   ██║██║     ██╔═██╗ ██╔══╝  ██╔══██╗${RESET}
-          ${BLUE}██████╔╝╚██████╔╝╚██████╗██║  ██╗███████╗██║  ██║${RESET}
-          ${BLUE}╚═════╝  ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝${RESET}
-                  ${DIM}a hardened BitBang shell for your repo${RESET}
+    ${WHITE} ██████╗  ██████╗ ${RESET} ${BLUE}██████╗ ███████╗███╗   ███╗ ██████╗ ████████╗███████╗${RESET}
+    ${WHITE}██╔════╝ ██╔═══██╗${RESET} ${BLUE}██╔══██╗██╔════╝████╗ ████║██╔═══██╗╚══██╔══╝██╔════╝${RESET}
+    ${WHITE}██║  ███╗██║   ██║${RESET} ${BLUE}██████╔╝█████╗  ██╔████╔██║██║   ██║   ██║   █████╗${RESET}
+    ${WHITE}██║   ██║██║   ██║${RESET} ${BLUE}██╔══██╗██╔══╝  ██║╚██╔╝██║██║   ██║   ██║   ██╔══╝${RESET}
+    ${WHITE}╚██████╔╝╚██████╔╝${RESET} ${BLUE}██║  ██║███████╗██║ ╚═╝ ██║╚██████╔╝   ██║   ███████╗${RESET}
+    ${WHITE} ╚═════╝  ╚═════╝ ${RESET} ${BLUE}╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝ ╚═════╝    ╚═╝   ╚══════╝${RESET}
+                ${DIM}your coding agents, on your phone, over BitBang${RESET}
     " >&2
 }
 

@@ -20,9 +20,9 @@ function oldSkill(dir: string, text: string): { dir: string; link: string } {
 
 describe("installSkill", () => {
   test("uses only the published go-remote skill from this repository", () => {
-    expect(publishedSource({ skills: [{ name: "go-remote", source: "drluckyspin/bitbang-docker" }] })).toBe("drluckyspin/bitbang-docker");
+    expect(publishedSource({ skills: [{ name: "go-remote", source: "drluckyspin/go-remote" }] })).toBe("drluckyspin/go-remote");
     expect(publishedSource({ skills: [{ name: "go-remote", source: "someone-else/go-remote" }] })).toBeUndefined();
-    expect(publishedSource({ skills: [{ name: "other-skill", source: "drluckyspin/bitbang-docker" }] })).toBeUndefined();
+    expect(publishedSource({ skills: [{ name: "other-skill", source: "drluckyspin/go-remote" }] })).toBeUndefined();
     expect(publishedSource({ skills: "not a list" })).toBeUndefined();
   });
 

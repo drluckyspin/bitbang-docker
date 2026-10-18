@@ -8,7 +8,7 @@
 #              a new one replaces the last. Runs inside the container only (the host CLI calls it through
 #              docker exec), because it holds the app's access token.
 #
-# Usage: bitbang-docker-pair
+# Usage: go-remote-pair
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail

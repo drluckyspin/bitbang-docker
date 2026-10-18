@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------------------------------------
-# Common Makefile — BitBang Docker
+# Common Makefile — go-remote
 # -----------------------------------------------------------------------------------------------------------
 # A hardened container around one local git repo, served over BitBang: Herdr's web UI for agent chat and a
 # terminal (GR_UI=web), or BitBang's own terminal on a tmux session (GR_UI=shell). The bbd CLI in cli/ does
@@ -23,7 +23,7 @@
 .DEFAULT_GOAL := help
 MAKEFLAGS += --no-print-directory
 
-PROJECT_NAME := BitBang Docker
+PROJECT_NAME := go-remote
 SHELL := /bin/bash
 
 COMMON_MAKEFILE_DIR := $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
@@ -31,9 +31,9 @@ LOGGER := source $(COMMON_MAKEFILE_DIR)scripts/log.bash &&
 CHECKENV_SCRIPT := $(COMMON_MAKEFILE_DIR)scripts/checkenv.bash
 SCRIPTS_DIR := $(COMMON_MAKEFILE_DIR)scripts
 
-IMAGE := bitbang-docker:latest
-E2E_IMAGE := bitbang-docker-e2e:latest
-HOME_VOLUME := $(or $(GR_HOME_VOLUME),bitbang-docker-home)
+IMAGE := go-remote:latest
+E2E_IMAGE := go-remote-e2e:latest
+HOME_VOLUME := $(or $(GR_HOME_VOLUME),go-remote-home)
 QR ?= true
 BIN_DIR ?= $(HOME)/.local/bin
 
@@ -69,7 +69,7 @@ endif
 # -----------------------------------------------------------------------------------------------------------
 # Workspace selection
 #
-# Each repo gets its own compose project, bbd-<repo directory name>. Its label bitbang-docker.repo
+# Each repo gets its own compose project, bbd-<repo directory name>. Its label go-remote.repo
 # records the mounted path, which is how targets find workspaces without REPO.
 # -----------------------------------------------------------------------------------------------------------
 
@@ -90,7 +90,7 @@ REPO_PATH := $(if $(REPO_EXPANDED),$(shell cd "$(REPO_EXPANDED)" 2>/dev/null && 
 bbd_project = bbd-$(shell printf '%s' "$$(basename "$(1)")" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '-')
 
 # Recursive on purpose: docker is only asked when a target actually needs the list.
-WORKSPACE_PROJECTS = $(shell docker ps -a --filter label=bitbang-docker.repo \
+WORKSPACE_PROJECTS = $(shell docker ps -a --filter label=go-remote.repo \
 	--format '{{.Label "com.docker.compose.project"}}' 2>/dev/null | sort -u)
 
 ifneq ($(REPO_EXPANDED),)
@@ -193,7 +193,7 @@ check:
 export_ca:
 	@$(SCRIPTS_DIR)/export-ca.bash
 
-.PHONY: build ## Build the bitbang-docker image (trusts a Zscaler root CA when the host has one)
+.PHONY: build ## Build the go-remote image (trusts a Zscaler root CA when the host has one)
 build: check_docker export_ca
 	@$(LOGGER) log_separator
 	@$(LOGGER) log_info "Building $(IMAGE) (agent uid $(USER_UID), gid $(USER_GID))"
@@ -273,12 +273,12 @@ logs: $(BBD)
 ping: check_docker
 	@$(LOGGER) log_separator
 	@$(LOGGER) log_info "$(PROJECT_NAME) workspaces"
-	@ids=$$(docker ps -aq --filter label=bitbang-docker.repo); \
+	@ids=$$(docker ps -aq --filter label=go-remote.repo); \
 	if [ -z "$$ids" ]; then \
 		$(LOGGER) log_info_dim "None. Start one with: make run REPO=~/src/my-repo"; \
 		exit 0; \
 	fi; \
-	docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "bitbang-docker.repo"}}|{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}' $$ids | \
+	docker inspect -f '{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "go-remote.repo"}}|{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}' $$ids | \
 	while IFS='|' read -r project repo state health; do \
 		echo ""; \
 		$(LOGGER) log "$$project"; \
@@ -299,7 +299,7 @@ down: check_docker check_project_repo
 		exit 0; \
 	fi; \
 	for project in $$projects; do \
-		repo=$$(docker ps -a --filter label=com.docker.compose.project=$$project --format '{{.Label "bitbang-docker.repo"}}' | head -n 1); \
+		repo=$$(docker ps -a --filter label=com.docker.compose.project=$$project --format '{{.Label "go-remote.repo"}}' | head -n 1); \
 		$(LOGGER) log_info "Stopping $$project"; \
 		GR_REPO="$${repo:-/nonexistent}" $(COMPOSE) -p "$$project" down --remove-orphans; \
 	done

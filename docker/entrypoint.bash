@@ -16,20 +16,20 @@ set -euo pipefail
 
 # shellcheck source=scripts/log.bash
 # shellcheck disable=SC1091
-source /usr/local/lib/bitbang-docker/log.bash
+source /usr/local/lib/go-remote/log.bash
 
 REPO="${GR_REPO:-}"
 RUNTIME_DIR=/tmp/bbd
 BITBANG_HOME=/tmp/bitbang
-ICE_SERVERS_FILE=/etc/bitbang-docker/ice-servers.json
-SESSION_COMMAND=bitbang-docker-session
+ICE_SERVERS_FILE=/etc/go-remote/ice-servers.json
+SESSION_COMMAND=go-remote-session
 WATCHDOG_INTERVAL="${GR_WATCHDOG_INTERVAL:-300}"
 WATCHDOG_MAX_FAILURES=2
 READY_TIMEOUT=60
 
 WEB_UI_DIR=/opt/herdr-web-ui
-INGRESS_SCRIPT=/opt/bitbang-docker/ingress/server.ts
-ALERTS_SCRIPT=/opt/bitbang-docker/ingress/alerts.ts
+INGRESS_SCRIPT=/opt/go-remote/ingress/server.ts
+ALERTS_SCRIPT=/opt/go-remote/ingress/alerts.ts
 WEB_PORT="${GR_WEB_PORT:-7317}"
 INGRESS_PORT="${GR_INGRESS_PORT:-7300}"
 HERDR_SOCKET="${HOME}/.config/herdr/sessions/${HERDR_SESSION:-default}/herdr.sock"
@@ -73,7 +73,7 @@ check_workspace() {
 #              locally, in .git/info/exclude, so they never show up as changes.
 # -----------------------------------------------------------------------------------------------------------
 configure_git() {
-  local lock="${HOME}/.config/bitbang-docker/git-config.lock"
+  local lock="${HOME}/.config/go-remote/git-config.lock"
   mkdir -p "$(dirname "$lock")"
   (
     flock -x 9
@@ -186,11 +186,11 @@ start_herdr() {
   for agent in claude codex cursor; do
     herdr integration install "$agent" >/dev/null 2>&1 || log_warning "Could not install Herdr's ${agent} integration"
   done
-  bitbang-docker-agent prepare
+  go-remote-agent prepare
   fresh_session
 
   # Herdr writes its own log in the session directory; what it prints is a banner, kept out of docker logs.
-  start_service herdr bash -c "exec bitbang-docker-herdr server >>'${RUNTIME_DIR}/herdr-server.out' 2>&1"
+  start_service herdr bash -c "exec go-remote-herdr server >>'${RUNTIME_DIR}/herdr-server.out' 2>&1"
   wait_for "The Herdr server" herdr workspace list
 
   if ! herdr pane list | jq -e --arg repo "$REPO" \
@@ -207,17 +207,17 @@ start_herdr() {
 # Function: start_default_agent
 # Description: In the background, start the default agent (GR_DEFAULT_AGENT) in its own Herdr tab once
 #              one is signed in, so the phone's Chat has an agent to talk to and the sign-in needs no restart.
-#              Its state is in /tmp/bbd/agent.json (bitbang-docker-agent status).
+#              Its state is in /tmp/bbd/agent.json (go-remote-agent status).
 # -----------------------------------------------------------------------------------------------------------
 start_default_agent() {
-  bitbang-docker-agent watch &
+  go-remote-agent watch &
   echo $! >"${RUNTIME_DIR}/agent-watch.pid"
 }
 
 # -----------------------------------------------------------------------------------------------------------
 # Function: start_web_ui
 # Description: Start herdr-web-ui on loopback behind a random access token that never leaves the
-#              container's tmpfs. Phones get in by pairing (bitbang-docker-pair), never with the token.
+#              container's tmpfs. Phones get in by pairing (go-remote-pair), never with the token.
 #              It runs from source, not through its supervisor, so it never updates itself.
 # -----------------------------------------------------------------------------------------------------------
 start_web_ui() {

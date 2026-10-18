@@ -26,7 +26,7 @@ export interface Shown {
 
 /** A fresh one-time pairing code from herdr-web-ui, valid for ten minutes. */
 export async function pairingCode(workspace: Workspace): Promise<{ code: string; expires_at: string }> {
-  const answer = JSON.parse(await exec(workspace, ["bitbang-docker-pair"]));
+  const answer = JSON.parse(await exec(workspace, ["go-remote-pair"]));
   if (typeof answer?.code !== "string" || !/^\d{6}$/.test(answer.code)) throw new UserError("herdr-web-ui did not issue a pairing code");
   return { code: answer.code, expires_at: String(answer.expires_at ?? "") };
 }

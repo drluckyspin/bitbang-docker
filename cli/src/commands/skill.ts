@@ -11,7 +11,7 @@ import { confirm, ui } from "../ui.ts";
 
 export const SKILL_NAME = "go-remote";
 const OLD_NAME = "create-remote-session";
-const SKILLS_SOURCE = "drluckyspin/bitbang-docker";
+const SKILLS_SOURCE = "drluckyspin/go-remote";
 const SKILLS_SEARCH = `https://skills.sh/api/search?q=${SKILL_NAME}&owner=drluckyspin&limit=20`;
 
 /** A skills.sh result we trust to install this skill from. */

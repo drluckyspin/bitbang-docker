@@ -18,7 +18,7 @@ make run REPO=~/src/my-repo      # start, show the QR code, follow logs; Ctrl+C 
 ```
 
 Without `REPO`, `make run` and `make run-detached` mount the directory you run them from, so
-`make -C ~/src/bitbang-docker run` inside a repo mounts that repo.
+`make -C ~/src/go-remote run` inside a repo mounts that repo.
 
 The first run also builds `bbd`, the command-line tool behind the `make` targets, in Docker, so you need nothing else.
 It creates `.env` from `.env.example`, readable by you only. Everything in it is optional, so the defaults work as they
@@ -215,7 +215,7 @@ You can authenticate either way, and mix them per tool.
   (`claude auth login`: open the link, sign in, and paste the code back).
 - **Codex subscription:** run `make login AGENT=codex` (or `bbd login codex`). It runs `codex login --device-auth` in
   the container, on your terminal: enter the shown code on the page. The same commands also work from a workspace
-  terminal. Logins made in the container are saved in the `bitbang-docker-home` volume and survive restarts.
+  terminal. Logins made in the container are saved in the `go-remote-home` volume and survive restarts.
 - **API key:** set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in `.env`. Codex is signed in with its key when the workspace
   starts. Claude Code uses `ANTHROPIC_API_KEY` ahead of a token, so leave it empty to use your subscription.
 

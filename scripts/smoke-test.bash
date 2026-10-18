@@ -21,7 +21,7 @@ source "$(dirname "$0")/log.bash"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 RUN_ID="$$-${RANDOM}"
 PROJECT="bbd-smoke-test-${RUN_ID}"
-IMAGE=bitbang-docker:latest
+IMAGE=go-remote:latest
 PASSED=0
 FAILED=0
 
@@ -142,7 +142,7 @@ toolchain_checks() {
   done
 
   for label in bitbang bun claude-code codex cursor-agent herdr herdr-web-ui; do
-    version="$(docker image inspect "$IMAGE" --format "{{index .Config.Labels \"bitbang-docker.version.${label}\"}}")"
+    version="$(docker image inspect "$IMAGE" --format "{{index .Config.Labels \"go-remote.version.${label}\"}}")"
     case "$label" in
       bitbang) command="bitbang version" ;;
       bun) command="bun --version" ;;
@@ -205,12 +205,12 @@ web_checks() {
   check "Codex runs without its own sandbox, which cannot work in a container" \
     'cd "$GR_REPO" && codex debug prompt-input hi 2>/dev/null | grep -qF "\`sandbox_mode\` is \`danger-full-access\`"'
   check "With no agent signed in, the default agent waits and the repo's terminal says how to sign in" \
-    'bitbang-docker-agent status | jq -e '\''.state == "waiting"'\'' &&
+    'go-remote-agent status | jq -e '\''.state == "waiting"'\'' &&
      pane="$(herdr pane list | jq -r --arg repo "$GR_REPO" '\''first(.result.panes[] | select(.cwd == $repo)) | .pane_id'\'')" &&
      herdr pane read "$pane" | grep -qF "make login"'
   check "Cursor waits for a sign-in when selected as the default agent" \
-    'GR_DEFAULT_AGENT=cursor bitbang-docker-agent prepare &&
-     bitbang-docker-agent status | jq -e '\''.state == "waiting" and .agent == "cursor"'\'''
+    'GR_DEFAULT_AGENT=cursor go-remote-agent prepare &&
+     go-remote-agent status | jq -e '\''.state == "waiting" and .agent == "cursor"'\'''
   check "The ingress lets only a same-origin page frame the app, and keeps its policy in the page" \
     'curl -fsS -D /tmp/smoke-headers -o /tmp/smoke-page.html http://127.0.0.1:7300/ &&
      tr -d "\r" </tmp/smoke-headers | grep -qix "content-security-policy: frame-ancestors '\''self'\''" &&
@@ -224,7 +224,7 @@ web_checks() {
   check "Cross-origin writes are refused" \
     '[ "$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Origin: https://attacker.example" \
        -H "Content-Type: application/json" -d "{}" http://127.0.0.1:7300/api/devices/pair)" = 403 ]'
-  check "Pairing codes are six digits" 'bitbang-docker-pair | jq -e '\''.code | test("^[0-9]{6}$")'\'''
+  check "Pairing codes are six digits" 'go-remote-pair | jq -e '\''.code | test("^[0-9]{6}$")'\'''
   check "End-to-end BitBang connection reaches the proxy-only listener" \
     "HOME=/tmp timeout 60 bitbang connect '$URL' -nosave -timeout 30s -- true </dev/null 2>&1 |
      grep -qF 'does not advertise the \`shell\` capability'"
@@ -259,7 +259,7 @@ shell_checks() {
   check "No Herdr or web UI runs" '! pgrep -x herdr && ! pgrep -f "[b]un server/index.ts"'
   # .env.example leaves ANTHROPIC_API_KEY empty, so the exec environment carries ANTHROPIC_API_KEY="".
   check "tmux session drops empty API keys and uses the home volume" \
-    'bitbang-docker-session -d && ! tmux show-environment -g ANTHROPIC_API_KEY 2>/dev/null &&
+    'go-remote-session -d && ! tmux show-environment -g ANTHROPIC_API_KEY 2>/dev/null &&
      tmux show-environment -g HOME | grep -qx HOME=/home/agent'
   in_container 'tmux kill-server' >/dev/null 2>&1 || true
 

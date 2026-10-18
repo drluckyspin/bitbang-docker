@@ -1,15 +1,15 @@
 ---
 name: go-remote
 description: >-
-  Moves the current coding session into a hardened bitbang-docker workspace and opens it on the user's phone: the same
+  Moves the current coding session into a hardened go-remote workspace and opens it on the user's phone: the same
   conversation carries on there, with its history, and closes here. Use when the user runs /go-remote ($go-remote in
   Codex), or asks to continue on their phone, go remote, or keep working from another device.
 ---
 
 # Go remote
 
-Moves this session into a bitbang-docker workspace for the current repo: a container on this computer that the phone
-reaches over BitBang. A Claude Code or Codex session moves whole. Once your reply ends, it closes here, resumes in the
+Moves this session into a go-remote workspace for the current repo: a container on this computer that the phone reaches
+over BitBang. A Claude Code or Codex session moves whole. Once your reply ends, it closes here, resumes in the
 container, and a QR code opens in a window; scanning it lands the user in this same conversation on the phone. Other
 agents hand over a written brief instead. The `bbd` CLI does the work.
 
@@ -20,7 +20,7 @@ agents hand over a written brief instead. The `bbd` CLI does the work.
   Run `bbd` with `--json`: its output never contains them, and the QR code opens in a window on the user's screen
   instead. Do not run `bbd logs`, `docker logs` or `bbd qr` without `--json`, and do not open the QR image.
 - **Never push, commit, or stop a workspace** unless the user asks. Ask before running `bbd stop`.
-- If `bbd` is not installed, tell the user to run `make install-cli` in their bitbang-docker checkout, and stop.
+- If `bbd` is not installed, tell the user to run `make install-cli` in their go-remote checkout, and stop.
 
 ## Steps
 
@@ -47,9 +47,9 @@ agents hand over a written brief instead. The `bbd` CLI does the work.
    bbd starts the workspace (the first start can take a minute) and answers with `"moving": true`. The move itself waits
    for this turn to end. Codex: bbd needs Docker, so it has to run outside Codex's own sandbox.
 
-   For any other agent, write a brief to `.bbd/handoff.md` at the repo root (bitbang-docker keeps `.bbd/` out of git):
-   the goal, what is done, what is next, decisions and open questions, the files involved, and how to test. No secrets.
-   Then start a new agent with it (`--agent codex` if the user prefers Codex):
+   For any other agent, write a brief to `.bbd/handoff.md` at the repo root (go-remote keeps `.bbd/` out of git): the
+   goal, what is done, what is next, decisions and open questions, the files involved, and how to test. No secrets. Then
+   start a new agent with it (`--agent codex` if the user prefers Codex):
 
    ```bash
    bbd start "$(git rev-parse --show-toplevel)" --json --agent claude --brief .bbd/handoff.md --open chat

@@ -27,7 +27,7 @@ export async function signIn(workspace: Workspace, agent: AgentKind): Promise<bo
       ? "Signing in to Claude Code in the container: open the link below, sign in, then paste the code the page shows here."
       : `Signing in to ${AGENT_NAMES[agent]} in the container: follow the prompts below on any device.`,
   );
-  if ((await attach(workspace, ["bitbang-docker-agent", "login", agent])) !== 0) return false;
+  if ((await attach(workspace, ["go-remote-agent", "login", agent])) !== 0) return false;
   ui.success(`${AGENT_NAMES[agent]} is signed in, for every workspace`);
   return true;
 }

@@ -13,7 +13,7 @@ test("uiMode reads GR_UI as the entrypoint does, and an image without it as the 
 describe("projectName", () => {
   test("matches Common.make's tr pipeline", () => {
     expect(projectName("/Users/me/src/My Repo.v2")).toBe("bbd-my-repo-v2");
-    expect(projectName("/Users/me/src/bitbang_docker")).toBe("bbd-bitbang_docker");
+    expect(projectName("/Users/me/src/my_repo")).toBe("bbd-my_repo");
     // tr works on bytes: é is two of them
     expect(projectName("/Users/me/src/café")).toBe("bbd-caf--");
   });

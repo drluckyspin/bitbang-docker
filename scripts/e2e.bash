@@ -18,7 +18,7 @@
 #
 # Environment:
 #   BBD                 bbd command (default: dist/bbd-<os>-<arch>, built by make cli)
-#   E2E_IMAGE           Test image (default bitbang-docker-e2e:latest, built by make e2e)
+#   E2E_IMAGE           Test image (default go-remote-e2e:latest, built by make e2e)
 #   E2E_SCREENSHOTS     Directory for screenshots of each step (default: none)
 #   GR_E2E_TRACE       Set to print frame navigations and pairing requests (paths and parameter names only)
 #   GR_E2E_TIMEOUT_MS  How long each step may take (default 120000)
@@ -31,7 +31,7 @@ set -euo pipefail
 source "$(dirname "$0")/log.bash"
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-E2E_IMAGE="${E2E_IMAGE:-bitbang-docker-e2e:latest}"
+E2E_IMAGE="${E2E_IMAGE:-go-remote-e2e:latest}"
 PROJECT=""
 SECRET_DIR=""
 ENV_DIR=""
@@ -277,7 +277,7 @@ main() {
   chmod 700 "$SECRET_DIR"
 
   url="$(docker exec "$cid" cat /tmp/bitbang/url)"
-  code="$(docker exec "$cid" bitbang-docker-pair | jq -r .code)"
+  code="$(docker exec "$cid" go-remote-pair | jq -r .code)"
   pane="$(docker exec "$cid" herdr pane list | jq -r '.result.panes[0].pane_id')"
   marker="bbd-e2e-${RANDOM}${RANDOM}"
   laptop_marker="bbd-e2e-${RANDOM}${RANDOM}"
@@ -285,8 +285,8 @@ main() {
 
   if [ -n "$THROWAWAY_REPO" ]; then
     start_mock_api "$cid"
-    if [ "$(docker exec "$cid" bitbang-docker-agent status | jq -r .state)" = running ]; then
-      agent_pane="$(docker exec "$cid" bitbang-docker-agent status | jq -r .pane)"
+    if [ "$(docker exec "$cid" go-remote-agent status | jq -r .state)" = running ]; then
+      agent_pane="$(docker exec "$cid" go-remote-agent status | jq -r .pane)"
       log_success "The default agent started on its own, in pane ${agent_pane}"
       agent_tab="$(docker exec "$cid" herdr pane list | jq -r --arg pane "$agent_pane" \
         '.result.panes[] | select(.pane_id == $pane) | .tab_id')"
@@ -299,7 +299,7 @@ main() {
       fi
       chat=(-e GR_E2E_CHAT_MESSAGE="Reply to ${marker}" -e GR_E2E_CHAT_EXPECT="${marker}-reply")
     else
-      log_error "The default agent did not start: $(docker exec "$cid" bitbang-docker-agent status | jq -c .)"
+      log_error "The default agent did not start: $(docker exec "$cid" go-remote-agent status | jq -c .)"
       status=1
     fi
     if move_session "$cid" "$laptop_marker"; then

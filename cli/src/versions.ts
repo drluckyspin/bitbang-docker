@@ -3,9 +3,9 @@ import { capture } from "./proc.ts";
 import { AGENT_NAMES, type AgentKind } from "./sessions.ts";
 
 export const PIN_LABELS: Record<AgentKind, string> = {
-  claude: "bitbang-docker.version.claude-code",
-  codex: "bitbang-docker.version.codex",
-  cursor: "bitbang-docker.version.cursor-agent",
+  claude: "go-remote.version.claude-code",
+  codex: "go-remote.version.codex",
+  cursor: "go-remote.version.cursor-agent",
 };
 
 /** `2.1.286 (Claude Code)` and `codex-cli 0.161.0` both give the dotted version; undefined if not installed. */

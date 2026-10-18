@@ -63,7 +63,7 @@ ENV LANG=C.UTF-8 \
     DISABLE_ERROR_REPORTING=1 \
     CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1 \
     DO_NOT_TRACK=1 \
-    HERDR_CONFIG_PATH=/usr/local/share/bitbang-docker/herdr.toml
+    HERDR_CONFIG_PATH=/usr/local/share/go-remote/herdr.toml
 
 # Corporate TLS-inspection roots (exported into certs/ by `make build`) must be trusted before any HTTPS fetch.
 RUN apt-get update \
@@ -138,30 +138,30 @@ RUN set -eux; \
   useradd -l -m -u "${USER_UID}" -g "${USER_GID}" -s /bin/bash agent; \
   ln -s /tmp/bbd/workspace /workspace
 
-COPY third_party/ /usr/local/share/doc/bitbang-docker/third_party/
-COPY scripts/log.bash /usr/local/lib/bitbang-docker/log.bash
-COPY ingress/server.ts ingress/rewrite.ts ingress/compat.js ingress/alerts.ts /opt/bitbang-docker/ingress/
-COPY docker/herdr.toml /usr/local/share/bitbang-docker/herdr.toml
+COPY third_party/ /usr/local/share/doc/go-remote/third_party/
+COPY scripts/log.bash /usr/local/lib/go-remote/log.bash
+COPY ingress/server.ts ingress/rewrite.ts ingress/compat.js ingress/alerts.ts /opt/go-remote/ingress/
+COPY docker/herdr.toml /usr/local/share/go-remote/herdr.toml
 COPY docker/codex.toml /etc/codex/config.toml
 COPY docker/tmux.conf /etc/tmux.conf
-COPY docker/entrypoint.bash /usr/local/bin/bitbang-docker-entrypoint
-COPY docker/session.bash /usr/local/bin/bitbang-docker-session
-COPY docker/herdr.bash /usr/local/bin/bitbang-docker-herdr
-COPY docker/attach.bash /usr/local/bin/bitbang-docker-attach
-COPY docker/pair.bash /usr/local/bin/bitbang-docker-pair
-COPY docker/agent.bash /usr/local/bin/bitbang-docker-agent
-COPY docker/bashrc /usr/local/share/bitbang-docker/bashrc
-RUN printf '\n. /usr/local/share/bitbang-docker/bashrc\n' >>/etc/bash.bashrc
+COPY docker/entrypoint.bash /usr/local/bin/go-remote-entrypoint
+COPY docker/session.bash /usr/local/bin/go-remote-session
+COPY docker/herdr.bash /usr/local/bin/go-remote-herdr
+COPY docker/attach.bash /usr/local/bin/go-remote-attach
+COPY docker/pair.bash /usr/local/bin/go-remote-pair
+COPY docker/agent.bash /usr/local/bin/go-remote-agent
+COPY docker/bashrc /usr/local/share/go-remote/bashrc
+RUN printf '\n. /usr/local/share/go-remote/bashrc\n' >>/etc/bash.bashrc
 
 # Read by bbd doctor and the session handoff, which warn when the laptop's agent CLIs differ.
-LABEL bitbang-docker.version.bitbang="${BITBANG_VERSION}" \
-      bitbang-docker.version.bun="${BUN_VERSION}" \
-      bitbang-docker.version.claude-code="${CLAUDE_CODE_VERSION}" \
-      bitbang-docker.version.codex="${CODEX_VERSION}" \
-      bitbang-docker.version.cursor-agent="${CURSOR_AGENT_VERSION}" \
-      bitbang-docker.version.herdr="${HERDR_VERSION}" \
-      bitbang-docker.version.herdr-web-ui="${HERDR_WEB_UI_VERSION}"
+LABEL go-remote.version.bitbang="${BITBANG_VERSION}" \
+      go-remote.version.bun="${BUN_VERSION}" \
+      go-remote.version.claude-code="${CLAUDE_CODE_VERSION}" \
+      go-remote.version.codex="${CODEX_VERSION}" \
+      go-remote.version.cursor-agent="${CURSOR_AGENT_VERSION}" \
+      go-remote.version.herdr="${HERDR_VERSION}" \
+      go-remote.version.herdr-web-ui="${HERDR_WEB_UI_VERSION}"
 
 USER agent
 WORKDIR /home/agent
-ENTRYPOINT ["bitbang-docker-entrypoint"]
+ENTRYPOINT ["go-remote-entrypoint"]

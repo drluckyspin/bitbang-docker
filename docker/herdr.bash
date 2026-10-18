@@ -7,7 +7,7 @@
 #              environment, so the entrypoint starts `herdr server` through here, and `make attach` opens
 #              the Herdr TUI through here too.
 #
-# Usage: bitbang-docker-herdr [herdr arguments]   (no arguments opens the TUI)
+# Usage: go-remote-herdr [herdr arguments]   (no arguments opens the TUI)
 # -----------------------------------------------------------------------------------------------------------
 
 set -euo pipefail

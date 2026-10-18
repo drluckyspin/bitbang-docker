@@ -64,7 +64,7 @@ export async function attach(options: { path?: string; shell: boolean }): Promis
   const workspace = await findWorkspace(options.path);
   requireRunning(workspace);
   if (process.stdin.isTTY !== true) throw new UserError("bbd attach needs an interactive terminal");
-  return attachTo(workspace, [options.shell ? "bitbang-docker-session" : "bitbang-docker-attach"]);
+  return attachTo(workspace, [options.shell ? "go-remote-session" : "go-remote-attach"]);
 }
 
 /** Follows the container's logs with BitBang URLs and connection ids taken out: bbd qr shows the way in. */

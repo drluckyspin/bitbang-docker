@@ -38,6 +38,6 @@ test("a named checkout that is not one fails, instead of falling through to anot
   process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "bbd-config-"));
   saveRoot(checkout());
   process.env.GR_ROOT = tmpdir();
-  expect(() => resolveRoot()).toThrow("(from GR_ROOT) is not a bitbang-docker checkout");
-  expect(() => saveRoot(tmpdir())).toThrow("is not a bitbang-docker checkout");
+  expect(() => resolveRoot()).toThrow("(from GR_ROOT) is not a go-remote checkout");
+  expect(() => saveRoot(tmpdir())).toThrow("is not a go-remote checkout");
 });

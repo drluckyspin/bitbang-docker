@@ -47,14 +47,14 @@ export async function copyIn(workspace: Workspace, session: Session, stores: Sto
 
 /** Whether the container's agent CLI is signed in. Its first-run questions are answered when the container starts. */
 export async function agentReady(workspace: Workspace, agent: AgentKind): Promise<{ ok: boolean; reason?: string }> {
-  const result = await capture(["docker", "exec", workspace.id, "bitbang-docker-agent", "ready", agent]);
+  const result = await capture(["docker", "exec", workspace.id, "go-remote-agent", "ready", agent]);
   if (result.code === 0) return { ok: true };
   if (result.code === 3) return { ok: false, reason: "it is not signed in yet" };
   if (result.code === 127) return { ok: false, reason: "the image is older than bbd; rebuild it with make build" };
   return { ok: false, reason: "bbd could not check its sign-in" };
 }
 
-/** The web mode's default agent, as the container's bitbang-docker-agent watch records it. */
+/** The web mode's default agent, as the container's go-remote-agent watch records it. */
 export interface DefaultAgent {
   state: "off" | "waiting" | "starting" | "running" | "failed";
   /** the agent started, being started, or (when GR_DEFAULT_AGENT names one) awaiting a sign-in */
@@ -79,7 +79,7 @@ export function parseDefaultAgent(text: string): DefaultAgent {
 }
 
 export async function defaultAgent(workspace: Workspace): Promise<DefaultAgent> {
-  const result = await capture(["docker", "exec", workspace.id, "bitbang-docker-agent", "status"]);
+  const result = await capture(["docker", "exec", workspace.id, "go-remote-agent", "status"]);
   return result.code === 0 ? parseDefaultAgent(result.stdout) : { state: "off" };
 }
 
