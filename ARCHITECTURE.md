@@ -239,7 +239,9 @@ away. Instead:
 
 1. `sessionToHand()` checks that the session ran inside the repo, and sees it is mid-turn (`inTurn()`), so this is a
    move. It refuses if a move of the same session is already waiting, or if no agent process runs above it
-   (`callingAgent()`): a move started from another terminal would have nothing to end, and leave two writers.
+   (`callingAgent()`): a move started from another terminal would have nothing to end, and leave two writers. It also
+   refuses when the agent above it says it is running a different session (`otherSession()`, from
+   `CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID`), because ending that agent would close the wrong conversation.
 2. `start` brings the workspace up with `GR_DEFAULT_AGENT=none`, waits for the listener, and checks the agent can work
    in the container. If it cannot, the session stays on the laptop. It also checks the container's copy of the session
    (`checkCopyIn()`, below).
