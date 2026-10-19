@@ -2,12 +2,11 @@
 
 **Go Remote lets you seamlessly move your coding agent session to your phone, without moving any files to the cloud.**
 
-Type `/go-remote` in Claude
-Code or Codex on your laptop, then hand off your active conversation to a secure Docker container running on the same
-machine. Scan a QR code to continue from your phone in a rich chat and terminal interface. Powered by Herdr and BitBang,
-it connects over an encrypted peer-to-peer link, without VPNs, open ports, or hosted infrastructure. Open source,
-local-first, and built for developers who don't want to stay at their desks. Go Remote's core benefits are the
-combination of local execution, container isolation, and seamless session handoff.
+Type `/go-remote` in Claude Code or Codex on your laptop, then hand off your active conversation to a secure Docker
+container running on the same machine. Scan a QR code to continue from your phone in a rich chat and terminal interface.
+Powered by Herdr and BitBang, it connects over an encrypted peer-to-peer link, without VPNs, open ports, or hosted
+infrastructure. Open source, local-first, and built for developers who don't want to stay at their desks. Go Remote's
+core benefits are the combination of local execution, container isolation, and seamless session handoff.
 
 <!-- markdownlint-disable MD033 -->
 <p align="center">
@@ -246,6 +245,7 @@ when it is not. Most take effect when a workspace next starts.
 | `CURSOR_API_KEY`       | `""`              | API key for the Cursor Agent CLI. Leave empty to use `go-remote login cursor` |
 | `GH_TOKEN`             | `""`              | Fine-grained GitHub token for `git push` and `gh` (see below)                 |
 | `GR_UI`                | `web`             | What the QR code opens: `web` (herdr-web-ui) or [`shell`](#the-shell-mode)    |
+| `GR_RELAY`             | `force`           | `force` connects the phone through the [relay](#networks-and-reliability)     |
 | `GR_DEFAULT_AGENT`     | `auto`            | The agent a web workspace opens: `auto`, `claude`, `codex`, `cursor`, `none`  |
 | `BITBANG_PIN`          | `""`              | PIN that BitBang asks for before connecting                                   |
 | `BITBANG_MAX_SESSIONS` | `3`               | Maximum concurrent shells across all browsers, in the shell mode              |
@@ -379,10 +379,14 @@ Closing the lid on battery still puts it to sleep, which drops the phone's conne
 on battery.
 
 **Relays.** When a direct peer-to-peer path is impossible, BitBang falls back to the `bitba.ng` TURN relay, which is
-time-limited. In testing on a Mac behind Zscaler, a phone on cellular was relayed. For long sessions, use your own TURN
-server: copy `config/ice-servers.example.json` to `config/ice-servers.json`, fill in your provider's details (coturn,
-Cloudflare and Twilio all work), and restart the workspace. That file is gitignored. A file that does not parse stops
-the listener at startup instead of quietly falling back.
+time-limited. In testing on a Mac behind Zscaler, a phone on cellular was relayed. In an emulated iPhone browser left to
+try a direct path first, it waited about eight seconds for a handshake that failed, and the relayed connection it fell
+back to carried data at a tenth of the speed: the app took over a minute to load. So go-remote's links carry BitBang's
+`relay` flag, and the browser uses the relay from the start. `GR_RELAY=auto` lets it try a direct path again, which may
+suit a host the phone can reach on the same network. For long sessions, use your own TURN server: copy
+`config/ice-servers.example.json` to `config/ice-servers.json`, fill in your provider's details (coturn, Cloudflare and
+Twilio all work), and restart the workspace. That file is gitignored. A file that does not parse stops the listener at
+startup instead of quietly falling back.
 
 **Zscaler and other TLS-inspecting proxies.** Zscaler inspects TLS to some hosts, including `api.anthropic.com` and
 `bitba.ng`. On macOS, `make build` and `make cli` export the `Zscaler Root CA` from the System keychain into `certs/`,

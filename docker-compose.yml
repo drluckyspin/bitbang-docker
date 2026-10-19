@@ -53,6 +53,8 @@ services:
       # One Herdr session per workspace: they share the home volume, and must not share a server.
       HERDR_SESSION: ${COMPOSE_PROJECT_NAME}
       GR_UI: ${GR_UI:-web}
+      # Read back by go-remote, which builds the phone's link on the host
+      GR_RELAY: ${GR_RELAY:-force}
       GR_DEFAULT_AGENT: ${GR_DEFAULT_AGENT:-auto}
       BITBANG_MAX_SESSIONS: ${BITBANG_MAX_SESSIONS:-3}
       GR_WATCHDOG_INTERVAL: ${GR_WATCHDOG_INTERVAL:-300}

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { deviceLink, redact } from "./link.ts";
+import { deviceLink, forceRelay, redact } from "./link.ts";
 
 const URL = "https://bitba.ng/AbCdEfGhIjKlMnOpQrStUv#k3y-C0de_x";
 
@@ -24,6 +24,30 @@ describe("deviceLink", () => {
     expect(deviceLink("https://bitba.ng/AbCdEfGhIjKlMnOpQrStUv", { pane: "w1:p1", view: "terminal" })).toBe(
       "https://bitba.ng/AbCdEfGhIjKlMnOpQrStUv#/?pane=w1%3Ap1&view=terminal",
     );
+  });
+});
+
+describe("forceRelay", () => {
+  test("adds the flag after the code and keeps the device path", () => {
+    expect(forceRelay(`${URL}/?pair=042137&pane=w1%3Ap2&view=chat`)).toBe(
+      "https://bitba.ng/AbCdEfGhIjKlMnOpQrStUv#k3y-C0de_x!relay/?pair=042137&pane=w1%3Ap2&view=chat",
+    );
+    expect(forceRelay(URL)).toBe(`${URL}!relay`);
+  });
+
+  test("joins flags already there", () => {
+    expect(forceRelay(`${URL}!nocode/?pane=w1%3Ap1`)).toBe(
+      "https://bitba.ng/AbCdEfGhIjKlMnOpQrStUv#k3y-C0de_x!nocode,relay/?pane=w1%3Ap1",
+    );
+  });
+
+  test("leaves a link that already chooses its path", () => {
+    expect(forceRelay(`${URL}!relay/?pane=w1%3Ap1`)).toBe(`${URL}!relay/?pane=w1%3Ap1`);
+    expect(forceRelay(`${URL}!debug,norelay`)).toBe(`${URL}!debug,norelay`);
+  });
+
+  test("a URL without a fragment gets one", () => {
+    expect(forceRelay("https://bitba.ng/AbCdEfGhIjKlMnOpQrStUv")).toBe("https://bitba.ng/AbCdEfGhIjKlMnOpQrStUv#!relay");
   });
 });
 

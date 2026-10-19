@@ -28,6 +28,26 @@ export function deviceLink(url: string, link: DeepLink): string {
 }
 
 /**
+ * Adds BitBang's `relay` flag, so the browser connects through the TURN relay from the start. Left to try a direct
+ * path first, a phone reaching a container behind Docker Desktop's NAT waits seconds for a handshake that fails, and
+ * the relayed connection it falls back to carries data many times slower than a forced one. BitBang keeps the flag
+ * across the frame's navigations and its own reconnects. A link that already names `relay` or `norelay` is left alone.
+ */
+export function forceRelay(url: string): string {
+  const hash = url.indexOf("#");
+  const base = hash === -1 ? url : url.slice(0, hash);
+  const fragment = hash === -1 ? "" : url.slice(hash + 1);
+  const slash = fragment.indexOf("/");
+  const head = slash === -1 ? fragment : fragment.slice(0, slash);
+  const rest = slash === -1 ? "" : fragment.slice(slash);
+  const bang = head.indexOf("!");
+  const code = bang === -1 ? head : head.slice(0, bang);
+  const flags = bang === -1 ? [] : head.slice(bang + 1).split(",").filter(Boolean);
+  if (flags.some((flag) => flag === "relay" || flag === "norelay")) return url;
+  return `${base}#${code}!${[...flags, "relay"].join(",")}${rest}`;
+}
+
+/**
  * Strips what grants access from text that may end up in a log or an agent's context: BitBang URLs, and the
  * device id BitBang prints for each connection (it is the URL's path).
  */
