@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compose, projectName, relayForced, reservedConflict, resolveRepo, uiMode } from "./workspace.ts";
+import { compose, pickWorkspace, projectName, relayForced, reservedConflict, resolveRepo, uiMode, type Workspace } from "./workspace.ts";
 
 test("compose reads its settings from the env file GR_ENV_FILE picks, when it exists", () => {
   const root = mkdtempSync(join(tmpdir(), "go-remote-compose-"));
@@ -72,5 +72,58 @@ describe("resolveRepo", () => {
   test("refuses what does not exist, and the home directory", () => {
     expect(() => resolveRepo("/nonexistent/go-remote")).toThrow("does not exist");
     expect(() => resolveRepo("~")).toThrow("Refusing to mount");
+  });
+});
+
+describe("pickWorkspace", () => {
+  const workspace = (repo: string): Workspace => ({
+    id: repo,
+    project: projectName(repo),
+    repo,
+    state: "running",
+    health: "healthy",
+    ui: "web",
+    relay: true,
+  });
+
+  test("finds a workspace by its name, even when its repo has gone", () => {
+    const moved = workspace("/nonexistent/src/old-name");
+    const other = workspace(realpathSync(mkdtempSync(join(tmpdir(), "go-remote-pick-"))));
+    expect(pickWorkspace([moved, other], "go-remote-old-name")).toBe(moved);
+    expect(pickWorkspace([moved, other], other.project)).toBe(other);
+  });
+
+  test("still finds one by its repo path", () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "go-remote-pick-")));
+    const found = workspace(dir);
+    expect(pickWorkspace([workspace("/nonexistent/src/a"), found], dir)).toBe(found);
+    expect(pickWorkspace([workspace("/nonexistent/src/a")], "/nonexistent/src/a").repo).toBe("/nonexistent/src/a");
+  });
+
+  test("names an unknown workspace as such, and asks for one when several exist", () => {
+    const both = [workspace("/nonexistent/src/a"), workspace("/nonexistent/src/b")];
+    expect(() => pickWorkspace(both, "go-remote-c")).toThrow("No workspace named go-remote-c");
+    expect(() => pickWorkspace(both, undefined, tmpdir())).toThrow("Several workspaces exist");
+    expect(pickWorkspace(both.slice(0, 1), undefined, tmpdir()).repo).toBe("/nonexistent/src/a");
+  });
+
+  test("with no target, picks the workspace for the repo the current directory is in", () => {
+    const outer = realpathSync(mkdtempSync(join(tmpdir(), "go-remote-pick-")));
+    const inner = join(outer, "vendor", "lib");
+    mkdirSync(join(inner, "src"), { recursive: true });
+    const outerWorkspace = workspace(outer);
+    const innerWorkspace = workspace(inner);
+    const all = [workspace("/nonexistent/src/a"), outerWorkspace, innerWorkspace];
+    expect(pickWorkspace(all, undefined, outer)).toBe(outerWorkspace);
+    expect(pickWorkspace(all, undefined, join(outer, "vendor"))).toBe(outerWorkspace);
+    expect(pickWorkspace(all, undefined, join(inner, "src"))).toBe(innerWorkspace);
+    expect(() => pickWorkspace(all, undefined, tmpdir())).toThrow("Several workspaces exist");
+  });
+
+  test("does not take a sibling whose path merely starts the same", () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "go-remote-pick-")));
+    mkdirSync(join(dir, "app-two"));
+    const both = [workspace(join(dir, "app")), workspace(join(dir, "other"))];
+    expect(() => pickWorkspace(both, undefined, join(dir, "app-two"))).toThrow("Several workspaces exist");
   });
 });
