@@ -6,20 +6,52 @@ rendered rather than baked into images.
 
 ## Commands
 
-| Command          | What it does                                                |
-| ---------------- | ----------------------------------------------------------- |
-| `npm i`          | Install the dependencies                                    |
-| `npm run dev`    | Open Remotion Studio, with each scene also registered alone |
-| `npm run render` | Render `out/go-remote-teaser.mp4`, 1920 by 1080 at 30 fps   |
-| `npm run poster` | Render the thumbnail, `out/go-remote-poster.jpg`            |
-| `npm run audio`  | Synthesize the music and foley into `public/audio`          |
-| `npm run lint`   | ESLint and `tsc`                                            |
+Run these from `video/`; `make` on its own lists them. They install the dependencies the first time.
 
-`dev`, `build`, `render` and `poster` run `audio` first. Its output is the same every time, so it stays out of git.
+| Command              | What it does                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `make studio`        | Open Remotion Studio, with each scene also registered alone                          |
+| `make still FRAME=n` | Render frame `n` of the teaser to `out/still-n.png`                                  |
+| `make render`        | Render `out/go-remote-teaser.mp4`, 1920 by 1080 at 30 fps                            |
+| `make poster`        | Render the thumbnail, `out/go-remote-poster.jpg`                                     |
+| `make gif`           | Make `../docs/go-remote-teaser.gif` for the README, rendering first when it is stale |
+| `make lint`          | ESLint and `tsc`                                                                     |
+
+They wrap the npm scripts, which still work on their own: `npm run dev`, `render`, `poster`, `audio` and `lint`. `dev`,
+`build`, `render` and `poster` run `audio` first, which synthesizes the music and foley into `public/audio`. Its output
+is the same every time, so it stays out of git.
 
 The poster is frame 809, where the laptop's conversation has just landed on the phone. The video's own first frame is a
 dim terminal, so upload the poster as the thumbnail wherever a site lets you, and move its frame if the timeline
 changes.
+
+## Making changes
+
+1. `make studio` opens Remotion Studio in the browser. Pick `GoRemoteTeaser`, or one scene under Scenes, and scrub to
+   the moment you want to change. It reloads each time you save a file in `src/`.
+2. Timing is in `src/timeline.ts`, the words in `src/data/`, and where things sit in each scene's file; see Layout.
+3. `make still FRAME=n` checks a single frame at full size in a few seconds. The frame number is the one Studio shows.
+4. `make render` writes the MP4 in about a minute. QuickTime keeps playing a copy it already has open, so close its
+   window before opening the new render.
+5. `make gif` when the README should show the change.
+
+## The README GIF
+
+`make gif` uses cursor-approve's recipe: one ffmpeg pass makes a palette, and a second encodes the GIF with it, bayer
+dithered, at 12 fps. Two additions nearly halve the file, because the camera never stops moving and almost every pixel
+changes on every frame: a light denoise, and 128 colours. The whole teaser comes to about 17 MB at 800 px wide, and is
+silent.
+
+| Setting      | Default    | What it changes                                                        |
+| ------------ | ---------- | ---------------------------------------------------------------------- |
+| `GIF_WIDTH`  | 800        | Width in pixels; the README's column shows about 830                   |
+| `GIF_FPS`    | 12         | Frames per second                                                      |
+| `GIF_COLORS` | 128        | 256 smooths the banding in the dark backdrop, for about a quarter more |
+| `GIF_START`  | The start  | Where a cut begins, in seconds                                         |
+| `GIF_LENGTH` | To the end | How long a cut runs, in seconds; `GIF_START=7 GIF_LENGTH=20` is ~9 MB  |
+
+Every version of the GIF that is committed stays in the repository's history, so commit it when the video settles rather
+than after each change.
 
 ## Layout
 
