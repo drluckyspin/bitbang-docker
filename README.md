@@ -1,6 +1,8 @@
 # Go Remote
 
-Go Remote lets you take your coding agent with you without moving your code to the cloud. Type `/go-remote` in Claude
+**Go Remote lets you seamlessly move your coding agent session to your phone, without moving any files to the cloud.**
+
+Type `/go-remote` in Claude
 Code or Codex on your laptop, then hand off your active conversation to a secure Docker container running on the same
 machine. Scan a QR code to continue from your phone in a rich chat and terminal interface. Powered by Herdr and BitBang,
 it connects over an encrypted peer-to-peer link, without VPNs, open ports, or hosted infrastructure. Open source,
