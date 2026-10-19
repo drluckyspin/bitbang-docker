@@ -279,6 +279,9 @@ leaves Cursor out until go-remote can read its transcripts.
 A BitBang URL is `https://bitba.ng/<id>#<code>`. Everything after the first `/` in the fragment is the address BitBang
 opens inside the container, and a fragment never reaches the signaling server. `deviceLink()` in `cli/src/link.ts` puts
 herdr-web-ui's one-time pairing code, the pane and the view there, so one scan connects, pairs and opens the right chat.
+Unless `GR_RELAY=auto`, `forceRelay()` adds BitBang's `relay` flag after the code, so the browser connects through the
+TURN relay at once instead of first trying a direct path, which from a phone to Docker Desktop costs seconds and leaves
+a much slower connection.
 
 - The pairing code comes from `go-remote-pair` (`docker/pair.bash`), which asks herdr-web-ui inside the container,
   because only the container holds the app's access token. A code is six digits, lasts ten minutes, and admits one
