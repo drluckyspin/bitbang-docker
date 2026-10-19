@@ -1,0 +1,42 @@
+{
+  "name": "video",
+  "version": "1.0.0",
+  "description": "The Go Remote teaser",
+  "repository": {},
+  "license": "UNLICENSED",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24"
+  },
+  "private": true,
+  "dependencies": {
+    "@remotion/cli": "4.0.536",
+    "@remotion/google-fonts": "4.0.536",
+    "@remotion/media": "4.0.536",
+    "@remotion/paths": "4.0.536",
+    "@remotion/transitions": "4.0.536",
+    "lean-qr": "2.7.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.536"
+  },
+  "devDependencies": {
+    "@remotion/eslint-config-flat": "4.0.536",
+    "@types/react": "19.2.7",
+    "@types/web": "0.0.166",
+    "eslint": "10.12.0",
+    "prettier": "3.8.1",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "dev": "npm run audio && remotion studio",
+    "build": "npm run audio && remotion bundle",
+    "upgrade": "remotion upgrade",
+    "audio": "node scripts/make-audio.mjs",
+    "render": "npm run audio && remotion render GoRemoteTeaser out/go-remote-teaser.mp4",
+    "poster": "npm run audio && remotion still GoRemoteTeaser out/go-remote-poster.jpg --frame=809 --image-format=jpeg --jpeg-quality=92",
+    "lint": "eslint src && tsc"
+  },
+  "allowScripts": {
+    "esbuild": false
+  }
+}
