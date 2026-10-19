@@ -64,6 +64,8 @@ export interface Workspace {
   state: string;
   health: string;
   ui: "web" | "shell";
+  /** whether its links make the browser use BitBang's relay from the start (GR_RELAY) */
+  relay: boolean;
   /** the .env it was given, as an absolute path */
   envFile?: string;
 }
@@ -73,6 +75,12 @@ export function uiMode(env: string[]): Workspace["ui"] {
   const value = env.find((entry) => entry.startsWith("GR_UI="))?.slice("GR_UI=".length);
   if (value === undefined) return "shell";
   return value.toLowerCase() === "shell" ? "shell" : "web";
+}
+
+/** GR_RELAY: only auto lets the browser try a direct path. Containers from before the setting force the relay too. */
+export function relayForced(env: string[]): boolean {
+  const value = env.find((entry) => entry.startsWith("GR_RELAY="))?.slice("GR_RELAY=".length);
+  return value?.trim().toLowerCase() !== "auto";
 }
 
 /** Resolves a repo path for mounting, or explains why it cannot be mounted. */
@@ -143,6 +151,7 @@ export async function listWorkspaces(): Promise<Workspace[]> {
       state: container.State.Status,
       health: container.State.Health?.Status ?? "",
       ui: uiMode(container.Config.Env),
+      relay: relayForced(container.Config.Env),
       // Older containers recorded the path as compose was given it, relative to their own checkout.
       envFile: resolve(
         container.Config.Labels["com.docker.compose.project.working_dir"] ?? "/",

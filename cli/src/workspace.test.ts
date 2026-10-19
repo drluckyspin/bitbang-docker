@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compose, projectName, reservedConflict, resolveRepo, uiMode } from "./workspace.ts";
+import { compose, projectName, relayForced, reservedConflict, resolveRepo, uiMode } from "./workspace.ts";
 
 test("compose reads its settings from the env file GR_ENV_FILE picks, when it exists", () => {
   const root = mkdtempSync(join(tmpdir(), "go-remote-compose-"));
@@ -23,6 +23,12 @@ test("uiMode reads GR_UI as the entrypoint does, and an image without it as the 
   expect(uiMode(["PATH=/usr/bin", "GR_UI=web"])).toBe("web");
   expect(uiMode(["GR_UI=Shell"])).toBe("shell");
   expect(uiMode(["PATH=/usr/bin"])).toBe("shell");
+});
+
+test("relayForced is off only for GR_RELAY=auto", () => {
+  expect(relayForced(["GR_RELAY=force"])).toBe(true);
+  expect(relayForced(["GR_RELAY=Auto"])).toBe(false);
+  expect(relayForced(["PATH=/usr/bin"])).toBe(true);
 });
 
 describe("projectName", () => {

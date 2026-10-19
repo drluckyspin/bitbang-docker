@@ -317,6 +317,13 @@ main() {
     fragment="${url#*#}"
     fragment="${fragment%%/*}"
   fi
+  # The same path go-remote's own links take: BitBang's relay flag, unless the workspace has GR_RELAY=auto.
+  if [ "$(docker exec "$cid" printenv GR_RELAY 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)" != auto ]; then
+    case "$fragment" in
+      *!*) fragment="${fragment},relay" ;;
+      *) fragment="${fragment}!relay" ;;
+    esac
+  fi
   (
     umask 077
     printf '%s\n' "$url" >"${SECRET_DIR}/url"

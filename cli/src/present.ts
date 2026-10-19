@@ -4,7 +4,7 @@
  * opens in a window on this computer instead.
  */
 import { openImage } from "./host.ts";
-import { deviceLink, type View } from "./link.ts";
+import { deviceLink, forceRelay, type View } from "./link.ts";
 import { capture } from "./proc.ts";
 import { pngQr, terminalQr } from "./qr.ts";
 import { ui, UserError } from "./ui.ts";
@@ -55,6 +55,7 @@ export async function showLink(
     expires = pairing.expires_at;
     link = deviceLink(url, { pair: pairing.code, pane: target.pane, view: target.view });
   }
+  if (workspace.relay) link = forceRelay(link);
 
   if (interactive(options)) {
     if (options.qr) {
