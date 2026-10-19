@@ -15,6 +15,7 @@ import {
   sendableCloseCode,
   shouldRewrite,
   upstreamRequestHeaders,
+  withVersion,
 } from "./rewrite.ts";
 
 interface Bridge {
@@ -178,7 +179,11 @@ export function startIngress(options: IngressOptions) {
 }
 
 if (import.meta.main) {
-  const compatScript = await Bun.file(new URL("./compat.js", import.meta.url)).text();
+  const versionFile = Bun.file(process.env["GR_VERSION_FILE"] ?? "/usr/local/share/go-remote/VERSION");
+  const compatScript = withVersion(
+    await Bun.file(new URL("./compat.js", import.meta.url)).text(),
+    (await versionFile.exists()) ? await versionFile.text() : "",
+  );
   const server = startIngress({
     hostname: process.env["GR_INGRESS_HOST"] ?? "127.0.0.1",
     port: Number(process.env["GR_INGRESS_PORT"] ?? 7300),
