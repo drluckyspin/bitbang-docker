@@ -1,4 +1,7 @@
-// go-remote compat: loaded by go-remote-ingress at the top of herdr-web-ui's page, inside BitBang's iframe on bitba.ng.
+// Browser compatibility layer injected by go-remote-ingress into every herdr-web-ui page served through BitBang.
+// BitBang's iframe and proxy change browser behaviour that herdr-web-ui relies on, while go-remote cannot change
+// either upstream project. This restores the scanned-link query, marks the app's same-origin writes for herdr's
+// CSRF check, disables service-worker features that would register on bitba.ng, and decorates the About page.
 (() => {
   "use strict";
 
@@ -66,7 +69,8 @@
   // the way they do in a browser without service workers. Alerts come from ntfy instead.
   if ("serviceWorker" in navigator) {
     const container = navigator.serviceWorker;
-    const unavailable = () => Promise.reject(new DOMException("Service workers are unavailable over BitBang", "SecurityError"));
+    const unavailable = () =>
+      Promise.reject(new DOMException("Service workers are unavailable over BitBang", "SecurityError"));
     const define = (name, descriptor) => {
       try {
         Object.defineProperty(container, name, Object.assign({ configurable: true }, descriptor));
@@ -85,13 +89,20 @@
     // not configurable here; push still fails at registration
   }
 
-  // herdr-web-ui's About page names only itself. go-remote puts its own card first and gives the app the credit
-  // below it. Only new nodes are added (and one heading restyled in CSS), because React owns the page's own and
-  // would drop an edit on its next render. The ingress fills in the version when it serves this script.
+  // The upstream About page exposes controls and telemetry that do not apply in this locked-down deployment. Replace
+  // it with cards for the components that make go-remote work. The upstream sections are hidden by a stylesheet and
+  // only read for their versions, never removed or edited: React owns them, and removing a node React rendered breaks
+  // its next render. A stylesheet also beats the app's own `display` on them, which the `hidden` attribute does not.
   const VERSION = "__GO_REMOTE_VERSION__";
-  const REPO = "https://github.com/drluckyspin/go-remote";
 
-  function aboutRow(label, detail, href, text) {
+  const aboutStyle = document.createElement("style");
+  // The app caps descriptions at 54ch to leave room for a control beside them; these rows have none.
+  aboutStyle.textContent =
+    "[data-go-remote-about] .settings-section:not(.go-remote-about) { display: none !important; }" +
+    " .go-remote-about .settings-row-text > .settings-description { max-width: none; }";
+  (document.head || document.documentElement).appendChild(aboutStyle);
+
+  function aboutRow(label, detail, href, versionFrom) {
     const row = document.createElement("div");
     row.className = "settings-row";
     const copy = document.createElement("div");
@@ -104,6 +115,11 @@
       const note = document.createElement("span");
       note.className = "settings-description";
       note.textContent = detail;
+      if (versionFrom) {
+        const version = document.createElement("span");
+        version.dataset.goRemoteVersion = versionFrom;
+        note.appendChild(version);
+      }
       copy.appendChild(note);
     }
     if (href) {
@@ -112,44 +128,87 @@
       link.href = href;
       link.target = "_blank";
       link.rel = "noreferrer";
-      link.textContent = text;
+      link.textContent = new URL(href).host + new URL(href).pathname;
       copy.appendChild(link);
     }
     row.appendChild(copy);
     return row;
   }
 
-  function decorateAbout(herdrAbout) {
-    herdrAbout.dataset.goRemote = "";
-    const first = herdrAbout.parentElement && herdrAbout.parentElement.querySelector(".settings-section");
-    if (!first) return;
-    const section = document.createElement("section");
-    section.className = "settings-section go-remote-about";
-    const title = document.createElement("h3");
-    title.textContent = "Go Remote";
-    const card = document.createElement("div");
-    card.className = "settings-card";
-    const version = /^\d/.test(VERSION) ? VERSION : "development build";
-    card.appendChild(aboutRow("Go Remote", "Your coding agent, on your phone. Version " + version + ".", REPO, "github.com/drluckyspin/go-remote"));
-    card.appendChild(
-      aboutRow(
-        "Built with",
-        "go-remote puts this page, herdr, and BitBang's encrypted peer-to-peer link together in a locked-down container. The terminal and chat view are herdr web ui by devswha, on top of herdr by herdrdev, and BitBang by Rich Legrand carries it to your phone. Thank you to all three.",
-      ),
-    );
-    section.append(title, card);
-    first.before(section);
+  // The upstream sections render after their status requests answer, often after the cards are built, so versions
+  // are filled in on every change. Each section's first hint says "Running <version>" in the app's language.
+  function refreshVersions(container) {
+    for (const span of container.querySelectorAll("[data-go-remote-version]")) {
+      const hint = container.querySelector(span.dataset.goRemoteVersion + " .settings-hint");
+      const match = hint?.textContent?.match(/\d+(?:\.\d+)+/);
+      const text = match ? " Running v" + match[0] + "." : "";
+      if (span.textContent !== text) span.textContent = text;
+    }
   }
 
-  // The app's own About card now sits below ours, so its heading says what it is.
-  const aboutStyle = document.createElement("style");
-  aboutStyle.textContent =
-    ".settings-about[data-go-remote] > h3 { font-size: 0; } .settings-about[data-go-remote] > h3::after { content: 'Built on herdr web ui'; font-size: 1rem; }";
-  (document.head || document.documentElement).appendChild(aboutStyle);
+  function aboutSection(title, rows) {
+    const section = document.createElement("section");
+    section.className = "settings-section go-remote-about";
+    const sectionTitle = document.createElement("h3");
+    sectionTitle.textContent = title;
+    const card = document.createElement("div");
+    card.className = "settings-card";
+    for (const [label, detail, href, versionFrom] of rows) card.appendChild(aboutRow(label, detail, href, versionFrom));
+    section.append(sectionTitle, card);
+    return section;
+  }
 
+  function decorateAbout(herdrAbout) {
+    herdrAbout.dataset.goRemote = "";
+    const container = herdrAbout.parentElement;
+    const first = container?.querySelector(".settings-section");
+    if (!container || !first) return;
+
+    const version = /^\d/.test(VERSION) ? VERSION : "development build";
+    first.before(
+      aboutSection("Go Remote", [
+        [
+          "Go Remote",
+          "Your coding agent session, securely on your phone. Version " + version + ".",
+          "https://github.com/drluckyspin/go-remote",
+        ],
+        [
+          "Built with",
+          "go-remote would not be possible without the amazing work in herdr-web-ui, herdr, and BitBang. A huge thank you to all three projects.",
+        ],
+      ]),
+      aboutSection("herdr web ui", [
+        [
+          "herdr web ui",
+          "A browser and phone client for herdr.",
+          "https://github.com/devswha/herdr-web-ui",
+          ".settings-updates",
+        ],
+      ]),
+      aboutSection("herdr", [
+        [
+          "herdr",
+          "herdr manages all our coding agent session terminals.",
+          "https://github.com/herdrdev/herdr",
+          ".settings-herdr-update",
+        ],
+      ]),
+      aboutSection("BitBang", [
+        [
+          "BitBang",
+          "An encrypted peer-to-peer link that connects this workspace to your phone.",
+          "https://github.com/RichLegrand/BitBang",
+        ],
+      ]),
+    );
+    container.dataset.goRemoteAbout = "";
+  }
+
+  // refreshVersions changes text only when it differs, so its own writes settle instead of feeding the observer.
   new MutationObserver(() => {
     const herdrAbout = document.querySelector(".settings-about:not([data-go-remote])");
     if (herdrAbout) decorateAbout(herdrAbout);
+    for (const container of document.querySelectorAll("[data-go-remote-about]")) refreshVersions(container);
   }).observe(document.documentElement, { childList: true, subtree: true });
 
   // iOS zooms into a focused field whose text is under 16px, and only the parent page could stop it.

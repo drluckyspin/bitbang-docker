@@ -105,9 +105,9 @@ specific limit, and most would go away with a change upstream.
 - **iOS zoom.** iOS zooms into a focused field whose text is under 16px, and only the parent page could stop it.
   `compat.js` sets a 16px minimum for fields on touch screens. It could go if BitBang's page set a viewport that
   prevents the zoom.
-- **The About page.** herdr-web-ui's About page names only itself. `compat.js` adds a go-remote card above it, with the
-  version the ingress fills in from `VERSION`, and credits herdr web ui, herdr and BitBang. It only adds nodes, because
-  React owns the app's own.
+- **The About page.** herdr-web-ui's updater controls and telemetry do not apply in go-remote's hardened image.
+  `compat.js` presents matching cards for go-remote, herdr web ui, herdr and BitBang, reads the visible upstream version
+  labels, and hides the React-owned source sections rather than rewriting them.
 
 Some rules hold whatever the fixes:
 
