@@ -1,7 +1,8 @@
 // Browser compatibility layer injected by go-remote-ingress into every herdr-web-ui page served through BitBang.
 // BitBang's iframe and proxy change browser behaviour that herdr-web-ui relies on, while go-remote cannot change
 // either upstream project. This restores the scanned-link query, marks the app's same-origin writes for herdr's
-// CSRF check, disables service-worker features that would register on bitba.ng, and decorates the About page.
+// CSRF check, disables service-worker features that would register on bitba.ng, decorates the About page, and names
+// the tab Go Remote.
 (() => {
   "use strict";
 
@@ -210,6 +211,26 @@
     if (herdrAbout) decorateAbout(herdrAbout);
     for (const container of document.querySelectorAll("[data-go-remote-about]")) refreshVersions(container);
   }).observe(document.documentElement, { childList: true, subtree: true });
+
+  // BitBang copies the frame's title to the tab once, when the frame loads, so the title must say Go Remote by then.
+  // The app also writes "<name> · herdr" and "<file> · herdr web ui" later; those are renamed as they are set.
+  const rebrand = (title) => title.replace(/(^|\s·\s)herdr(?: web ui)?$/, "$1Go Remote");
+  const titleDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, "title");
+  if (titleDescriptor && titleDescriptor.get && titleDescriptor.set) {
+    try {
+      Object.defineProperty(document, "title", {
+        configurable: true,
+        get: () => titleDescriptor.get.call(document),
+        set: (value) => titleDescriptor.set.call(document, rebrand(String(value))),
+      });
+    } catch {
+      // the parsed <title> is still renamed below
+    }
+  }
+  new MutationObserver(() => {
+    const title = document.title;
+    if (rebrand(title) !== title) document.title = rebrand(title);
+  }).observe(document.head || document.documentElement, { childList: true, subtree: true, characterData: true });
 
   // iOS zooms into a focused field whose text is under 16px, and only the parent page could stop it.
   const style = document.createElement("style");
