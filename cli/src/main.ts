@@ -14,45 +14,55 @@ import { finishMove, type MovePlan } from "./move.ts";
 import type { AgentKind } from "./sessions.ts";
 import { ui, UserError } from "./ui.ts";
 
+const dim = process.stdout.isTTY === true && !process.env.NO_COLOR ? (text: string) => `\x1b[2m${text}\x1b[0m` : (text: string) => text;
+const HELP_COLUMN = 40;
+
+type HelpRow = readonly [usage: string, ...description: string[]];
+
+function helpRows(rows: readonly HelpRow[]): string {
+  return rows.map(([usage, ...description]) => {
+    const prefix = `  ${usage}`;
+    const continuation = " ".repeat(HELP_COLUMN);
+    return description.map((line, index) => `${index === 0 ? prefix.padEnd(HELP_COLUMN) : continuation}${dim(line)}`).join("\n");
+  }).join("\n");
+}
+
 const HELP = `go-remote: hardened coding-agent workspaces for your repos, on your phone over BitBang
 
 Usage: go-remote <command> [options]   (gr for short)
 
 Commands:
-  start [path]            Start (or reuse) the workspace for a repo and show its QR code
-      --agent claude|codex|cursor
-                              Start an agent in a new tab, on a new conversation
-      --resume <agent:id>     Move a session from this computer there (go-remote sessions lists them). Run from
-                              inside that session, by /go-remote, it moves once the turn ends: the session
-                              here closes and the QR code opens in a window
-      --fork                  Continue a copy of it, so the laptop's can carry on too
-      --brief <file>          Give the agent a handoff brief (copied to .go-remote/handoff.md in the repo)
-      --open chat|terminal    What the phone opens (default: chat with an agent, else the terminal)
-  login [claude|codex|cursor] [path]
-                          Sign Claude Code (default), Codex or Cursor in, once, for every workspace. Claude Code
-                          signs in here, with claude setup-token, and go-remote keeps the token in .env; Codex, Cursor
-                          (or Claude Code when it is not installed here) sign in inside the container
-  qr [path]               Show a fresh QR code for a workspace (--open, --pane <id>)
-  list                    List workspaces, their health and their agents
-  sessions [path]         List Claude Code and Codex sessions on this computer that ran in a repo
-  pull [path] [agent:id]  Copy the container's sessions for a repo back to this computer
-  attach [path]           Open the workspace's Herdr terminal UI here (--shell for the tmux shell)
-  logs [path]             Show a workspace's logs with its URL taken out (--no-follow, --tail <n>)
-  stop [path]             Stop a workspace (--all stops every one); logins stay in the home volume
-  doctor                  Check Docker, the image, .env and the agent CLIs on this computer
-  install-skill           Install the /go-remote skill for Claude Code, Codex and Cursor
-  setup --root <dir>      Remember the go-remote checkout (make install-cli runs this)
+${helpRows([
+  ["start [path]", "Start (or reuse) the workspace for a repo and show its QR code."],
+  ["  --agent claude|codex|cursor", "Start an agent in a new tab, on a new conversation."],
+  ["  --resume <agent:id>", "Move a session from this computer there (go-remote sessions lists them). Run from inside that session,", "by /go-remote; it moves once the turn ends, the session here closes, and the QR code opens in a window."],
+  ["  --fork", "Continue a copy of it, so the laptop's can carry on too."],
+  ["  --brief <file>", "Give the agent a handoff brief (copied to .go-remote/handoff.md in the repo)."],
+  ["  --open chat|terminal", "What the phone opens (default: chat with an agent, else the terminal)."],
+  ["login [claude|codex|cursor] [path]", "Sign Claude Code (default), Codex or Cursor in, once for every workspace. Claude Code signs in here,", "with claude setup-token, and go-remote keeps the token in .env; Codex, Cursor (or Claude Code when it is not", "installed here) sign in inside the container."],
+  ["qr [path]", "Show a fresh QR code for a workspace (--open, --pane <id>)."],
+  ["list", "List workspaces, their health and their agents."],
+  ["sessions [path]", "List the Claude Code and Codex sessions on this computer that ran in a repo."],
+  ["pull [path] [agent:id]", "Copy the container's sessions for a repo back to this computer."],
+  ["attach [path]", "Open the workspace's Herdr terminal UI here (--shell for the tmux shell)."],
+  ["logs [path]", "Show a workspace's logs with its URL taken out (--no-follow, --tail <n>)."],
+  ["stop [path]", "Stop a workspace (--all stops every one); logins stay in the home volume."],
+  ["doctor", "Check Docker, the image, .env and the agent CLIs on this computer."],
+  ["install-skill", "Install the /go-remote skill for Claude Code, Codex and Cursor."],
+  ["setup --root <dir>", "Remember the go-remote checkout (make install-cli runs this)."],
+])}
 
 Options:
-  --json        Machine-readable output. The link is never printed: the QR code opens in a window instead,
-                as it does whenever stdout is not a terminal
-  --no-qr       Print the link without drawing the QR code
-  --no-window   Never open a window for the QR code
-  --root <dir>  The go-remote checkout (default: GR_ROOT, then the one make install-cli recorded)
+${helpRows([
+  ["--json", "Machine-readable output. The link is never printed: the QR code opens in a window instead,", "as it does whenever stdout is not a terminal."],
+  ["--no-qr", "Print the link without drawing the QR code."],
+  ["--no-window", "Never open a window for the QR code."],
+  ["--root <dir>", "The go-remote checkout (default: GR_ROOT, then the one make install-cli recorded)."],
+])}
 
-The path defaults to the current directory for start and sessions. The other commands take the workspace
-for the repo you are in, else the only one, and otherwise need the repo's path or the workspace's name, as
-go-remote list shows it: go-remote stop go-remote-my-repo.
+The path defaults to the current directory for start and sessions. The other commands take the workspace for the repo
+you are in, else the only one, and otherwise need the repo's path or the workspace's name, as go-remote list shows it:
+go-remote stop /path/to/repo.
 `;
 
 const LINK_OPTIONS = {
