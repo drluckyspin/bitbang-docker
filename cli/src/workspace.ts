@@ -161,24 +161,50 @@ export async function listWorkspaces(): Promise<Workspace[]> {
     .sort((a, b) => a.project.localeCompare(b.project));
 }
 
+/** The workspace whose repo holds `dir`, the innermost when repos nest. */
+export function enclosingWorkspace(workspaces: Workspace[], dir: string): Workspace | undefined {
+  let real: string;
+  try {
+    real = realpathSync(dir);
+  } catch {
+    return undefined;
+  }
+  return workspaces
+    .filter((workspace) => workspace.repo !== "" && (real === workspace.repo || real.startsWith(`${workspace.repo}/`)))
+    .sort((a, b) => b.repo.length - a.repo.length)[0];
+}
+
 /**
- * The workspace for a repo path, or the only workspace when no path is given. Fails when there is none, or
- * when the choice is ambiguous.
+ * The workspace for a repo path or a workspace name (as go-remote list shows it). With neither, the one for the
+ * repo `cwd` is in, else the only one. Fails when there is none, or when the choice is ambiguous.
  */
-export async function findWorkspace(path?: string): Promise<Workspace> {
-  const workspaces = await listWorkspaces();
-  if (path !== undefined) {
+export function pickWorkspace(workspaces: Workspace[], target?: string, cwd = process.cwd()): Workspace {
+  if (target !== undefined) {
     // The recorded path first: the repo may since have moved or been deleted.
-    const recorded = workspaces.find((workspace) => workspace.repo === resolve(path.replace(/^~(?=$|\/)/, homedir())));
+    const recorded = workspaces.find((workspace) => workspace.repo === resolve(target.replace(/^~(?=$|\/)/, homedir())));
     if (recorded) return recorded;
-    const repo = resolveRepo(path).path;
+    const named = workspaces.find((workspace) => workspace.project === target);
+    if (named) return named;
+    if (target.startsWith("go-remote-") && !existsSync(target)) {
+      throw new UserError(`No workspace named ${target}`, "go-remote list lists them.");
+    }
+    const repo = resolveRepo(target).path;
     const found = workspaces.find((workspace) => workspace.repo === repo);
     if (!found) throw new UserError(`No workspace for ${repo}`, `Start one with: go-remote start ${repo}`);
     return found;
   }
+  const here = enclosingWorkspace(workspaces, cwd);
+  if (here) return here;
   if (workspaces.length === 1 && workspaces[0]) return workspaces[0];
   if (workspaces.length === 0) throw new UserError("No workspace exists", "Start one with: go-remote start /path/to/repo");
-  throw new UserError("Several workspaces exist", "Name the repo, e.g. go-remote qr ~/src/my-repo (go-remote ls lists them).");
+  throw new UserError(
+    "Several workspaces exist",
+    "Run it inside the repo, or name the repo or the workspace: go-remote qr ~/src/my-repo, go-remote qr go-remote-my-repo (go-remote list lists them).",
+  );
+}
+
+export async function findWorkspace(target?: string): Promise<Workspace> {
+  return pickWorkspace(await listWorkspaces(), target);
 }
 
 export function requireRunning(workspace: Workspace): void {

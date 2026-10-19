@@ -50,8 +50,9 @@ Options:
   --no-window   Never open a window for the QR code
   --root <dir>  The go-remote checkout (default: GR_ROOT, then the one make install-cli recorded)
 
-The path defaults to the current directory for start and sessions. The other commands find the only
-workspace when there is one, and need the repo's path when there are several.
+The path defaults to the current directory for start and sessions. The other commands take the workspace
+for the repo you are in, else the only one, and otherwise need the repo's path or the workspace's name, as
+go-remote list shows it: go-remote stop go-remote-my-repo.
 `;
 
 const LINK_OPTIONS = {
