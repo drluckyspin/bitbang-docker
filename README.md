@@ -2,45 +2,22 @@
 
 **Go Remote lets you seamlessly move your coding agent session to your phone, without moving any files to the cloud.**
 
+<!-- markdownlint-disable MD033 -->
+<p align="center">
+  <img src="docs/go-remote-teaser.gif" alt="go-remote moving a Claude Code session from the laptop to a phone" width="1000">
+</p>
+<!-- markdownlint-enable MD033 -->
+
 Type `/go-remote` in Claude Code or Codex on your laptop, then hand off your active conversation to a secure Docker
 container running on the same machine. Scan a QR code to continue from your phone in a rich chat and terminal interface.
 Powered by Herdr and BitBang, it connects over an encrypted peer-to-peer link, without VPNs, open ports, or hosted
 infrastructure. Open source, local-first, and built for developers who don't want to stay at their desks. Go Remote's
 core benefits are the combination of local execution, container isolation, and seamless session handoff.
 
-<!-- markdownlint-disable MD033 -->
-<p align="center">
-  <img src="docs/go-remote-qr.png" alt="A Go Remote QR code" width="480">
-</p>
-
-<p align="center">
-  <img src="docs/go-remote-agent.PNG" alt="Agent chat on a phone" width="240">
-  <img src="docs/go-remote-shell.PNG" alt="Terminal on a phone" width="240">
-</p>
-
-<p align="center">
-  <img src="docs/go-remote-desktop.png" alt="Go Remote agent chat in a desktop browser" width="480">
-</p>
-<!-- markdownlint-enable MD033 -->
-
 Supported platforms: **macOS** (Apple Silicon and Intel) and **Linux** (x86_64 and arm64). Windows is not supported.
 
 Requires **Docker Desktop** on macOS, or **Docker Engine with Compose v2** on Linux, plus `make` and `git`. Claude Code,
 Codex and the Cursor Agent CLI come in the image; to move a session from your laptop, you need that agent there too.
-
-## What is BitBang?
-
-[BitBang](https://github.com/richlegrand/bitbang) makes a machine reachable from a browser. `bitbang serve` registers
-with the `bitba.ng` signaling server over an outbound connection and prints a link. A browser that opens it reaches the
-machine over WebRTC, peer to peer and end-to-end encrypted, through a relay when there is no direct path. There is no
-account, no client to install and no port to forward. The browser gets a shell, or a web app that the machine serves.
-
-## What is Herdr?
-
-[Herdr](https://herdr.dev) is a terminal workspace for coding agents. It keeps them running in a background server, each
-in its own tab, and tracks whether each one is working, blocked or idle.
-[herdr-web-ui](https://github.com/devswha/herdr-web-ui) is its browser and phone client: a chat view of each agent, with
-its live terminal and the repo's files beside it.
 
 ## Why this project?
 
