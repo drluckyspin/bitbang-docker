@@ -316,7 +316,13 @@ start_listener() {
     waited=$((waited + 1))
   done
 
-  grep -oE 'https://bitba\.ng/[^[:space:]]+' "$log_file" | tail -n 1 >"${BITBANG_HOME}/url"
+  # Only the URL: line is ours. Other URLs follow it, such as the install link in the notice BitBang prints
+  # after Ready once the signaling server reports a newer release.
+  sed -n 's/^URL: *//p' "$log_file" | head -n 1 >"${BITBANG_HOME}/url"
+  if ! grep -q '^https://' "${BITBANG_HOME}/url"; then
+    log_error "bitbang registered without printing its URL"
+    return 1
+  fi
   set_health ok
 }
 
