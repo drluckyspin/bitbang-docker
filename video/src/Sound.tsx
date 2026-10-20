@@ -24,11 +24,12 @@ const MASTER = 1.5;
 const sfx = (name: string) => staticFile(`audio/sfx/${name}.wav`);
 const foley = (name: string) => staticFile(`audio/${name}.wav`);
 
-const { handoff, pair, session, montage, local, brand } = {
+const { handoff, pair, session, montage, contrast, local, brand } = {
   handoff: SCENES.handoff.from,
   pair: SCENES.pair.from,
   session: SCENES.session.from,
   montage: SCENES.montage.from,
+  contrast: SCENES.contrast.from,
   local: SCENES.local.from,
   brand: SCENES.brand.from,
 };
@@ -78,8 +79,8 @@ export const CUES: Cue[] = [
   slide(montage + M.shell),
   { name: "Typing npm test", src: foley("keys-phone"), at: montage + M.shellType, length: 8, trim: 50, volume: 0.45 },
   slide(montage + M.agents),
-  slide(montage + M.codex),
-  slide(montage + M.cursor),
+  { name: "Cloud contrast", src: foley("swoosh-long"), at: contrast + 10, volume: 0.2 },
+  { name: "Repo stays local", src: sfx("switch"), at: contrast + 72, volume: 0.24 },
   { name: "Pull back", src: foley("swoosh-long"), at: local, volume: 0.28 },
   { name: "Glint", src: sfx("ding"), at: brand + B.glint + 12, volume: 0.1 },
 ];

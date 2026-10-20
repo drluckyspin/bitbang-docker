@@ -17,8 +17,8 @@ import { ClaudeMark } from "./herdr";
 import { QR_WINDOW, QrWindow } from "./QrWindow";
 
 /**
- * Where things sit on the 1168 by 728 display. The chips fill its left side, large enough to read in a README,
- * and start below the caption; the container settles beside them, with the QR window to its right.
+ * Where things sit on the 1168 by 728 display. The hardening scene owns the large chips; the settled container
+ * leaves it clear for the QR window and the repo folder.
  */
 export const WS = {
   terminal: { x: 28, y: 420, scale: 0.4 },
@@ -38,13 +38,13 @@ export const W = {
   lid: 84,
   lock: 96,
   click: 112,
-  /** The terminal leaves for the Dock as the lock clicks, which clears the left side for the chips. */
+  /** The terminal leaves for the Dock as the lock clicks, which clears the left side for the hardening scene. */
   minimise: 112,
-  chips: 116,
+  chips: DURATIONS.handoff + 22,
   slide: 146,
-  qr: 156,
+  qr: DURATIONS.handoff + 125,
   /** Just after the phone pairs, which is 86 frames into the pair scene. */
-  qrClose: DURATIONS.handoff + 95,
+  qrClose: DURATIONS.handoff + DURATIONS.hardening + 95,
 };
 
 /** Where the container is, and its scale, at a frame of the handoff scene. */
@@ -53,7 +53,7 @@ export const containerAt = (frame: number) => {
   return { x: mix(WS.container.x, WS.settled.x, t), y: mix(WS.container.y, WS.settled.y, t), s: mix(1, WS.settled.scale, t) };
 };
 
-const CHIPS = ["Read-only filesystem", "All capabilities dropped", "Runs as a non-root user", "No published ports", "Mounts only ~/src/acme-api"];
+const CHIPS = ["Sees only this repo", "No open ports", "Read-only, never root", "Runs on your laptop"];
 
 const FolderIcon: React.FC = () => (
   <svg width={108} height={86} viewBox="0 0 108 86">
@@ -114,7 +114,7 @@ const cardAt = (frame: number) => {
 };
 
 /** `time` is the menu bar clock, which has to agree with the phone whenever both are on screen. */
-export const Workspace: React.FC<{ time?: string }> = ({ time = "9:41" }) => {
+export const Workspace: React.FC<{ time?: string; hardening?: boolean }> = ({ time = "9:41", hardening = false }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -243,14 +243,16 @@ export const Workspace: React.FC<{ time?: string }> = ({ time = "9:41" }) => {
         </div>
       ) : null}
 
-      {CHIPS.map((text, i) => {
+      {hardening
+        ? CHIPS.map((text, i) => {
         const p = progress(frame, W.chips + i * 6, 14);
         return (
           <Chip key={text} progress={p} style={{ left: WS.chips.x, top: WS.chips.y + i * WS.chips.gap, scale: String(WS.chips.scale), transformOrigin: "0 0" }}>
             {text}
           </Chip>
         );
-      })}
+          })
+        : null}
 
       {cardOpacity > 0 ? (
         <MotionBlur dx={(card.x - prev.x) * 1.4} dy={(card.y - prev.y) * 1.4}>

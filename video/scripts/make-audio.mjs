@@ -1,5 +1,5 @@
 /**
- * Synthesizes the teaser's music and foley into public/audio: a 45-second electronic bed at 90 BPM whose
+ * Synthesizes the teaser's music and foley into public/audio: a 60-second electronic bed at 90 BPM whose
  * sections follow the story, laptop and phone typing, soft camera swooshes, a phone buzz, the ping of the
  * /go-remote pulse and the pop of a message landing. Nothing is sampled, and a seeded generator makes every
  * run write identical files. Run with `npm run audio`.
@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const SR = 44100;
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "audio");
 const BEAT = 60 / 90;
-const LENGTH = 45;
+const LENGTH = 60;
 const TAU = Math.PI * 2;
 
 const mtof = (m) => 440 * 2 ** ((m - 69) / 12);
@@ -308,8 +308,8 @@ const writeWav = (name, t) => {
 
 // ---------------------------------------------------------------------------------------------------------
 // The soundtrack. Its beats fall on frames 15 + 20n of the video, so beat 0 is half a second in. Beat 12 is
-// Enter on /go-remote, 38 the conversation landing on the phone, 46 the montage, 55 the pull-back and 60
-// the brand.
+// Enter on /go-remote, 44 the conversation landing on the phone, 64 the cloud contrast, 74 the local proof
+// and 84 the brand.
 
 const OFFSET = 0.5;
 const at = (b) => OFFSET + b * BEAT;
@@ -327,6 +327,9 @@ const CHORDS = [
   { at: 50, root: 41, notes: [53, 57, 60, 64, 67] },
   { at: 55, root: 43, notes: [55, 59, 62, 64, 69] },
   { at: 60, root: 48, notes: [48, 55, 60, 64, 67, 71, 74] },
+  { at: 64, root: 41, notes: [53, 57, 60, 64, 67] },
+  { at: 72, root: 43, notes: [55, 59, 62, 64, 69] },
+  { at: 84, root: 48, notes: [48, 55, 60, 64, 67, 71, 74] },
 ];
 const END_BEAT = (LENGTH - OFFSET) / BEAT;
 const chordAt = (b) => [...CHORDS].reverse().find((c) => c.at <= b) ?? CHORDS[0];
@@ -337,8 +340,8 @@ const padCutoff = (s) => {
   if (b < 12) return 850;
   if (b < 34) return 1300;
   if (b < 38) return 1300 + 900 * ((b - 34) / 4) ** 2;
-  if (b < 55) return 1900;
-  if (b < 60) return 900 + 2600 * ((b - 55) / 5) ** 2;
+  if (b < 72) return 1850;
+  if (b < 84) return 900 + 2600 * ((b - 72) / 12) ** 2;
   return 2200;
 };
 
@@ -349,13 +352,13 @@ const soundtrack = () => {
 
   CHORDS.forEach((c, i) => {
     const next = CHORDS[i + 1]?.at ?? END_BEAT;
-    const gain = c.at === 60 ? 0.07 : 0.055;
+    const gain = c.at === 84 ? 0.07 : 0.055;
     const start = c.at === 0 ? 0 : at(c.at);
     for (const m of c.notes) pad(dry, send, start, at(next) - start, m, gain, padCutoff);
   });
 
   const pattern = [0, 2, 4, 3, 1, 2, 4, 3];
-  for (let e = 0; e < 55 * 2; e++) {
+  for (let e = 0; e < 80 * 2; e++) {
     const b = e / 2;
     const breath = b >= 34 && b < 38;
     if (breath && e % 2) continue;
@@ -366,21 +369,23 @@ const soundtrack = () => {
     pluck(plucks, send, at(b), note, level * accent * (0.85 + 0.15 * random()), e % 2 ? 0.35 : -0.35);
   }
 
-  for (let b = 12; b < 55; b += b < 38 ? 2 : 1) {
+  for (let b = 12; b < 80; b += b < 44 ? 2 : 1) {
     if (b >= 34 && b < 38) continue;
     kick(dry, at(b), b < 38 ? 0.3 : 0.36);
     bass(dry, at(b), (b < 38 ? 1.8 : 0.9) * BEAT, chordAt(b).root, 0.15);
   }
-  for (let b = 26; b < 55; b++) if (b < 34 || b >= 38) hat(dry, at(b + 0.5), 0.06 + 0.02 * random(), b % 2 ? 0.3 : -0.3);
-  for (let b = 46; b < 55; b++) hat(dry, at(b + 0.25), 0.025, -0.5);
-  for (const b of [47, 49, 51, 53]) clap(dry, send, at(b), 0.16);
+  for (let b = 26; b < 80; b++) if (b < 40 || b >= 44) hat(dry, at(b + 0.5), 0.06 + 0.02 * random(), b % 2 ? 0.3 : -0.3);
+  for (let b = 52; b < 80; b++) hat(dry, at(b + 0.25), 0.025, -0.5);
+  for (const b of [53, 57, 61, 69, 73, 77]) clap(dry, send, at(b), 0.16);
 
   riser(dry, send, at(9), 3 * BEAT, 0.07);
   impact(dry, send, at(12), 0.1);
-  riser(dry, send, at(35), 3 * BEAT, 0.18);
-  impact(dry, send, at(38), 0.5);
-  riser(dry, send, at(57), 3 * BEAT, 0.2);
-  impact(dry, send, at(60), 0.62);
+  riser(dry, send, at(41), 3 * BEAT, 0.18);
+  impact(dry, send, at(44), 0.5);
+  riser(dry, send, at(61), 3 * BEAT, 0.16);
+  impact(dry, send, at(64), 0.32);
+  riser(dry, send, at(81), 3 * BEAT, 0.2);
+  impact(dry, send, at(84), 0.62);
 
   const echo = pingPong(plucks, BEAT * 0.75, 0.38);
   const verb = freeverb(send);
@@ -389,7 +394,7 @@ const soundtrack = () => {
   hp.forEach((f) => f.tune(32, 0.7));
   for (let i = 0; i < mix.l.length; i++) {
     const t = i / SR;
-    const fade = t > 43 ? Math.max(0, 1 - (t - 43) / 2) : 1;
+    const fade = t > 58 ? Math.max(0, 1 - (t - 58) / 2) : 1;
     const l = dry.l[i] + plucks.l[i] + echo.l[i] * 0.32 + verb.l[i] * 1.1;
     const r = dry.r[i] + plucks.r[i] + echo.r[i] * 0.32 + verb.r[i] * 1.1;
     mix.l[i] = Math.tanh(hp[0].run(l).hp * 1.1) * fade;

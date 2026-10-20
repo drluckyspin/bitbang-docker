@@ -1,5 +1,5 @@
 /**
- * The 45-second teaser: seven scenes in a row, the captions over them, film grain, and the sound. Scene
+ * The 60-second teaser: nine scenes in a row, the captions over them, film grain, and the sound. Scene
  * framing lives in layout.ts and timing in timeline.ts, so a 9:16 cut can swap those and keep the scenes.
  */
 import React from "react";
@@ -8,9 +8,11 @@ import { Grain } from "./components/Backdrop";
 import { Caption } from "./components/Caption";
 import { FlowScene } from "./scenes/FlowScene";
 import { HandoffScene } from "./scenes/HandoffScene";
+import { HardeningScene } from "./scenes/HardeningScene";
 import { PairScene } from "./scenes/PairScene";
 import { SessionScene } from "./scenes/SessionScene";
 import { MontageScene } from "./scenes/MontageScene";
+import { ContrastScene } from "./scenes/ContrastScene";
 import { LocalScene } from "./scenes/LocalScene";
 import { BrandScene } from "./scenes/BrandScene";
 import { Sound } from "./Sound";
@@ -20,9 +22,11 @@ import { stage } from "./theme";
 const SEQUENCE: ReadonlyArray<{ id: keyof typeof SCENES; name: string; Scene: React.FC }> = [
   { id: "flow", name: "In the flow", Scene: FlowScene },
   { id: "handoff", name: "Into the container", Scene: HandoffScene },
+  { id: "hardening", name: "Hardened workspace", Scene: HardeningScene },
   { id: "pair", name: "Scan and pair", Scene: PairScene },
   { id: "session", name: "Same session", Scene: SessionScene },
   { id: "montage", name: "From your phone", Scene: MontageScene },
+  { id: "contrast", name: "Stays on your Mac", Scene: ContrastScene },
   { id: "local", name: "Stays local", Scene: LocalScene },
   { id: "brand", name: "Brand", Scene: BrandScene },
 ];

@@ -4,7 +4,7 @@
 # Previews and renders the Remotion teaser, and turns it into the README's GIF. Run it from video/.
 #
 #   make studio              — preview in Remotion Studio, which reloads as you edit src/
-#   make still FRAME=809     — render one frame to out/still-809.png
+#   make still FRAME=1000    — render one frame to out/still-1000.png
 #   make render              — render out/go-remote-teaser.mp4
 #   make gif                 — make ../docs/go-remote-teaser.gif, rendering the video first if it is stale
 #   make diagram             — render the README's How it works diagram to ../docs/how-it-works.png
@@ -23,7 +23,7 @@ VIDEO := out/go-remote-teaser.mp4
 GIF := ../docs/go-remote-teaser.gif
 PALETTE := out/gif-palette.png
 DIAGRAM := ../docs/how-it-works.png
-FRAME ?= 809
+FRAME ?= 1000
 
 # Everything a render reads. The synthesized audio is left out: scripts/make-audio.mjs makes it on every render.
 SOURCES := $(shell find src scripts public/brand public/audio/sfx -type f 2>/dev/null) package.json remotion.config.ts
@@ -64,7 +64,7 @@ node_modules:
 studio: | node_modules
 	@npm run dev
 
-.PHONY: still ## Render one frame of the teaser to out/still-FRAME.png (FRAME=809, the poster, by default)
+.PHONY: still ## Render one frame of the teaser to out/still-FRAME.png (FRAME=1000, the poster, by default)
 still: | node_modules
 	@npm run --silent audio
 	@npx remotion still GoRemoteTeaser out/still-$(FRAME).png --frame=$(FRAME)

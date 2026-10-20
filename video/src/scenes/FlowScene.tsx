@@ -120,8 +120,8 @@ export const FlowScene: React.FC = () => {
           <MacNotification
             at={NOTIFY.at}
             until={NOTIFY.until}
-            title="School pickup"
-            body="Leaving in 5 minutes"
+            title="Leave for the airport"
+            body="Flight at 11:30 · leave in 5 minutes"
             appIcon={<CalendarIcon />}
             style={{ right: 16, top: 42 }}
           />

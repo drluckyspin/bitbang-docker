@@ -23,7 +23,6 @@ import { fonts, stage } from "../theme";
 import { DURATIONS, SCENES, sinceHandoff } from "../timeline";
 import { LAPTOP_AT } from "./FlowScene";
 import { LaptopAt } from "./HandoffScene";
-import { CursorScreen, MontageList, tabsFor } from "./MontageScene";
 
 const END = DURATIONS.local - 1;
 
@@ -40,7 +39,7 @@ const phoneKeys: ReadonlyArray<readonly [number, PhonePose]> = [
   [END, { ...LOCAL_PHONE, x: LOCAL_PHONE.x - 4, s: 0.69 }],
 ];
 
-export const L = { beam: 12, outline: 44, badge: 50, labels: 54, cloud: 60, strike: 68, out: 88 };
+export const L = { outline: 12, labels: 48, beam: 88, badge: 110, cloud: 128, strike: 140, out: 168 };
 const LIFT = 170;
 const OUTLINE_PAD = 54;
 
@@ -148,8 +147,6 @@ export const LocalScene: React.FC = () => {
   // Short of the crest, so the badge ends inside the Mac's outline rather than on it.
   const badgeAt = getPointAtLength(d, getLength(d) * 0.45) ?? { x: (container[0] + phoneEdge[0]) / 2, y: container[1] - LIFT };
 
-  const listOut = progress(frame, 0, 14, ease.in);
-  const toChat = progress(frame, 8, 10);
   const outline = springAt(frame, fps, L.outline, { damping: 18 });
   const out = progress(frame, L.out, 12, ease.in);
 
@@ -167,7 +164,6 @@ export const LocalScene: React.FC = () => {
     <AbsoluteFill>
       <Backdrop at={SCENES.local.from} />
       <AbsoluteFill style={{ opacity: 1 - out, scale: String(1 - out * 0.03), filter: out > 0 ? `blur(${out * 8}px)` : undefined }}>
-        <MontageList frame={DURATIONS.montage + frame} style={{ opacity: 1 - listOut, translate: `${-listOut * 60}px 0` }} />
         <MacOutline cam={cam} appear={outline} />
         <Camera cam={cam} previous={cameraAt(frame - 1, camKeys)}>
           <LaptopAt>
@@ -176,36 +172,20 @@ export const LocalScene: React.FC = () => {
             </Sequence>
           </LaptopAt>
         </Camera>
-        <Note x={boxX} y={boxY} appear={progress(frame, L.labels, 12)} title="Container" detail={`go-remote-${REPO}`} />
-        <Note x={folderX} y={folderY} appear={progress(frame, L.labels + 6, 12)} title="Your repo" detail={`~/src/${REPO}`} />
+        <Note x={boxX} y={boxY} appear={progress(frame, L.labels, 14)} title="Container" detail={`go-remote-${REPO}`} />
+        <Note x={folderX} y={folderY} appear={progress(frame, L.labels + 18, 14)} title="Your repo" detail={`~/src/${REPO}`} />
         <Beam from={container} to={phoneEdge} lift={LIFT} draw={progress(frame, L.beam, 34, ease.inOut)} frame={frame + 480} />
         <Badge x={badgeAt.x} y={badgeAt.y - 4} progress={progress(frame, L.badge, 14)}>
           End-to-end encrypted
         </Badge>
         <NoCloud x={cloudX} y={macTop - 10} appear={progress(frame, L.cloud, 14)} strike={progress(frame, L.strike, 12, ease.inOut)} />
-        <PhoneAt pose={pose} previous={previous}>
-          <Phone statusBar="light" time="9:59">
-            {toChat < 1 ? (
-              <div style={{ position: "absolute", inset: 0, opacity: 1 - toChat }}>
-                <CursorScreen frame={DURATIONS.montage + frame} />
-              </div>
-            ) : null}
-            {toChat > 0 ? (
-              <div style={{ position: "absolute", inset: 0, opacity: toChat }}>
-                <HerdrChatScreen
-                  frame={frame}
-                  items={phoneItems(-100, -100, -100)}
-                  title="Rate limit the upload API"
-                  composer=""
-                  caret={false}
-                  tabs={tabsFor("claude")}
-                  active={1}
-                  mark={<ClaudeMark size={20} />}
-                />
-              </div>
-            ) : null}
-          </Phone>
-        </PhoneAt>
+        <div style={{ opacity: 0.45 }}>
+          <PhoneAt pose={pose} previous={previous}>
+            <Phone statusBar="light" time="9:59">
+              <HerdrChatScreen frame={frame} items={phoneItems(-100, -100, -100)} title="Rate limit the upload API" composer="" caret={false} mark={<ClaudeMark size={20} />} />
+            </Phone>
+          </PhoneAt>
+        </div>
       </AbsoluteFill>
     </AbsoluteFill>
   );
