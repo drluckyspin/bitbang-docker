@@ -33,20 +33,11 @@ agent's session from the laptop into the container and back.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    phone[Phone]
-
-    subgraph workspace["Workspace container · one per repo · no published ports"]
-        direction LR
-        bitbang[bitbang serve] --> ingress[go-remote-ingress]
-        ingress --> ui[herdr-web-ui]
-        ui --> herdr[Herdr]
-        herdr --> agents["Claude Code · Codex · Cursor"]
-    end
-
-    phone <-->|WebRTC| bitbang
-```
+<!-- markdownlint-disable MD033 -->
+<p align="center">
+  <img src="docs/how-it-works.png" alt="The phone connects over WebRTC to the workspace container, where bitbang serve, go-remote-ingress, herdr-web-ui and Herdr lead to Claude Code, Codex and Cursor" width="1000">
+</p>
+<!-- markdownlint-enable MD033 -->
 
 Each repo gets its own workspace container, with the repo mounted at the same path as on your laptop. Inside, everything
 listens on loopback only. `bitbang serve` reaches out to BitBang's signaling server, and the phone connects to it over
