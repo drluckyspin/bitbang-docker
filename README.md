@@ -392,7 +392,7 @@ the versions in the image you built.
 | herdr-web-ui     | not included    | 0.4.11             | 0.4.11             |
 | Bun              | not included    | 1.4.2              | 1.4.2              |
 | uv               | 0.13.1          | 0.13.1             | 0.13.1             |
-| Node.js          | 24              | 24                 |
+| Node.js          | 24              | 24                 | 24                 |
 
 ## Project layout
 
