@@ -44,6 +44,7 @@ GIF_FILTERS = fps=$(GIF_FPS),scale=$(GIF_WIDTH):-1:flags=lanczos,hqdn3d=4:3:6:4
 
 .PHONY: help ## Show this help message
 help:
+	@$(LOGGER) log_banner
 	@$(LOGGER) log_info "Available make targets (go-remote teaser):"
 	@echo ""
 	@grep -E '^.PHONY: .*?## .*$$' $(MAKEFILE_LIST) | \
