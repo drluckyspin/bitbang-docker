@@ -42,7 +42,7 @@ flowchart LR
         bitbang[bitbang serve] --> ingress[go-remote-ingress]
         ingress --> ui[herdr-web-ui]
         ui --> herdr[Herdr]
-        herdr --> agents[Claude Code · Codex · Cursor]
+        herdr --> agents["Claude Code · Codex · Cursor"]
     end
 
     phone <-->|WebRTC| bitbang
