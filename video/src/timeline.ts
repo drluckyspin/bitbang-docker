@@ -6,11 +6,11 @@
  */
 import type React from "react";
 
-export const DURATIONS = { flow: 340, handoff: 150, hardening: 140, pair: 150, session: 285, montage: 240, contrast: 180, local: 180, brand: 135 } as const;
+export const DURATIONS = { flow: 340, handoff: 150, hardening: 140, pair: 150, session: 285, montage: 310, local: 190, brand: 135 } as const;
 
 type SceneId = keyof typeof DURATIONS;
 
-const ORDER: SceneId[] = ["flow", "handoff", "hardening", "pair", "session", "montage", "contrast", "local", "brand"];
+const ORDER: SceneId[] = ["flow", "handoff", "hardening", "pair", "session", "montage", "local", "brand"];
 
 export const SCENES = ORDER.reduce(
   (acc, id, i) => {
@@ -41,9 +41,8 @@ export const CAPTIONS: ReadonlyArray<CaptionCue> = [
   { text: "You're in the flow.", from: 12, to: 110 },
   { text: "But life doesn't wait.", from: 120, to: 218 },
   { text: "Take your agent with you.", from: 238, to: 315 },
-  { text: "Locked in a container.\nOn your laptop.", from: 340, to: 465, fontSize: 86 },
+  { text: "Locked in a container.\nOn your laptop.", from: 340, to: 490, fontSize: 86 },
   { text: "One scan. Encrypted end to end.", from: 665, to: 770, fontSize: 82 },
   { text: "Same session.\nSame context.", from: 940, to: 1040, fontSize: 78, align: "left", style: { top: 420, left: 90, right: "auto" } },
-  { text: "Go Remote keeps your code\non your machine.", from: 1340, to: 1470, fontSize: 82 },
-  { text: "Your files never leave your machine.", from: 1515, to: 1650, fontSize: 78 },
+  { text: "Your files never leave your machine.", from: 1395, to: 1555, fontSize: 78 },
 ];

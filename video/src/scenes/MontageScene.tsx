@@ -1,29 +1,41 @@
 /**
  * Scene 5: what else the phone does, each shown close enough to read. An ntfy alert lands on the lock
  * screen when Claude needs an answer; herdr turns Claude's permission prompt into a card, and one tap on
- * Yes lets the push go ahead; the repo's own shell runs the tests; and Claude Code, Codex and Cursor share
- * the same tab bar. Each beat holds long enough to read before the next one takes focus.
+ * Yes lets the push go ahead; the repo's own shell runs the tests; and Claude Code, Codex and Cursor each
+ * work in their own tab. Each beat holds long enough to read, and the list on the left names it.
  */
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { Backdrop } from "../components/Backdrop";
-import { ClaudeMark, PromptCard, Touch, type Approval, type ChatItem, type Tab } from "../components/herdr";
+import { ClaudeMark, CodexMark, CursorMark, PromptCard, Touch, type Approval, type ChatItem, type Tab } from "../components/herdr";
 import { Phone, PhoneAt, type PhonePose } from "../components/Phone";
 import { HerdrChatScreen, HerdrTerminalScreen, IosNotification, LockScreen, NtfyMark } from "../components/screens";
 import { icon, line, span, type Line } from "../components/term";
 import { BRANCH, CONTAINER_HOST, REPO, REPO_PATH } from "../data/session";
 import { phoneItems } from "../data/chat";
-import { claude, herdrDark } from "../theme";
+import { claude, fonts, herdrDark, stage } from "../theme";
 import { ease, keyframed, progress, springAt, typedCount } from "../lib/anim";
 import { MONTAGE_PHONE, ZOOM_PHONE, phoneShowing } from "../layout";
 import { DURATIONS, SCENES } from "../timeline";
 
-export const M = { alert: 0, approve: 60, tap: 90, shell: 120, shellType: 128, agents: 180 };
+/** The tap and each agent's tab land on a beat of the soundtrack. */
+export const M = { alert: 0, approve: 60, tap: 90, shell: 130, shellType: 138, agents: 190, codex: 230, cursor: 270 };
 
-/** Close enough to read: the lock screen's alert, the approval card, the shell, and the shared tabs. */
+/** Close enough to read: the lock screen's alert, the approval card, the shell, and the tabs. */
 const ALERT_PHONE = phoneShowing(196.5, 270, 1380, 540, 1.75);
 const APPROVE_PHONE = phoneShowing(196.5, 826, 1380, 1046, 1.75);
 const SHELL_PHONE = phoneShowing(196.5, 488, 1380, 540, 1.6);
+
+const ITEMS = [
+  { label: "Alerts", from: M.alert, to: M.approve },
+  { label: "Approvals", from: M.approve, to: M.shell },
+  { label: "Terminal", from: M.shell, to: M.agents },
+];
+const AGENTS = [
+  { label: "Claude Code", from: M.agents, to: M.codex },
+  { label: "Codex", from: M.codex, to: M.cursor },
+  { label: "Cursor", from: M.cursor, to: 999 },
+];
 
 /** 52 cells across, which the container's own prompt and `git diff --stat` fill exactly. */
 const TERM = { fontSize: 12, rowHeight: 18.5 };
@@ -37,6 +49,8 @@ export const tabsFor = (agent: "claude" | "codex" | "cursor"): Tab[] => [
   { label: "Codex", live: agent === "codex" },
   { label: "Cursor", live: agent === "cursor" },
 ];
+
+const nested = (l: Line): Line => ({ ...l, spans: [span("     "), ...l.spans], bgFrom: l.bg ? 5 : undefined });
 
 /** Claude's permission prompt for the push, as herdr-web-ui's card puts it. */
 const APPROVAL: Approval = {
@@ -85,6 +99,70 @@ const shellLines = (frame: number): Line[] => {
   ];
 };
 
+const codexItems: ChatItem[] = [
+  { kind: "user", text: "Review the rate limiter before it ships", time: "9:59 AM" },
+  {
+    kind: "tools",
+    items: [
+      { verb: "Ran", target: "git diff main -- src/middleware" },
+      { verb: "Read", target: "src/middleware/rate-limit.ts" },
+      { verb: "Read", target: "test/upload.test.ts" },
+    ],
+  },
+  {
+    kind: "assistant",
+    at: M.codex + 3,
+    duration: 11,
+    text: "The window logic in `rate-limit.ts` is sound. One fix: old keys never leave `hits`, so the map grows forever. Prune entries older than `WINDOW_MS` on each request.",
+  },
+];
+
+const CURSOR_INK = "#F2EDE6";
+const CURSOR_BLUE = "#8FB8FF";
+
+const docAdd = (n: number, text: string): Line => ({
+  spans: [
+    span(String(n).padStart(4), claude.faint),
+    span(" + ", claude.addSign),
+    span(text, text.startsWith("#") ? "#79C0FF" : "#E6EDF3", { b: text.startsWith("#") }),
+  ],
+  bg: claude.addBg,
+});
+
+/** Cursor's agent CLI in its own tab, working on the docs while the others are busy. */
+const cursorLines = (frame: number): Line[] => {
+  const at = (f: number) => frame >= M.cursor + f;
+  return [
+    line(span("Cursor Agent", CURSOR_INK, { b: true })),
+    line(span(`~/src/${REPO} · ${BRANCH}`, herdrDark.muted)),
+    line(""),
+    line(span("> Document the 429 response in docs/api.md", CURSOR_INK)),
+    line(""),
+    line(icon("dot", CURSOR_BLUE), span("Read ", herdrDark.text, { b: true }), span("docs/api.md", herdrDark.text)),
+    line(icon("dot", CURSOR_BLUE), span("Read ", herdrDark.text, { b: true }), span("src/middleware/rate-limit.ts", herdrDark.text)),
+    ...(at(3)
+      ? [
+          line(icon("dot", CURSOR_BLUE), span("Edit ", herdrDark.text, { b: true }), span("docs/api.md ", herdrDark.text), span("+5", claude.addSign)),
+          nested(docAdd(41, "## 429 Too Many Requests")),
+          nested(docAdd(42, "")),
+          nested(docAdd(43, "Each user gets 10 uploads a minute.")),
+          nested(docAdd(44, "Then wait Retry-After seconds.")),
+          nested(docAdd(45, "")),
+        ]
+      : []),
+    ...(at(8) ? [line(""), line(span("Documented the 429 response.", CURSOR_INK))] : []),
+  ];
+};
+
+const CursorInput: React.FC<{ frame: number }> = ({ frame }) => (
+  <div style={{ marginTop: 12, lineHeight: "19px", opacity: progress(frame, M.cursor + 8, 4) }}>
+    <div style={{ border: "1px solid #3A3631", borderRadius: 6, padding: "6px 10px", color: herdrDark.muted }}>
+      <span style={{ color: CURSOR_INK }}>→ </span>Add a follow-up
+    </div>
+    <div style={{ color: herdrDark.muted, padding: "4px 10px 0" }}>Auto · 1 file edited</div>
+  </div>
+);
+
 /** One phone screen of the montage, pushed in from the right, or faded in when `push` is off. */
 const Slide: React.FC<{ frame: number; from: number; to: number; push?: boolean; children: React.ReactNode }> = ({
   frame,
@@ -111,7 +189,57 @@ const Slide: React.FC<{ frame: number; from: number; to: number; push?: boolean;
   );
 };
 
-/** The phone moves to the single feature currently on screen; the final tabs make the agent-agnostic point. */
+const ListItem: React.FC<{ label: string; on: number; size: number; shift: number }> = ({ label, on, size, shift }) => (
+  <span
+    style={{
+      display: "inline-block",
+      fontSize: size,
+      fontWeight: 800,
+      letterSpacing: "-0.035em",
+      color: `rgba(245,245,247,${0.2 + 0.8 * on})`,
+      translate: `${on * shift}px 0`,
+      textShadow: on > 0.5 ? `0 0 40px rgba(244,176,74,${0.25 * on})` : undefined,
+    }}
+  >
+    {label}
+  </span>
+);
+
+/** The kinetic list on the left. The local scene keeps drawing it for a moment, so the cut doesn't pop. */
+export const MontageList: React.FC<{ frame: number; style?: React.CSSProperties }> = ({ frame, style }) => {
+  const listIn = progress(frame, 0, 16);
+  const activeness = (from: number, to: number) => progress(frame, from, 6) * (1 - progress(frame, to, 6));
+  return (
+    <div style={{ position: "absolute", left: 150, top: 270, fontFamily: fonts.display, opacity: listIn, translate: `${(1 - listIn) * -30}px 0`, ...style }}>
+      <div style={{ fontFamily: fonts.mono, fontSize: 20, fontWeight: 500, letterSpacing: "0.16em", textTransform: "uppercase", color: stage.amber, marginBottom: 26 }}>From your phone</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {ITEMS.map((it) => (
+          <ListItem key={it.label} label={it.label} on={activeness(it.from, it.to)} size={88} shift={14} />
+        ))}
+        <div style={{ display: "flex", gap: 26, marginTop: 18, alignItems: "baseline" }}>
+          {AGENTS.map((a) => (
+            <ListItem key={a.label} label={a.label} on={activeness(a.from, a.to)} size={50} shift={0} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const CursorScreen: React.FC<{ frame: number }> = ({ frame }) => (
+  <HerdrTerminalScreen
+    title="Cursor"
+    mark={<CursorMark size={20} />}
+    tabs={tabsFor("cursor")}
+    active={3}
+    top
+    lines={cursorLines(frame)}
+    body={<CursorInput frame={frame} />}
+    {...TERM}
+  />
+);
+
+/** The phone moves to whatever it is showing, and buzzes when the alert lands; the local scene pulls back from the end. */
 const phonePose = (frame: number): PhonePose => {
   const base = keyframed(frame, [
     [0, ZOOM_PHONE],
@@ -132,7 +260,7 @@ export const MontageScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const note = springAt(frame, fps, 10, { damping: 15, stiffness: 140 });
-  const time = frame < M.approve ? "" : frame < M.agents ? "9:58" : "9:59";
+  const time = frame < M.approve ? "" : frame < M.codex ? "9:58" : "9:59";
 
   const cardIn = springAt(frame, fps, M.approve + 6, { damping: 18, stiffness: 150 });
   const cardOut = progress(frame, M.tap + 9, 9, ease.inOut);
@@ -141,6 +269,8 @@ export const MontageScene: React.FC = () => {
   return (
     <AbsoluteFill>
       <Backdrop at={SCENES.montage.from} />
+      <MontageList frame={frame} />
+
       <PhoneAt pose={phonePose(frame)} previous={phonePose(frame - 1)}>
         <Phone statusBar="light" time={time} homeIndicator={frame < M.approve ? "light" : "dark"}>
           <Slide frame={frame} from={-10} to={0} push={false}>
@@ -170,17 +300,34 @@ export const MontageScene: React.FC = () => {
           <Slide frame={frame} from={M.shell} to={M.agents}>
             <HerdrTerminalScreen title=".../src/acme-api" tabs={tabsFor("claude")} active={0} top lines={shellLines(frame)} {...TERM} />
           </Slide>
-          <Slide frame={frame} from={M.agents} to={999}>
+          <Slide frame={frame} from={M.agents} to={M.codex}>
             <HerdrChatScreen
               frame={frame}
-              items={phoneItems(-100, -100, -100)}
-              title="One workspace. Any agent."
+              items={approvalItems}
+              title="Rate limit the upload API"
               composer=""
               caret={false}
               tabs={tabsFor("claude")}
               active={1}
               mark={<ClaudeMark size={20} />}
             />
+          </Slide>
+          <Slide frame={frame} from={M.codex} to={M.cursor}>
+            <HerdrChatScreen
+              frame={frame}
+              items={codexItems}
+              title="Review the rate limiter"
+              composer=""
+              caret={false}
+              tabs={tabsFor("codex")}
+              active={2}
+              mark={<CodexMark size={20} />}
+              agent="Codex"
+              model="GPT-5.5"
+            />
+          </Slide>
+          <Slide frame={frame} from={M.cursor} to={999}>
+            <CursorScreen frame={frame} />
           </Slide>
         </Phone>
       </PhoneAt>

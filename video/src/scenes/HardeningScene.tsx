@@ -1,20 +1,21 @@
 /**
- * Scene 3: hold on the locked workspace and reveal the constraints one at a time. The QR waits until the
- * security story is clear, rather than competing with it.
+ * Scene 3: hold on the locked workspace while its constraints arrive, one a beat, beside the container. Then
+ * the container steps aside for the QR window, and the chips dim so the code is the next thing to look at.
  */
 import React from "react";
 import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
 import { Backdrop } from "../components/Backdrop";
-import { Workspace } from "../components/Workspace";
+import { W, Workspace } from "../components/Workspace";
 import { cameraAt, type Cam } from "../lib/anim";
 import { Camera } from "../lib/motion";
 import { DURATIONS, SCENES, sinceHandoff } from "../timeline";
 import { LaptopAt } from "./HandoffScene";
 
 const END = DURATIONS.hardening - 1;
+const SLIDE = W.slide - DURATIONS.handoff;
 const keys: ReadonlyArray<readonly [number, Cam]> = [
   [0, { x: 985, y: 640, s: 1.3 }],
-  [48, { x: 1005, y: 650, s: 1.34 }],
+  [SLIDE, { x: 995, y: 645, s: 1.34 }],
   [END, { x: 1080, y: 645, s: 1.18 }],
 ];
 
@@ -29,7 +30,7 @@ export const HardeningScene: React.FC = () => {
       <Camera cam={cam} previous={hardeningCamera(frame - 1)}>
         <LaptopAt>
           <Sequence from={-sinceHandoff("hardening")} layout="none">
-            <Workspace hardening />
+            <Workspace />
           </Sequence>
         </LaptopAt>
       </Camera>

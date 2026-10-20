@@ -1,6 +1,6 @@
 # Go Remote teaser
 
-A 60-second product teaser for go-remote, built with [Remotion](https://www.remotion.dev). Every frame is React: the
+A 57-second product teaser for go-remote, built with [Remotion](https://www.remotion.dev). Every frame is React: the
 laptop, the Claude Code session, the container, the QR code, the phone and herdr-web-ui are components, and all text is
 rendered rather than baked into images.
 
@@ -39,7 +39,7 @@ changes.
 
 `make gif` uses cursor-approve's recipe: one ffmpeg pass makes a palette, and a second encodes the GIF with it, bayer
 dithered, at 12 fps. Two additions nearly halve the file, because the camera never stops moving and almost every pixel
-changes on every frame: a light denoise, and 128 colours. The whole teaser comes to about 17 MB at 800 px wide, and is
+changes on every frame: a light denoise, and 128 colours. The whole teaser comes to about 18 MB at 800 px wide, and is
 silent.
 
 | Setting      | Default    | What it changes                                                        |
@@ -57,7 +57,7 @@ than after each change.
 
 | Path                     | What it holds                                                                      |
 | ------------------------ | ---------------------------------------------------------------------------------- |
-| `src/GoRemoteTeaser.tsx` | The timeline: nine scenes in a `Series`, the captions, grain and sound             |
+| `src/GoRemoteTeaser.tsx` | The timeline: eight scenes in a `Series`, the captions, grain and sound            |
 | `src/timeline.ts`        | Scene lengths and caption timings; the sound cues count from these                 |
 | `src/layout.ts`          | Framing shared across cuts. A 9:16 version replaces this file and keeps the scenes |
 | `src/scenes/`            | One file per scene                                                                 |
@@ -70,9 +70,10 @@ than after each change.
 
 `scripts/make-audio.mjs` synthesizes the soundtrack, the typing, the swooshes, the phone buzz, the ping of the
 `/go-remote` pulse and the pop of each message landing on the phone, so the video carries no third-party music. The
-soundtrack's beats fall on frames 15 + 20n: beat 12 is Enter on `/go-remote`, 44 the conversation landing on the phone,
-64 the cloud contrast and 84 the brand. The clicks, dings, switches and whips in `public/audio/sfx` are Remotion's sound
-effects from `remotion.media`. The story reads with the sound off.
+soundtrack's beats fall on frames 15 + 20n: beat 12 is Enter on `/go-remote`, 24 to 27 the four hardening chips, 44 the
+conversation landing on the phone, 69 "Your files never leave your machine." and 79 the brand. The clicks, dings,
+switches and whips in `public/audio/sfx` are Remotion's sound effects from `remotion.media`. The story reads with the
+sound off.
 
 ## Notes
 

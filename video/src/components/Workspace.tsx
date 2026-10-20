@@ -17,8 +17,8 @@ import { ClaudeMark } from "./herdr";
 import { QR_WINDOW, QrWindow } from "./QrWindow";
 
 /**
- * Where things sit on the 1168 by 728 display. The hardening scene owns the large chips; the settled container
- * leaves it clear for the QR window and the repo folder.
+ * Where things sit on the 1168 by 728 display. The chips fill its left side, large enough to read in a README,
+ * and the container waits at full size beside them; it settles smaller once the QR window needs the right side.
  */
 export const WS = {
   terminal: { x: 28, y: 420, scale: 0.4 },
@@ -38,11 +38,14 @@ export const W = {
   lid: 84,
   lock: 96,
   click: 112,
-  /** The terminal leaves for the Dock as the lock clicks, which clears the left side for the hardening scene. */
+  /** The terminal leaves for the Dock as the lock clicks, which clears the left side for the chips. */
   minimise: 112,
-  chips: DURATIONS.handoff + 22,
-  slide: 146,
-  qr: DURATIONS.handoff + 125,
+  /** One chip a beat, from the first beat after the caption lifts; the beats fall on frames 15 + 20n of the video. */
+  chips: DURATIONS.handoff + 5,
+  chipEvery: 20,
+  /** A beat after the last chip, the container steps aside for the QR window and the chips dim behind it. */
+  slide: DURATIONS.handoff + 95,
+  qr: DURATIONS.handoff + 105,
   /** Just after the phone pairs, which is 86 frames into the pair scene. */
   qrClose: DURATIONS.handoff + DURATIONS.hardening + 95,
 };
@@ -114,7 +117,7 @@ const cardAt = (frame: number) => {
 };
 
 /** `time` is the menu bar clock, which has to agree with the phone whenever both are on screen. */
-export const Workspace: React.FC<{ time?: string; hardening?: boolean }> = ({ time = "9:41", hardening = false }) => {
+export const Workspace: React.FC<{ time?: string }> = ({ time = "9:41" }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -138,6 +141,7 @@ export const Workspace: React.FC<{ time?: string; hardening?: boolean }> = ({ ti
   const prev = cardAt(frame - 1);
   const cardOpacity = frame < W.lift ? 0 : Math.min(progress(frame, W.lift, 6), 1 - progress(frame, W.land - 4, 8));
 
+  const chipsDim = progress(frame, W.qr - 6, 20);
   const qrIn = springAt(frame, fps, W.qr, { damping: 15, stiffness: 150 });
   const qrOut = progress(frame, W.qrClose, 14, ease.in);
   const qrVisible = frame >= W.qr && qrOut < 1;
@@ -243,16 +247,18 @@ export const Workspace: React.FC<{ time?: string; hardening?: boolean }> = ({ ti
         </div>
       ) : null}
 
-      {hardening
-        ? CHIPS.map((text, i) => {
-        const p = progress(frame, W.chips + i * 6, 14);
+      {CHIPS.map((text, i) => {
+        const p = progress(frame, W.chips + i * W.chipEvery, 14);
         return (
-          <Chip key={text} progress={p} style={{ left: WS.chips.x, top: WS.chips.y + i * WS.chips.gap, scale: String(WS.chips.scale), transformOrigin: "0 0" }}>
+          <Chip
+            key={text}
+            progress={p}
+            style={{ left: WS.chips.x, top: WS.chips.y + i * WS.chips.gap, scale: String(WS.chips.scale), transformOrigin: "0 0", opacity: p * (1 - 0.5 * chipsDim) }}
+          >
             {text}
           </Chip>
         );
-          })
-        : null}
+      })}
 
       {cardOpacity > 0 ? (
         <MotionBlur dx={(card.x - prev.x) * 1.4} dy={(card.y - prev.y) * 1.4}>

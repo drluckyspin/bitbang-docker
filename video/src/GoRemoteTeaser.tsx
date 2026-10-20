@@ -1,5 +1,5 @@
 /**
- * The 60-second teaser: nine scenes in a row, the captions over them, film grain, and the sound. Scene
+ * The teaser, just under a minute: eight scenes in a row, the captions over them, film grain, and the sound. Scene
  * framing lives in layout.ts and timing in timeline.ts, so a 9:16 cut can swap those and keep the scenes.
  */
 import React from "react";
@@ -12,7 +12,6 @@ import { HardeningScene } from "./scenes/HardeningScene";
 import { PairScene } from "./scenes/PairScene";
 import { SessionScene } from "./scenes/SessionScene";
 import { MontageScene } from "./scenes/MontageScene";
-import { ContrastScene } from "./scenes/ContrastScene";
 import { LocalScene } from "./scenes/LocalScene";
 import { BrandScene } from "./scenes/BrandScene";
 import { Sound } from "./Sound";
@@ -26,7 +25,6 @@ const SEQUENCE: ReadonlyArray<{ id: keyof typeof SCENES; name: string; Scene: Re
   { id: "pair", name: "Scan and pair", Scene: PairScene },
   { id: "session", name: "Same session", Scene: SessionScene },
   { id: "montage", name: "From your phone", Scene: MontageScene },
-  { id: "contrast", name: "Stays on your Mac", Scene: ContrastScene },
   { id: "local", name: "Stays local", Scene: LocalScene },
   { id: "brand", name: "Brand", Scene: BrandScene },
 ];
