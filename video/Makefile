@@ -7,6 +7,7 @@
 #   make still FRAME=809     — render one frame to out/still-809.png
 #   make render              — render out/go-remote-teaser.mp4
 #   make gif                 — make ../docs/go-remote-teaser.gif, rendering the video first if it is stale
+#   make diagram             — render the README's How it works diagram to ../docs/how-it-works.png
 #
 # Must stay compatible with GNU Make 3.81 (the macOS default): no .ONESHELL, no $(file ...).
 # -----------------------------------------------------------------------------------------------------------
@@ -21,6 +22,7 @@ LOGGER := source $(VIDEO_DIR)../scripts/log.bash &&
 VIDEO := out/go-remote-teaser.mp4
 GIF := ../docs/go-remote-teaser.gif
 PALETTE := out/gif-palette.png
+DIAGRAM := ../docs/how-it-works.png
 FRAME ?= 809
 
 # Everything a render reads. The synthesized audio is left out: scripts/make-audio.mjs makes it on every render.
@@ -38,7 +40,7 @@ GIF_LENGTH ?=
 GIF_TRIM = $(if $(GIF_START),-ss $(GIF_START)) $(if $(GIF_LENGTH),-t $(GIF_LENGTH))
 GIF_FILTERS = fps=$(GIF_FPS),scale=$(GIF_WIDTH):-1:flags=lanczos,hqdn3d=4:3:6:4
 
-.PHONY: help install studio still render poster gif lint check_ffmpeg
+.PHONY: help install studio still render poster gif diagram lint check_ffmpeg
 
 .PHONY: help ## Show this help message
 help:
@@ -89,6 +91,14 @@ gif: check_ffmpeg $(VIDEO)
 	@ffmpeg -y -loglevel error $(GIF_TRIM) -i $(VIDEO) -i $(PALETTE) \
 		-lavfi "$(GIF_FILTERS)[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" -loop 0 $(GIF)
 	@$(LOGGER) log_success "Wrote $(GIF), $$(du -h $(GIF) | cut -f1 | tr -d ' ')"
+
+# Twice the logical size, so the README's 1000 px image stays sharp on high-density screens. Remotion writes a
+# lightly compressed PNG; ffmpeg's lossless pass halves it, where a 256-colour palette bands the gradients.
+.PHONY: diagram ## Render the README's How it works diagram to ../docs/how-it-works.png
+diagram: check_ffmpeg | node_modules
+	@npx remotion still HowItWorks out/how-it-works.png --scale=2
+	@ffmpeg -y -loglevel error -i out/how-it-works.png -compression_level 9 -pred mixed $(DIAGRAM)
+	@$(LOGGER) log_success "Wrote $(DIAGRAM), $$(du -h $(DIAGRAM) | cut -f1 | tr -d ' ')"
 
 .PHONY: lint ## ESLint and tsc
 lint: | node_modules

@@ -1,5 +1,6 @@
-import { Composition, Folder } from "remotion";
+import { Composition, Folder, Still } from "remotion";
 import { GoRemoteTeaser } from "./GoRemoteTeaser";
+import { HOW_IT_WORKS, HowItWorks } from "./HowItWorks";
 import { DURATIONS, TOTAL } from "./timeline";
 import { FlowScene } from "./scenes/FlowScene";
 import { HandoffScene } from "./scenes/HandoffScene";
@@ -13,6 +14,7 @@ export const RemotionRoot: React.FC = () => {
   return (
     <>
       <Composition id="GoRemoteTeaser" component={GoRemoteTeaser} durationInFrames={TOTAL} fps={30} width={1920} height={1080} />
+      <Still id="HowItWorks" component={HowItWorks} width={HOW_IT_WORKS.width} height={HOW_IT_WORKS.height} />
       <Folder name="Scenes">
         <Composition id="Flow" component={FlowScene} durationInFrames={DURATIONS.flow} fps={30} width={1920} height={1080} />
         <Composition id="Handoff" component={HandoffScene} durationInFrames={DURATIONS.handoff} fps={30} width={1920} height={1080} />
