@@ -33,7 +33,7 @@
     "upgrade": "remotion upgrade",
     "audio": "node scripts/make-audio.mjs",
     "render": "npm run audio && remotion render GoRemoteTeaser out/go-remote-teaser.mp4",
-    "poster": "npm run audio && remotion still GoRemoteTeaser out/go-remote-poster.jpg --frame=809 --image-format=jpeg --jpeg-quality=92",
+    "poster": "npm run audio && remotion still GoRemoteTeaser out/go-remote-poster.jpg --frame=1000 --image-format=jpeg --jpeg-quality=92",
     "lint": "eslint src && tsc"
   },
   "allowScripts": {

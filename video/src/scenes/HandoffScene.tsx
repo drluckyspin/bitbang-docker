@@ -15,9 +15,8 @@ import { HANDOFF_FROM, LAPTOP_AT } from "./FlowScene";
 const keys: ReadonlyArray<readonly [number, Cam]> = [
   [0, HANDOFF_FROM],
   [34, { x: 960, y: 640, s: 1.3 }],
-  [146, { x: 1000, y: 640, s: 1.34 }],
-  [172, { x: 1090, y: 660, s: 1.36 }],
-  [204, { x: 1180, y: 610, s: 0.86 }],
+  [112, { x: 985, y: 640, s: 1.33 }],
+  [149, { x: 985, y: 640, s: 1.3 }],
 ];
 
 export const handoffCamera = (frame: number) => cameraAt(frame, keys);

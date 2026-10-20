@@ -2,7 +2,7 @@
  * Scene 5: what else the phone does, each shown close enough to read. An ntfy alert lands on the lock
  * screen when Claude needs an answer; herdr turns Claude's permission prompt into a card, and one tap on
  * Yes lets the push go ahead; the repo's own shell runs the tests; and Claude Code, Codex and Cursor each
- * work in their own tab.
+ * work in their own tab. Each beat holds long enough to read, and the list on the left names it.
  */
 import React from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
@@ -18,7 +18,8 @@ import { ease, keyframed, progress, springAt, typedCount } from "../lib/anim";
 import { MONTAGE_PHONE, ZOOM_PHONE, phoneShowing } from "../layout";
 import { DURATIONS, SCENES } from "../timeline";
 
-export const M = { alert: 0, approve: 38, tap: 60, shell: 98, shellType: 104, agents: 132, codex: 148, cursor: 164 };
+/** The tap and each agent's tab land on a beat of the soundtrack. */
+export const M = { alert: 0, approve: 60, tap: 90, shell: 130, shellType: 138, agents: 190, codex: 230, cursor: 270 };
 
 /** Close enough to read: the lock screen's alert, the approval card, the shell, and the tabs. */
 const ALERT_PHONE = phoneShowing(196.5, 270, 1380, 540, 1.75);

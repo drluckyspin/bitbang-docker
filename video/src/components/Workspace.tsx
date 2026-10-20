@@ -18,7 +18,7 @@ import { QR_WINDOW, QrWindow } from "./QrWindow";
 
 /**
  * Where things sit on the 1168 by 728 display. The chips fill its left side, large enough to read in a README,
- * and start below the caption; the container settles beside them, with the QR window to its right.
+ * and the container waits at full size beside them; it settles smaller once the QR window needs the right side.
  */
 export const WS = {
   terminal: { x: 28, y: 420, scale: 0.4 },
@@ -40,11 +40,14 @@ export const W = {
   click: 112,
   /** The terminal leaves for the Dock as the lock clicks, which clears the left side for the chips. */
   minimise: 112,
-  chips: 116,
-  slide: 146,
-  qr: 156,
+  /** One chip a beat, from the first beat after the caption lifts; the beats fall on frames 15 + 20n of the video. */
+  chips: DURATIONS.handoff + 5,
+  chipEvery: 20,
+  /** A beat after the last chip, the container steps aside for the QR window and the chips dim behind it. */
+  slide: DURATIONS.handoff + 95,
+  qr: DURATIONS.handoff + 105,
   /** Just after the phone pairs, which is 86 frames into the pair scene. */
-  qrClose: DURATIONS.handoff + 95,
+  qrClose: DURATIONS.handoff + DURATIONS.hardening + 95,
 };
 
 /** Where the container is, and its scale, at a frame of the handoff scene. */
@@ -53,7 +56,7 @@ export const containerAt = (frame: number) => {
   return { x: mix(WS.container.x, WS.settled.x, t), y: mix(WS.container.y, WS.settled.y, t), s: mix(1, WS.settled.scale, t) };
 };
 
-const CHIPS = ["Read-only filesystem", "All capabilities dropped", "Runs as a non-root user", "No published ports", "Mounts only ~/src/acme-api"];
+const CHIPS = ["Sees only this repo", "No open ports", "Read-only, never root", "Runs on your laptop"];
 
 const FolderIcon: React.FC = () => (
   <svg width={108} height={86} viewBox="0 0 108 86">
@@ -138,6 +141,7 @@ export const Workspace: React.FC<{ time?: string }> = ({ time = "9:41" }) => {
   const prev = cardAt(frame - 1);
   const cardOpacity = frame < W.lift ? 0 : Math.min(progress(frame, W.lift, 6), 1 - progress(frame, W.land - 4, 8));
 
+  const chipsDim = progress(frame, W.qr - 6, 20);
   const qrIn = springAt(frame, fps, W.qr, { damping: 15, stiffness: 150 });
   const qrOut = progress(frame, W.qrClose, 14, ease.in);
   const qrVisible = frame >= W.qr && qrOut < 1;
@@ -244,9 +248,13 @@ export const Workspace: React.FC<{ time?: string }> = ({ time = "9:41" }) => {
       ) : null}
 
       {CHIPS.map((text, i) => {
-        const p = progress(frame, W.chips + i * 6, 14);
+        const p = progress(frame, W.chips + i * W.chipEvery, 14);
         return (
-          <Chip key={text} progress={p} style={{ left: WS.chips.x, top: WS.chips.y + i * WS.chips.gap, scale: String(WS.chips.scale), transformOrigin: "0 0" }}>
+          <Chip
+            key={text}
+            progress={p}
+            style={{ left: WS.chips.x, top: WS.chips.y + i * WS.chips.gap, scale: String(WS.chips.scale), transformOrigin: "0 0", opacity: p * (1 - 0.5 * chipsDim) }}
+          >
             {text}
           </Chip>
         );

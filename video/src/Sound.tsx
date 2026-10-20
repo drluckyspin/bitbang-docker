@@ -59,6 +59,7 @@ export const CUES: Cue[] = [
   { name: "Session flies", src: foley("swoosh-long"), at: handoff + W.fly - 8, volume: 0.3 },
   { name: "Lock", src: sfx("mouse-click"), at: handoff + W.click, volume: 0.65 },
   { name: "Lock", src: sfx("switch"), at: handoff + W.click, volume: 0.3 },
+  ...[0, 1, 2, 3].map((i): Cue => ({ name: "Chip", src: foley("pop"), at: handoff + W.chips + i * W.chipEvery, volume: 0.12 })),
   { name: "QR window", src: sfx("switch"), at: handoff + W.qr, volume: 0.2 },
   { name: "Phone rises", src: foley("swoosh-long"), at: pair + 4, volume: 0.24 },
   { name: "Code found", src: sfx("switch"), at: pair + P.lock, volume: 0.28 },

@@ -4,6 +4,7 @@ import { HOW_IT_WORKS, HowItWorks } from "./HowItWorks";
 import { DURATIONS, TOTAL } from "./timeline";
 import { FlowScene } from "./scenes/FlowScene";
 import { HandoffScene } from "./scenes/HandoffScene";
+import { HardeningScene } from "./scenes/HardeningScene";
 import { PairScene } from "./scenes/PairScene";
 import { SessionScene } from "./scenes/SessionScene";
 import { MontageScene } from "./scenes/MontageScene";
@@ -18,6 +19,7 @@ export const RemotionRoot: React.FC = () => {
       <Folder name="Scenes">
         <Composition id="Flow" component={FlowScene} durationInFrames={DURATIONS.flow} fps={30} width={1920} height={1080} />
         <Composition id="Handoff" component={HandoffScene} durationInFrames={DURATIONS.handoff} fps={30} width={1920} height={1080} />
+        <Composition id="Hardening" component={HardeningScene} durationInFrames={DURATIONS.hardening} fps={30} width={1920} height={1080} />
         <Composition id="Pair" component={PairScene} durationInFrames={DURATIONS.pair} fps={30} width={1920} height={1080} />
         <Composition id="Session" component={SessionScene} durationInFrames={DURATIONS.session} fps={30} width={1920} height={1080} />
         <Composition id="Montage" component={MontageScene} durationInFrames={DURATIONS.montage} fps={30} width={1920} height={1080} />

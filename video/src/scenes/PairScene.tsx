@@ -6,7 +6,7 @@
 import React from "react";
 import { AbsoluteFill, Sequence, useCurrentFrame, useVideoConfig } from "remotion";
 import { Backdrop } from "../components/Backdrop";
-import { Badge, Beam, beamCrest } from "../components/Connection";
+import { Beam } from "../components/Connection";
 import { Phone, PhoneAt, type PhonePose } from "../components/Phone";
 import { CameraScreen, ConnectScreen, HerdrChatScreen } from "../components/screens";
 import { ClaudeMark } from "../components/herdr";
@@ -21,7 +21,7 @@ import { LaptopAt } from "./HandoffScene";
 const END = DURATIONS.pair - 1;
 
 const camKeys: ReadonlyArray<readonly [number, Cam]> = [
-  [0, { x: 1180, y: 610, s: 0.86 }],
+  [0, { x: 1080, y: 645, s: 1.18 }],
   [36, PAIR_CAMERA],
   [END, { ...PAIR_CAMERA, x: PAIR_CAMERA.x + 12 }],
 ];
@@ -54,7 +54,6 @@ export const PairScene: React.FC = () => {
 
   const container = containerOnScreen(cam);
   const phoneEdge = phoneLinkPoint(pose);
-  const crest = beamCrest(container, phoneEdge, 190);
 
   return (
     <AbsoluteFill>
@@ -67,11 +66,6 @@ export const PairScene: React.FC = () => {
         </LaptopAt>
       </Camera>
       {beamDraw > 0 ? <Beam from={container} to={phoneEdge} lift={190} draw={beamDraw} frame={frame} /> : null}
-      {beamDraw > 0 ? (
-        <Badge x={crest.x} y={crest.y - 4} progress={progress(frame, P.beam + 22, 14)}>
-          Peer to peer, over BitBang
-        </Badge>
-      ) : null}
       <PhoneAt pose={pose} previous={previous}>
         <Phone statusBar="light" homeIndicator={frame < P.chat ? "light" : "dark"}>
           {toChat < 1 ? (

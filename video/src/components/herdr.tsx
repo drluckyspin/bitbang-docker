@@ -571,7 +571,7 @@ export const Composer: React.FC<{ text: string; caret: boolean; agent?: string; 
   text,
   caret,
   agent = "Claude",
-  model = "Sonnet 5.5",
+  model = "Opus 5.5",
   sendPressed = 0,
 }) => (
   <div
