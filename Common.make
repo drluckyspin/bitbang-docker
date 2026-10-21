@@ -156,6 +156,11 @@ check_docker:
 		$(LOGGER) log_error "Docker Compose v2 ('docker compose') is required."; \
 		exit 1; \
 	fi
+	@if ! docker buildx version >/dev/null 2>&1; then \
+		$(LOGGER) log_error "Docker Buildx (BuildKit) is required: the legacy builder does not set TARGETARCH."; \
+		$(LOGGER) log_indent log_dim "Homebrew: brew install docker-buildx, then link it into ~/.docker/cli-plugins (brew prints the command)."; \
+		exit 1; \
+	fi
 	@$(LOGGER) log_info_dim "docker $$(docker version -f '{{.Server.Version}}') and compose $$(docker compose version --short) are available."
 
 # Create .env from .env.example if needed (owner-only), and check every key has a value
